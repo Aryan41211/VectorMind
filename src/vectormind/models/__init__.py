@@ -1,0 +1,8 @@
+"""Model definitions: image encoder, text encoder, projection heads.
+
+Populated in Phase 2 (see ROADMAP.md). Design principle (CLAUDE.md §2):
+image tower, text tower, and projection heads must each be independently
+swappable behind defined interfaces — no component may assume a specific
+encoder implementation. See ARCHITECTURE.md §2-4 for the chosen designs
+and rationale.
+"""

@@ -233,177 +233,108 @@ failure analysis documented, not just the numbers.
 ## Phase 6 — Serving / Retrieval Infrastructure
 
 **Goal:** Build a queryable retrieval system on top of the trained
-embeddings.
+embeddings. See ARCHITECTURE.md §9 for the full design.
 
 **Deliverables:**
-- [ ] Vector index (FAISS or equivalent) over the full embedding set
-- [ ] API layer for query → retrieval (image or text in, ranked
-      results out)
+- [ ] FAISS `IndexFlatIP` built offline from the Phase 5 embedding set
+      (`backend/index_builder.py`)
+- [ ] FastAPI app with `/search/text` and `/search/image` endpoints,
+      Pydantic request/response schemas (`backend/schemas.py`)
+- [ ] Model + index loaded once at app startup, not per-request
+- [ ] Unit tests for the API layer (request validation, response
+      shape) and the index builder
+- [ ] Basic request logging (latency, query type) via the existing
+      `logging` setup
 
 **Dependencies:** Phase 5 complete, model quality validated as
 meaningfully above baseline.
 
 **Acceptance criteria:** A live query (image or text) returns ranked,
 correctly-shaped results from the index via the API, matching what
-Phase 5's offline evaluation predicted.
+Phase 5's offline evaluation predicted. p95 latency for a single
+text query measured and documented (not just "it works").
 
 **Status:** not started
 
 ---
 
-## Phase 7 — Portfolio Polish
+## Phase 6.5 — Frontend Demo Interface
 
-**Goal:** Package the project for interviews/portfolio presentation.
+**Goal:** A minimal interactive UI over the Phase 6 API. See
+ARCHITECTURE.md §10.
 
 **Deliverables:**
-- [ ] Demo interface
+- [ ] React + TypeScript app: text search bar, image drag-and-drop
+      upload, ranked result grid
+- [ ] Typed API client mirroring the backend's Pydantic schemas
+- [ ] (Stretch) 2D embedding-space visualization (UMAP/t-SNE) for the
+      portfolio write-up
+
+**Dependencies:** Phase 6 complete (API contract stable).
+
+**Acceptance criteria:** A user can type a text query or upload an
+image in the browser and see ranked results rendered, with no console
+errors and correct loading/empty/error states handled.
+
+**Status:** not started
+
+---
+
+## Phase 7 — Deployment & Portfolio Polish
+
+**Goal:** Package the project for interviews/portfolio presentation
+with a working, deployed demo. See ARCHITECTURE.md §11-12.
+
+**Deliverables:**
+- [ ] `backend.Dockerfile` / `frontend.Dockerfile` + `docker-compose.yml`
+- [ ] GitHub Actions: `test.yml` (pytest + `tsc --noEmit` on every PR),
+      `build.yml` (Docker builds on merge to `main`)
+- [ ] Deployed demo reachable via a public URL (single-machine/VM
+      deployment — Kubernetes and managed cloud endpoints are
+      explicitly out of scope; see FUTURE_IDEAS.md)
 - [ ] Write-up of design decisions and tradeoffs
 - [ ] Write-up of the debugging story (what broke, how it was found,
       how it was fixed — including the Phase 3.5 sanity check result)
 
-**Dependencies:** Phases 0–6 complete.
+**Dependencies:** Phases 0–6.5 complete.
 
 **Acceptance criteria:** A reader unfamiliar with the project can
 understand what it does, how it was built, why key decisions were
-made, and what went wrong along the way, from the docs alone.
+made, and what went wrong along the way, from the docs alone, AND can
+reach a live deployed instance to try it themselves.
 
 **Status:** not started
 
 ---
 
-## Phase 0 — Project Setup & Architecture Decisions
+## Stretch / Research Goals (not on the critical path)
 
-**Goal:** Establish a reproducible project skeleton and lock in all
-core architecture decisions before any model/data code is written.
+These are explicitly optional. Pursuing them should never block or
+delay Phases 0-7 above. See FUTURE_IDEAS.md for full detail on each.
 
-**Deliverables:**
-- [x] Repository structure created
-- [ ] Virtual environment + PyTorch (GPU) verified working
-- [ ] `CLAUDE.md`, `ROADMAP.md`, `ARCHITECTURE.md` committed
-- [ ] Architecture decisions locked (encoders, embedding dim, batch
-      strategy for 6GB VRAM)
+- Multilingual caption retrieval (would require a multilingual
+  tokenizer + dataset beyond Flickr30k)
+- Knowledge distillation into a smaller/faster inference model
+- Quantization (int8) for cheaper CPU inference
+- LoRA-style fine-tuning experiments once a base checkpoint exists
+- Approximate nearest-neighbor index (HNSW) benchmarked against the
+  current flat FAISS index, once/if corpus size grows
 
-**Dependencies:** None — this is the foundation.
+## Benchmark Goals
 
-**Acceptance criteria:** Repo builds, CUDA verified on RTX 4050, all
-three core docs exist and are pushed to `origin main`.
+- Document Recall@1/5/10 against the random-chance baseline (Phase 5,
+  already required) AND, as a stretch, against a small pretrained
+  CLIP checkpoint run in inference-only mode on the same test split —
+  purely as a labeled reference point for the write-up, never as a
+  target this from-scratch model is expected to hit. This does not
+  change the from-scratch training constraint (ARCHITECTURE.md §8);
+  no pretrained weights are loaded into VectorMind's own model at any
+  point.
 
-**Status:** in progress
+## Production Goals (Phase 7 scope, restated for clarity)
 
----
+- Live deployed demo (single machine/VM, Docker Compose)
+- CI enforcing tests + type-checking on every change
+- p95 API latency documented
+- Traceable checkpoints (metadata sidecar per ARCHITECTURE.md §12)
 
-## Phase 1 — Data Pipeline
-
-**Goal:** Acquire, clean, and structure Flickr30k into a
-training-ready paired image-text dataset.
-
-**Deliverables:**
-- [ ] Flickr30k downloaded and verified
-- [ ] Image transforms + tokenization pipeline
-- [ ] Paired `Dataset`/`DataLoader` implementation
-- [ ] Train/val/test split
-- [ ] Sanity checks: visualized batches, pairing integrity confirmed
-
-**Dependencies:** Phase 0 complete.
-
-**Acceptance criteria:** A `DataLoader` yields correctly paired,
-correctly shaped image/text tensors; no pairing leakage between
-splits.
-
-**Status:** not started
-
----
-
-## Phase 2 — Model Architecture
-
-**Goal:** Implement the dual-encoder model: image tower, text tower,
-projection heads into a shared embedding space.
-
-**Deliverables:**
-- [ ] Image encoder (small CNN, from scratch)
-- [ ] Text encoder (small Transformer, from scratch)
-- [ ] Projection heads + L2 normalization into shared embedding space
-- [ ] Learnable temperature parameter
-
-**Dependencies:** Phase 0 architecture decisions finalized.
-
-**Acceptance criteria:** Forward pass runs end-to-end on a sample
-batch, producing L2-normalized embeddings of the agreed shared
-dimension for both modalities.
-
-**Status:** not started
-
----
-
-## Phase 3 — Contrastive Training Loop
-
-**Goal:** Implement and run the contrastive training loop.
-
-**Deliverables:**
-- [ ] Symmetric InfoNCE loss implementation
-- [ ] Mixed precision + gradient accumulation
-- [ ] Checkpointing
-- [ ] Training/validation logging (W&B or TensorBoard)
-- [ ] First full training run completed
-
-**Dependencies:** Phases 1 and 2 complete.
-
-**Acceptance criteria:** Loss decreases and stabilizes over training;
-embeddings do not collapse (verified via embedding norm/variance
-diagnostics).
-
-**Status:** not started
-
----
-
-## Phase 4 — Evaluation
-
-**Goal:** Quantitatively evaluate retrieval quality.
-
-**Deliverables:**
-- [ ] Recall@1/5/10 for image→text and text→image
-- [ ] Embedding space diagnostics (collapse/uniformity checks)
-
-**Dependencies:** Phase 3 complete (at least one trained checkpoint).
-
-**Acceptance criteria:** Metrics computed on held-out test split,
-documented with interpretation (not just raw numbers).
-
-**Status:** not started
-
----
-
-## Phase 5 — Serving / Retrieval Infrastructure
-
-**Goal:** Build a queryable retrieval system on top of the trained
-embeddings.
-
-**Deliverables:**
-- [ ] Vector index (FAISS or equivalent) over the embedding set
-- [ ] API layer for query → retrieval
-
-**Dependencies:** Phase 4 complete, model quality validated.
-
-**Acceptance criteria:** A query (image or text) returns ranked,
-correct-shape results from the index via the API.
-
-**Status:** not started
-
----
-
-## Phase 6 — Portfolio Polish
-
-**Goal:** Package the project for interviews/portfolio presentation.
-
-**Deliverables:**
-- [ ] Demo interface
-- [ ] Write-up of design decisions and tradeoffs
-- [ ] Write-up of the debugging story (what broke, how it was fixed)
-
-**Dependencies:** Phases 0–5 complete.
-
-**Acceptance criteria:** A reader unfamiliar with the project can
-understand what it does, how it was built, and why key decisions were
-made, from the docs alone.
-
-**Status:** not started
