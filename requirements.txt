@@ -1,0 +1,21 @@
+# Core
+torch>=2.2,<3.0
+torchvision>=0.17,<1.0
+
+# Config management
+pyyaml>=6.0,<7.0
+
+# Tokenization (pretrained BPE tokenizer only — see ARCHITECTURE.md §3;
+# no pretrained model weights are loaded, only used as a preprocessing utility)
+tokenizers>=0.15,<1.0
+
+# Experiment tracking (CLAUDE.md §5 — pick one; wandb assumed as default)
+wandb>=0.16,<1.0
+
+# Testing
+pytest>=8.0,<9.0
+
+# NOTE: pin exact versions once Phase 0.1 environment verification is done
+# and the working combination on the RTX 4050 / installed CUDA toolkit is
+# confirmed. Do not treat these ranges as verified-compatible — check
+# against `nvidia-smi` / pytorch.org's install matrix before installing.

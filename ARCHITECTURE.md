@@ -184,5 +184,202 @@ src/vectormind/
 
 ---
 
+## 9. Serving & Retrieval Architecture (Phase 6)
+
+**Scope boundary:** everything in §1-8 above is locked and governs
+Phases 0-5 (training a real model from scratch under the 6GB VRAM
+constraint). Nothing in this section or below changes those decisions.
+This section specifies what happens *after* a validated checkpoint
+exists (ROADMAP.md Phase 6 dependency: "Phase 5 complete, model
+quality validated as meaningfully above baseline").
+
+**Vector index:** FAISS, `IndexFlatIP` for exact nearest-neighbor
+search at this dataset scale (~30k images). Flat index chosen over
+`IndexIVFFlat`/HNSW because at 30k vectors of dimension 256, brute-
+force cosine similarity is still sub-millisecond and exact — the
+approximate-index tradeoff (recall loss for speed) has no upside
+until the corpus is orders of magnitude larger. Revisit if
+FUTURE_IDEAS.md's "larger datasets" item is pursued.
+
+**API layer:** FastAPI, chosen over Flask for native async support,
+automatic OpenAPI schema generation, and Pydantic-based request/
+response validation — which matters here because both image uploads
+and text queries need distinct, strictly-typed request schemas.
+
+```
+Client (web UI)
+      │  HTTP (multipart/form image upload, or JSON text query)
+      ▼
+┌─────────────────────────────┐
+│      FastAPI application     │
+│  ┌─────────────────────────┐ │
+│  │ /search/text             │ │  text → tokenize → text encoder →
+│  │ /search/image             │ │  image → transform → image encoder →
+│  │                           │ │  → shared embedding → FAISS query
+│  └─────────────────────────┘ │
+│  Model loaded once at startup │  (checkpoint from Phase 4, not
+│  (torch.no_grad() inference)  │   reloaded per-request)
+└──────────────┬────────────────┘
+               │
+               ▼
+        FAISS index (in-memory,
+        loaded from a serialized
+        index file built offline
+        from Phase 5's embeddings)
+```
+
+**Inference-time constraints:** the same RTX 4050 is assumed for local
+serving; inference is far cheaper than training (no backward pass, no
+memory queue, batch size of 1 per request), so this is not VRAM-bound
+the way training is. CPU-only inference (`torch.device("cpu")`) is a
+documented fallback for deployment targets without a GPU.
+
+**Why the model is loaded once, not per-request:** loading a
+checkpoint and moving it to device has non-trivial latency; doing this
+inside the request handler would make every query slow. The model is
+loaded at FastAPI startup (`@app.on_event("startup")`) and held in
+application state.
+
+---
+
+## 10. Frontend Architecture (Phase 6-7)
+
+**Stack:** React + TypeScript + Tailwind CSS.
+
+**Why React over a server-rendered template:** the demo needs
+interactive, stateful UI (live search-as-you-type, image upload
+preview, ranked result grids) — a good fit for a component-based
+client-side framework. TypeScript is used over plain JS for the same
+reason it's used anywhere: catching integration bugs between the
+frontend and the FastAPI response schema at compile time rather than
+in the browser console.
+
+**Structure:**
+```
+frontend/
+├── src/
+│   ├── components/
+│   │   ├── SearchBar.tsx        → text query input
+│   │   ├── ImageUploader.tsx    → drag-and-drop image query
+│   │   ├── ResultGrid.tsx       → ranked retrieval results
+│   │   └── EmbeddingExplorer.tsx→ optional: 2D projection (UMAP/t-SNE)
+│   │                              of the embedding space for the
+│   │                              portfolio demo (Phase 7)
+│   ├── api/
+│   │   └── client.ts            → typed fetch wrapper around the
+│   │                              FastAPI endpoints
+│   ├── types/
+│   │   └── search.ts            → TypeScript types mirroring the
+│   │                              Pydantic response schemas exactly
+│   └── App.tsx
+├── package.json
+└── tailwind.config.ts
+```
+
+**Why types are mirrored, not shared:** FastAPI/Pydantic and React/
+TypeScript don't share a type system natively. The alternative
+(generating TypeScript types from the OpenAPI schema via a codegen
+tool) is a legitimate upgrade path once the API stabilizes — noted in
+FUTURE_IDEAS.md rather than adopted upfront, since hand-written types
+are sufficient for a single-developer project at this stage and avoid
+adding a codegen build step before it's earned its keep.
+
+---
+
+## 11. Deployment Architecture (Phase 7)
+
+**Containerization:** Docker, one image for the FastAPI backend
+(includes the model checkpoint and FAISS index as build artifacts or
+mounted volumes — checkpoint size determines which), a separate static
+build for the React frontend served via Nginx or a static host.
+
+**Why two images, not one:** the backend has GPU/CPU + PyTorch
+dependencies; the frontend is a static asset bundle after `npm run
+build`. Coupling them into one image would force every frontend-only
+change to rebuild a multi-gigabyte PyTorch image.
+
+**CI:** GitHub Actions. Two workflows:
+- `test.yml` — runs `pytest` (CLAUDE.md §4's testing gate) and frontend
+  type-checking (`tsc --noEmit`) on every push/PR. This is the
+  automated enforcement of the "never break existing tests" rule.
+- `build.yml` — builds both Docker images on merge to `main`, tagged
+  with the commit SHA.
+
+**Why GitHub Actions over an alternative CI:** the repo is already on
+GitHub; no separate CI account/integration needed, and it's free for
+public repos, which matters for a portfolio project.
+
+**What's explicitly out of scope for now:** Kubernetes, managed cloud
+GPU inference endpoints, autoscaling. These are named in
+FUTURE_IDEAS.md as scaling-roadmap items, not committed to — the
+realistic Phase 7 target is a single Docker Compose file running both
+containers on one machine (or a single cheap VM), consistent with
+ROADMAP.md's "Realistic Success Definition."
+
+---
+
+## 12. Experiment & Monitoring Architecture
+
+**Experiment tracking:** Weights & Biases (per CLAUDE.md §5), logging
+loss, temperature, embedding norm/variance, and GPU memory per step
+during Phase 3/3.5/4. TensorBoard remains a documented fallback for
+fully offline/no-account use.
+
+**Model registry (lightweight):** checkpoints are saved with a
+metadata sidecar (`checkpoint_metadata.json`: config hash, epoch,
+val Recall@10, git commit SHA) so any checkpoint in `checkpoints/` is
+traceable back to the exact code and config that produced it, without
+adopting a full model-registry tool prematurely (see FUTURE_IDEAS.md).
+
+**Monitoring in production (Phase 7):** basic request logging
+(latency, query type, result count) via FastAPI middleware, written
+through the same `logging` setup as training (`utils/logging_config.py`)
+for consistency — not a separate observability stack, since query
+volume for a portfolio demo doesn't justify one yet.
+
+---
+
+## 13. Updated Repository Structure
+
+Extends §7 above (unchanged) with the Phase 6/7 additions:
+
+```
+vectormind/
+├── src/vectormind/       → §7 (training/model code — unchanged, locked)
+├── backend/
+│   ├── app.py                → FastAPI app, startup model loading
+│   ├── routers/
+│   │   ├── text_search.py
+│   │   └── image_search.py
+│   ├── schemas.py             → Pydantic request/response models
+│   └── index_builder.py       → offline script: embeddings → FAISS index
+├── frontend/             → §10
+├── deployment/
+│   ├── backend.Dockerfile
+│   ├── frontend.Dockerfile
+│   └── docker-compose.yml
+├── .github/workflows/
+│   ├── test.yml
+│   └── build.yml
+├── tests/                → §7 (mirrors src/vectormind/; backend/ gets
+│                            its own tests/backend/ once Phase 6 starts)
+└── configs/               → §7 (unchanged)
+```
+
+---
+
+## 14. Updated Key Design Tradeoffs (Serving Layer)
+
+| Decision Point | Chosen | Rejected | Why |
+|---|---|---|---|
+| Vector index | FAISS `IndexFlatIP` | IVF/HNSW approximate index | Exact search is still fast at 30k vectors; approximate indexing has no benefit yet at this scale |
+| API framework | FastAPI | Flask | Native async, automatic schema validation, matches typed-request needs for image/text search |
+| Frontend framework | React + TypeScript | Server-rendered templates (Jinja2) | Interactive, stateful search UI needs a component model; TS catches schema-drift bugs at compile time |
+| Containerization | Two Docker images (backend/frontend) | One combined image | Decouples frontend rebuilds from the multi-GB PyTorch backend image |
+| CI | GitHub Actions | Jenkins / CircleCI | Already on GitHub; free for public repos; no separate integration needed |
+| Deployment target | Single-machine Docker Compose | Kubernetes / managed cloud endpoints | Matches realistic portfolio-project scope; K8s named as a future scaling item, not a current need |
+
+---
+
 *This document must be updated whenever any decision above changes.
 Do not let this file drift out of sync with the actual implementation.*

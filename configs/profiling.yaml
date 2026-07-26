@@ -1,0 +1,43 @@
+# configs/profiling.yaml
+#
+# Phase 0.2 (ROADMAP.md): empirically determine the max feasible batch
+# size on the RTX 4050 (6GB VRAM) for the planned encoder sizes, under
+# mixed precision. These encoder dimensions mirror the decisions in
+# ARCHITECTURE.md §2-4 and are NOT the final Phase 2 implementation —
+# they exist here only to give the profiler a memory footprint
+# representative of the real model.
+#
+# After running scripts/profile_vram.py, record the measured batch
+# size in ARCHITECTURE.md §6, replacing the placeholder there.
+
+image_encoder:
+  architecture: resnet18_style   # ARCHITECTURE.md §2
+  in_channels: 3
+  base_channels: 64              # channel width of the first conv block
+  image_size: 224                # standard input resolution
+
+text_encoder:
+  vocab_size: 30522              # placeholder; matches a typical BPE vocab
+                                  # size (e.g. BERT-style tokenizer). Update
+                                  # once the actual Phase 1 tokenizer is chosen.
+  max_seq_len: 77                # CLIP-style caption length cap
+  embed_dim: 256                 # ARCHITECTURE.md §3
+  num_layers: 6                  # ARCHITECTURE.md §3 (4-6 layers; profile the upper bound)
+  num_heads: 8
+  ffn_dim: 1024                  # 4x embed_dim, standard Transformer ratio
+
+embedding:
+  shared_dim: 256                # ARCHITECTURE.md §4
+
+profiling:
+  device: cuda
+  use_amp: true                  # torch.cuda.amp — default, not optional (CLAUDE.md §9)
+  min_batch_size: 4
+  max_batch_size: 1024
+  warmup_iters: 3                # untimed/unmeasured iters to stabilize allocator
+  measure_iters: 5                # iters over which peak memory is measured
+  vram_safety_margin_fraction: 0.10  # reserve 10% of total VRAM as headroom
+                                      # for the memory queue (ARCHITECTURE.md §6),
+                                      # dataloader pinned memory, and fragmentation
+  results_path: logs/vram_profile_results.json
+  log_path: logs/profile_vram.log

@@ -140,3 +140,25 @@ research script.
 - Pushes back on requests that would harm long-term code quality or
   misrepresent the project (e.g. commit-padding), rather than
   complying silently.
+
+---
+
+## 11. Related Documents
+
+This file covers engineering rules. Related documents, each
+independently readable but consistent with everything above:
+
+- `PROJECT_CONTEXT.md` — why this project exists, product vision
+- `ARCHITECTURE.md` — full technical architecture (training §1-8,
+  serving/frontend/deployment §9-14)
+- `ROADMAP.md` — phases, milestones, dependencies, current status
+- `TECH_STACK.md` — every technology used, why, and alternatives considered
+- `CODING_STANDARDS.md` — detailed style rules extending §3 above
+- `DEVELOPMENT_GUIDE.md` — the full feature lifecycle, planning through deployment
+- `PROJECT_RULES.md` — permanent, non-negotiable engineering rules
+- `FOLDER_STRUCTURE.md` — purpose and ownership of every directory
+- `FUTURE_IDEAS.md` — research backlog, explicitly not on the critical path
+
+If any of the above ever contradicts this file or ARCHITECTURE.md's
+locked training decisions (§1-8), this file and ARCHITECTURE.md §1-8
+win — flag the contradiction rather than silently picking one.
