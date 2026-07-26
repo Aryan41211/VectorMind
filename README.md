@@ -72,13 +72,16 @@ the frontend demo and deployment are built. See
 git clone <this-repo-url>
 cd vectormind
 python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
+# Windows:
+.venv\Scripts\activate
+# Linux/macOS:
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
 GPU setup: install the PyTorch build matching your installed CUDA
 version (check `nvidia-smi`, then use the correct index URL from
-https://pytorch.org/get-started/locally/ — do not assume a cu1xx tag
+https://pytorch.org/get-started/locally/ — do not assume a `cu1xx` tag
 without checking).
 
 Verify:
@@ -110,7 +113,7 @@ vectormind/
 ├── deployment/         → Docker, docker-compose (Phase 7)
 ├── configs/            → all hyperparameters (never hardcoded)
 ├── scripts/            → one-off tooling (e.g. VRAM profiling)
-└── tests/               → mirrors src/vectormind/
+└── tests/              → mirrors src/vectormind/
 ```
 
 Full ownership/responsibility breakdown: [FOLDER_STRUCTURE.md](./FOLDER_STRUCTURE.md).
@@ -127,8 +130,8 @@ _Placeholder — will be added once the Phase 6.5 frontend exists._
 
 ## Contributing
 
-This is currently a solo portfolio project. If you're another
-engineer picking this up: read
+This is currently a solo portfolio project. If you're another engineer
+picking this up: read
 [CLAUDE.md](./CLAUDE.md) first (the permanent engineering rules),
 then [DEVELOPMENT_GUIDE.md](./DEVELOPMENT_GUIDE.md) for the expected
 workflow, then [ARCHITECTURE.md](./ARCHITECTURE.md) and

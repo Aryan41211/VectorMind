@@ -71,9 +71,9 @@ core architecture decisions before any model/data code is written.
 
 **Deliverables:**
 - [x] Repository structure created
-- [ ] Virtual environment + PyTorch (GPU) verified working
-- [ ] `CLAUDE.md`, `ROADMAP.md`, `ARCHITECTURE.md` committed
-- [ ] Empirical batch-size ceiling measured and documented
+- [x] Virtual environment + PyTorch (GPU) verified working
+- [x] `CLAUDE.md`, `ROADMAP.md`, `ARCHITECTURE.md` committed
+- [x] Empirical batch-size ceiling measured and documented
 
 **Dependencies:** None — this is the foundation.
 
@@ -81,7 +81,7 @@ core architecture decisions before any model/data code is written.
 documented, measured (not guessed) max batch size exists in
 ARCHITECTURE.md.
 
-**Status:** in progress
+**Status:** complete
 
 ---
 
