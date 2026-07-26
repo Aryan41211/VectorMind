@@ -138,16 +138,16 @@ used 32,768) to work well — completely infeasible on 6GB.
    above; trades compute for memory by recomputing activations during
    the backward pass instead of storing them.
 
-**Actual batch size and queue size will be determined empirically in
-Phase 0.2** by profiling real memory usage on the RTX 4050 — this
-document will be updated with the final numbers once measured.
+**Actual batch size and queue size determined empirically in Phase 0.2:**
+- **Max safe batch size: 256** (measured on RTX 4050 Laptop GPU, 6.44 GB VRAM)
+- **Peak VRAM at batch 256: 5.00 GB** (under 5.2 GB ceiling with 10% safety margin)
+- **Search method:** exponential then binary search, AMP enabled, 5.2 GB ceiling
+- **Recommended memory-queue size (pending Phase 3.5 validation): 4096** (16× batch for negative diversity)
+- **Image tensor shape:** [B, 3, 224, 224]
+- **Text tensor shape:** [B, 77] (CLS pooling)
+- **Encoder dims:** image 512, text 256, shared embedding 256
 
-**Validation:** Whether this strategy actually works (i.e. the queue
-gives real negative diversity and the model can learn at all under
-this batch/queue configuration) is confirmed in ROADMAP.md Phase 3.5
-(tiny-subset overfit sanity check) before any full training run. If
-Phase 3.5 fails to converge, revisit the numbers in this section
-first — it is the most likely root cause.
+The above replaces the placeholder text "Actual batch size and queue size will be determined empirically in Phase 0.2..."
 
 ---
 
