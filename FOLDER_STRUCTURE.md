@@ -20,7 +20,7 @@ adapters if FUTURE_IDEAS.md's multi-dataset items are pursued.
 
 ### `src/vectormind/models/`
 **Purpose:** image encoder, text encoder, projection heads — the
-architecture itself (ARCHITECTURE.md §2-4).
+architecture itself (ARCHITECTURE.md §2-4)
 **Populated in:** Phase 2.
 **Depends on:** `utils/`.
 **Must never depend on:** `training/`, `data/` — a model must be
