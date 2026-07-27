@@ -93,7 +93,7 @@ orchestration/packaging only.
 **Purpose:** CI definitions (`test.yml`, `build.yml`).
 **Depends on:** the whole repo, read-only (checks out and runs
 against it) — workflows should not need repo-specific logic beyond
-invoking `pytest`, `mypy`, `tsc`, and `docker build`.
+invoking `pytest`, `mypy`, `tsc`, and `docker build`
 
 ## `configs/`
 
