@@ -6,6 +6,16 @@ __pycache__/
 
 *.egg-info/
 logs/
+checkpoints/
+wandb/
+data/raw/
+data/processed/
+*.pth
+*.pt
+*.egg-info/
+dist/
+build/
+*.egg/
 
 .vscode/
 .idea/
