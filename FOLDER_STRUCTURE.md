@@ -69,7 +69,7 @@ architecture), `src/vectormind/utils/`.
 **Must never depend on:** `src/vectormind/training/` — serving has no
 reason to import the training loop, loss, or memory queue.
 **Ownership:** owned by whoever is doing Phase 6 work; changes here
-should not require touching `src/vectormind/`.
+should not require touching `src/vectormind/`
 
 ## `frontend/` (Phase 6.5)
 
