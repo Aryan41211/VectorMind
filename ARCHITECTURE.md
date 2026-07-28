@@ -140,7 +140,7 @@ used 32,768) to work well — completely infeasible on 6GB.
 
 **Actual batch size and queue size determined empirically in Phase 0.2:**
 - **Max safe batch size: 256** (measured on RTX 4050 Laptop GPU, 6.44 GB VRAM)
-- **Peak VRAM at batch 256: 5.00 GB** (under 5.2 GB ceiling with 10% safety margin)
+- **Peak VRAM at batch 256: 4.99 GB** (under 5.2 GB ceiling with 10% safety margin)
 - **Search method:** exponential then binary search, AMP enabled, 5.2 GB ceiling
 - **Recommended memory-queue size (pending Phase 3.5 validation): 4096** (16× batch for negative diversity)
 - **Image tensor shape:** [B, 3, 224, 224]

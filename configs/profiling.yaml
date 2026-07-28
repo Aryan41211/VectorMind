@@ -33,21 +33,23 @@ profiling:
   device: cuda
   use_amp: true                  # torch.cuda.amp — default, not optional (CLAUDE.md §9)
   min_batch_size: 4
-  max_batch_size: 512
-  warmup_iters: 3                # untimed/unmeasured iters to stabilize allocator
-  measure_iters: 5                # iters over which peak memory is measured
+  max_batch_size: 256
+  warmup_iters: 2                # untimed/unmeasured iters to stabilize allocator
+  measure_iters: 3                # iters over which peak memory is measured
   vram_safety_margin_fraction: 0.10  # reserve 10% of total VRAM as headroom
-                                       # for the memory queue (ARCHITECTURE.md §6),
-                                       # dataloader pinned memory, and fragmentation
+                                        # for the memory queue (ARCHITECTURE.md §6),
+                                        # dataloader pinned memory, and fragmentation
   results_path: logs/vram_profile_results.json
   log_path: logs/profile_vram.log
 
-# Phase 0.2 Results (measured on RTX 4050 Laptop GPU, 6.44 GB VRAM)
+# Phase 0.2 Results (measured on RTX 4050 Laptop GPU, 6.44 GB VRAM, 2026-07-28)
 # Measured batch sizes under AMP (torch.amp.autocast):
-# - Batch 256: 5.00 GB peak (within 5.2 GB ceiling)
-# - Batch 512: 9.74 GB peak (exceeds ceiling)
-# - Batch 1024: OOM
+# - Batch 256: 4.99 GB peak (within 5.2 GB ceiling)
+# - Batch 512: 9.74 GB peak (exceeds ceiling / OOM)
 # Max safe batch size: 256
-# Peak VRAM at batch 256: 5.00 GB
+# Peak VRAM at batch 256: 4.99 GB
 # Search method: exponential then binary search, 5.2 GB ceiling, AMP on
-# Recommended memory-queue size (pending Phase 3.5): 4096 (16x batch for negative diversity)
+# Recommended memory-queue size (pending Phase 3.5 validation): 4096 (16x batch for negative diversity)
+# Image tensor shape: [B, 3, 224, 224]
+# Text tensor shape: [B, 77] (CLS pooling)
+# Encoder dims: image 512, text 256, shared embedding 256

@@ -227,7 +227,13 @@ def _try_batch_size(
 
     On CUDA out-of-memory, returns (False, nan) and clears the cache so
     the next attempt starts from a clean state.
+
+    A batch size is considered successful only if ALL iterations complete
+    without OOM and the peak memory is within physical VRAM.
     """
+    oom_occurred = False
+    completed_iters = 0
+
     try:
         torch.cuda.empty_cache()
         torch.cuda.reset_peak_memory_stats(device)
@@ -237,11 +243,35 @@ def _try_batch_size(
             with torch.autocast(device_type="cuda", enabled=use_amp):
                 model.forward_and_backward(batch_size, device)
             optimizer.step()
+            completed_iters += 1
 
         peak_memory = float(torch.cuda.max_memory_allocated(device))
+
+        # Sanity check: peak memory must not exceed total VRAM
+        total_vram = float(torch.cuda.get_device_properties(device).total_memory)
+        if peak_memory > total_vram:
+            logger.warning(
+                "Batch size %d: peak memory (%.2f GB) exceeds total VRAM (%.2f GB). "
+                "Treating as OOM.",
+                batch_size,
+                peak_memory / 1e9,
+                total_vram / 1e9,
+            )
+            return False, float("nan")
+
+        if completed_iters < warmup_iters + measure_iters:
+            logger.warning(
+                "Batch size %d: only %d/%d iterations completed.",
+                batch_size,
+                completed_iters,
+                warmup_iters + measure_iters,
+            )
+            return False, float("nan")
+
         return True, peak_memory
 
     except torch.cuda.OutOfMemoryError:
+        oom_occurred = True
         torch.cuda.empty_cache()
         return False, float("nan")
 
