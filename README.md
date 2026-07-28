@@ -84,9 +84,39 @@ version (check `nvidia-smi`, then use the correct index URL from
 https://pytorch.org/get-started/locally/ — do not assume a `cu1xx` tag
 without checking).
 
-Verify:
+### Environment Verification
+
+Run the verification script to confirm all dependencies are correctly
+installed and CUDA is available:
+
 ```bash
-python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+python scripts/verify_env.py
+```
+
+Expected output:
+```
+============================================================
+VectorMind Environment Verification
+============================================================
+
+Results:
+------------------------------------------------------------
+  [PASS] Python 3.12.10 (need 3.12.x)
+  [PASS] PyTorch 2.13.0+cu126 | CUDA: True | Device: NVIDIA GeForce RTX 4050 Laptop GPU | VRAM: 6.0 GB
+  [PASS] AMP (torch.autocast) works on CUDA
+  [PASS] torchvision 0.28.0+cu126
+  [PASS] transformers 5.14.1
+  [PASS] tokenizers 0.22.2
+  [PASS] faiss 1.14.3
+  [PASS] cv2 5.0.0
+  [PASS] PIL 12.3.0
+  [PASS] fastapi 0.140.7
+  [PASS] uvicorn 0.51.0
+  [PASS] yaml 6.0.3
+  [PASS] wandb 0.28.1
+  [PASS] pytest 8.4.2
+------------------------------------------------------------
+ALL CHECKS PASSED
 ```
 
 ## Quick Start
@@ -98,6 +128,36 @@ pytest tests/ -v
 # Profile the max VRAM-safe batch size on your GPU (Phase 0.2)
 python scripts/profile_vram.py --config configs/profiling.yaml
 ```
+
+### VRAM Profiling
+
+The profiling script (`scripts/profile_vram.py`) empirically determines
+the maximum batch size that fits in your GPU's VRAM under mixed
+precision. It uses encoder dimensions representative of the planned
+Phase 2 architecture (ARCHITECTURE.md §2-4) and runs a
+contrastive-loss-shaped forward/backward pass.
+
+Configuration is in `configs/profiling.yaml`:
+- `use_amp: true` — mixed precision (required per CLAUDE.md §9)
+- `min_batch_size` / `max_batch_size` — search bounds
+- `warmup_iters` / `measure_iters` — iterations for stable measurement
+- `vram_safety_margin_fraction: 0.10` — 10% headroom for memory queue,
+  dataloader pinned memory, and fragmentation
+
+Output:
+- Console log with each batch size attempt
+- `logs/vram_profile_results.json` — structured results
+- `logs/profile_vram.log` — detailed log
+
+**Current measured result (RTX 4050 Laptop, 6.44 GB VRAM):**
+- Max safe batch size: **256**
+- Peak VRAM at batch 256: **4.99 GB**
+- Search method: exponential then binary search, 5.2 GB ceiling, AMP enabled
+- Tensor shapes: Image `[B, 3, 224, 224]`, Text `[B, 77]`
+- Encoder dims: image 512, text 256, shared embedding 256
+
+See [ARCHITECTURE.md §6](./ARCHITECTURE.md#6-vram-constrained-batch-strategy-critical)
+for full details and design rationale.
 
 Data pipeline, training, and serving entrypoints will be documented
 here as each phase lands — see [ROADMAP.md](./ROADMAP.md) for what's
