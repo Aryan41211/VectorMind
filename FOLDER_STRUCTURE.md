@@ -40,7 +40,7 @@ training code has no reason to know about serving.
 
 ### `src/vectormind/evaluation/`
 **Purpose:** Recall@K, embedding-space diagnostics (collapse/
-uniformity checks).
+uniformity checks)
 **Populated in:** Phase 4/5.
 **Depends on:** `models/`, `data/`, `utils/`.
 **Must never depend on:** `training/` directly for its core metrics
