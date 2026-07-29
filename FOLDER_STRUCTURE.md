@@ -11,7 +11,7 @@ future phases.
 ### `src/vectormind/data/`
 **Purpose:** Flickr30k loading, transforms, tokenization, paired
 `Dataset`/`DataLoader`, train/val/test splitting.
-**Populated in:** Phase 1.
+**Populated in:** Phase 1
 **Depends on:** `utils/` (config, logging).
 **Must never depend on:** `models/`, `training/` — data pipeline code
 has no reason to import model classes.
