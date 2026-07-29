@@ -56,7 +56,7 @@ shared, dependency-free utilities.
 **Depends on:** nothing else in `src/vectormind/` — this is the
 lowest layer everything else can depend on.
 **Must never depend on:** any other `src/vectormind/` subpackage —
-if it did, it would no longer be a safe shared dependency.
+if it did, it would no longer be a safe shared dependency
 
 ---
 
