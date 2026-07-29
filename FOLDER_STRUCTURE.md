@@ -31,7 +31,7 @@ swapped in behind the same interfaces (ARCHITECTURE.md §2).
 
 ### `src/vectormind/training/`
 **Purpose:** InfoNCE loss, MoCo-style memory queue, training loop,
-mixed precision, gradient accumulation, checkpointing.
+mixed precision, gradient accumulation, checkpointing
 **Populated in:** Phase 3.
 **Depends on:** `models/`, `data/`, `utils/`.
 **Must never depend on:** `evaluation/`, `backend/` (Phase 6+) —
