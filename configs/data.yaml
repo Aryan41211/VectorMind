@@ -1,0 +1,42 @@
+# configs/data.yaml
+#
+# Phase 1 (ROADMAP.md): Data pipeline configuration for Flickr30k.
+# All data-related hyperparameters and paths live here — no hardcoded
+# values in source code (CLAUDE.md §6).
+
+dataset:
+  name: flickr30k
+  # HuggingFace Datasets mirror — most accessible, no form required.
+  # See DATASETS.md for licensing details and access-route documentation.
+  source: huggingface
+  hf_dataset_id: nlphuji/flickr30k
+  local_cache_dir: data/raw/flickr30k
+
+  # Image settings (ARCHITECTURE.md §6)
+  image_size: 224
+  image_channels: 3
+
+  # Text settings (ARCHITECTURE.md §3, §6)
+  tokenizer_name: bert-base-uncased
+  max_text_length: 77
+
+  # Split ratios — must sum to 1.0 (split by IMAGE, not caption)
+  train_split: 0.8
+  val_split: 0.1
+  test_split: 0.1
+
+  # Reproducibility
+  random_seed: 42
+
+  # DataLoader settings (constrained by 6GB VRAM — ARCHITECTURE.md §6)
+  batch_size: 64
+  num_workers: 2
+  pin_memory: true
+  drop_last: true
+
+# Image normalization (ImageNet-standard — reasonable for from-scratch)
+transforms:
+  image_mean: [0.485, 0.456, 0.406]
+  image_std: [0.229, 0.224, 0.225]
+  random_horizontal_flip_p: 0.5
+  resize_size: 256
