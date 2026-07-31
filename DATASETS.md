@@ -53,19 +53,25 @@ which specific terms apply.
 ### Preprocessing (Phase 1 scope)
 
 - Image transforms: resize/crop to the configured `image_size`
-  (`configs/profiling.yaml` currently uses 224 as a profiling
-  stand-in; the real Phase 1 config will set this deliberately, not
-  just inherit the profiling default), normalization.
-- Tokenization: pretrained BPE tokenizer (ARCHITECTURE.md §3),
-  preprocessing only — see TECH_STACK.md's tokenizer section.
-- Pairing: each image paired with each of its 5 captions (or a
-  sampling strategy across the 5 — this specific choice is **not yet
-  decided** and should be recorded here once Phase 1 makes it, per
-  PROJECT_MEMORY.md's decision-logging convention).
-- Split: train/val/test with **zero image leakage** across splits
-  (ROADMAP.md Phase 1 acceptance criteria) — an image and all 5 of its
-  captions must stay together in one split; splitting by caption
-  instead of by image would leak information.
+  (`configs/data.yaml` uses 224), normalization with ImageNet-standard
+  mean/std. Train: Resize(256) → RandomCrop(224) → RandomHorizontalFlip →
+  ToImage → ToDtype(float32, scale) → Normalize. Eval: Resize(256) →
+  CenterCrop(224) → ToImage → ToDtype(float32, scale) → Normalize.
+  Uses torchvision v2 transforms API.
+- Tokenization: `bert-base-uncased` tokenizer from HuggingFace
+  (pretrained BPE, used only for tokenization — no pretrained
+  embeddings). Max length 77 tokens, right-padded with pad_token_id.
+  Chosen for wide availability, reasonable vocab size (30,522), and
+  compatibility with the CLIP-style text encoder design.
+- Pairing: each image paired with each of its 5 captions (5 pairs per
+  image). This is the standard contrastive learning approach — the
+  DataLoader shuffles these naturally.
+- Split: train/val/test (0.8/0.1/0.1) by **image** (not caption) —
+  all 5 captions for a given image stay in the same split (zero
+  leakage). Deterministic with `random_seed: 42`.
+- Dataset source: HuggingFace Datasets (`nlphuji/flickr30k`) —
+  most accessible mirror, no form required. Cached to
+  `data/raw/flickr30k/`.
 
 ### Augmentations
 

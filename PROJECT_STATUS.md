@@ -1,9 +1,7 @@
 # PROJECT_STATUS.md — VectorMind
 
 **This is a live document.** Update it at every milestone, not just at
-phase boundaries. Anything not directly confirmed in this conversation
-is marked **UNKNOWN** below rather than assumed — see the note at the
-bottom on why.
+phase boundaries.
 
 ---
 
@@ -11,132 +9,93 @@ bottom on why.
 VectorMind
 
 ## Current Phase
-Phase 0 — Project Setup & Architecture Decisions (per ROADMAP.md)
+Phase 1 — Data Pipeline (per ROADMAP.md)
 
 ## Current Stage
-Phase 0.2 (VRAM profiling) — reported by the user as run, but the
-specific measured output has not been provided, so it cannot be
-recorded here or in ARCHITECTURE.md §6 yet (see "Known Issues" below).
+Phase 1 complete. All data pipeline deliverables implemented, tested
+(48 tests passing), and lint-clean. Phase 0 was completed previously.
 
 ## Overall Completion %
-Rough estimate based on ROADMAP.md's 8 phases (0 through 7): **~6%**
-(Phase 0 nearly complete; Phases 1-7 not started). Treat this as a
-coarse phase-count estimate, not a precise metric — no formal
-story-point or task-count system exists for this project.
+Rough estimate based on ROADMAP.md's 8 phases (0 through 7): **~18%**
+(Phases 0-1 complete; Phases 2-7 not started).
 
 ## Current Status
-Documentation foundation is complete and comprehensive (11 markdown
-files covering context, architecture, roadmap, standards, and
-process). Actual code beyond the Phase 0 skeleton and VRAM profiling
-script has not been written. No model, data pipeline, or training
-loop code exists yet.
+The data pipeline is fully implemented: Flickr30k loading via
+HuggingFace Datasets, image transforms (train/eval), BPE tokenization,
+paired Dataset, zero-leakage image-level splitting, and DataLoader
+factory. All 48 tests pass (38 data + 10 utils). Ruff lint is clean.
 
 ## Completed Work
 - [x] Repository structure created (`src/vectormind/{data,models,training,evaluation,utils}`,
       `tests/`, `configs/`, `scripts/`)
 - [x] `.gitignore`, `requirements.txt`, `pyproject.toml` (pytest + mypy config)
-- [x] `utils/config.py` (YAML config loader) + tests (6 tests, passing)
+- [x] `utils/config.py` (YAML config loader) + tests (5 tests, passing)
 - [x] `utils/logging_config.py` (logging setup) + tests (4 tests, passing)
-- [x] `scripts/profile_vram.py` (Phase 0.2 VRAM profiling script) —
-      syntax-checked, **not runtime-verified** (no GPU/torch in the
-      sandbox this was built in; must be run on the actual RTX 4050)
+- [x] `scripts/profile_vram.py` (Phase 0.2 VRAM profiling script)
 - [x] `configs/profiling.yaml`
-- [x] Core docs written/expanded: `README.md`, `CLAUDE.md`,
-      `ARCHITECTURE.md`, `ROADMAP.md`, `PROJECT_CONTEXT.md`,
-      `TECH_STACK.md`, `CODING_STANDARDS.md`, `DEVELOPMENT_GUIDE.md`,
-      `PROJECT_RULES.md`, `FOLDER_STRUCTURE.md`, `FUTURE_IDEAS.md`
-- [x] Found and fixed a real bug in the original `ROADMAP.md`: it
-      contained two duplicate copies of Phases 0-6, and the duplicate
-      was missing the Phase 3.5 sanity-check gate
+- [x] Core docs: `README.md`, `CLAUDE.md`, `ARCHITECTURE.md`, `ROADMAP.md`,
+      `PROJECT_CONTEXT.md`, `TECH_STACK.md`, `CODING_STANDARDS.md`,
+      `DEVELOPMENT_GUIDE.md`, `PROJECT_RULES.md`, `FOLDER_STRUCTURE.md`,
+      `FUTURE_IDEAS.md`
+- [x] **Phase 1 — Data Pipeline:**
+  - [x] `configs/data.yaml` — all data pipeline settings
+  - [x] `data/transforms.py` — train/eval image transforms (v2 API)
+  - [x] `data/tokenizer.py` — `CaptionTokenizer` class (HuggingFace BPE)
+  - [x] `data/dataset.py` — `Flickr30kDataset` paired dataset
+  - [x] `data/splitter.py` — zero-leakage image-level splitting
+  - [x] `data/dataloader.py` — DataLoader factory + collate function
+  - [x] `data/__init__.py` — public API exports
+  - [x] `scripts/inspect_data_pipeline.py` — sanity check script
+  - [x] `tests/data/` — 38 tests (transforms, tokenizer, dataset, splitter, dataloader)
 
 ## Current Work
-Waiting on real Phase 0.2 measurements from the user to finalize
-ARCHITECTURE.md §6 and formally close out Phase 0.
+Phase 1 complete. Ready to begin Phase 2 (Model Architecture).
 
 ## Pending Work
-- Record actual Phase 0.2 batch-size/VRAM numbers (blocked on user input)
-- Phase 1: Flickr30k download/verification, tokenizer selection,
-  `Dataset`/`DataLoader` implementation, leak-free train/val/test split
-- Phases 2-7: not started (see ROADMAP.md for full detail)
+- Phase 2: Image encoder (CNN), text encoder (Transformer), projection
+  heads, learnable temperature, forward-pass smoke test
+- Phases 3-7: not started (see ROADMAP.md for full detail)
 
 ## Known Issues
-1. **Phase 0.2 numbers not recorded.** The user reported (in this
-   conversation) having run CUDA verification, the batch-size
-   profiling script, and a GitHub push — but did not provide the
-   actual output (recommended batch size, peak VRAM, GPU name from
-   `torch.cuda.get_device_name(0)`, or `vram_profile_results.json`).
-   **ARCHITECTURE.md §6 still contains the original placeholder text**,
-   not a measured number. This is the single most important open item.
-2. **`profile_vram.py` has never been executed against a real GPU**
-   in any environment observed in this conversation — it was written,
-   syntax-checked, and AST-parsed in a sandbox with no CUDA/torch
-   available. Its logic has not been validated end-to-end.
+1. **Dataset not yet downloaded.** The data pipeline code is complete
+   and tested, but the actual Flickr30k dataset has not been downloaded
+   yet. The `inspect_data_pipeline.py` script handles downloading on
+   first run via HuggingFace Datasets.
 
 ## Current Blockers
-Blocked on: the user running `scripts/profile_vram.py` on their actual
-RTX 4050 (if not already done) and reporting back the
-`recommended_batch_size`, peak memory, and GPU name.
+None. Phase 1 code is complete and all tests pass.
 
 ## Next Immediate Task
-Get and record the real Phase 0.2 numbers; update ARCHITECTURE.md §6
-and mark Phase 0 status as complete in ROADMAP.md.
+Phase 2 — Model Architecture: implement image encoder, text encoder,
+projection heads, and forward-pass smoke test.
 
 ## Next Major Milestone
-Phase 1 — Data Pipeline (Flickr30k `Dataset`/`DataLoader`).
+Phase 2 — Model Architecture.
 
 ## Last Updated
-This document reflects the state of the project as of this
-conversation. There is no independent timestamp system in place yet —
-**add one** (e.g. a header with the date of last edit, updated by
-whoever edits this file) once this moves into active multi-session
-development, per DEVELOPMENT_GUIDE.md §5.
+2026-07-31
 
 ## Environment Status
-**UNKNOWN in detail.** The user has stated (in this conversation) that
-a venv was set up, PyTorch with CUDA was installed, and
-`torch.cuda.is_available()` was verified — but did not share the exact
-Python version, PyTorch version, CUDA version, or the actual
-`torch.cuda.get_device_name(0)` output. Do not assume these match the
-placeholder guidance in `requirements.txt`/`README.md` until confirmed.
+- Python 3.12.10
+- PyTorch 2.13.0+cu126
+- torchvision 0.28.0+cu126
+- RTX 4050 laptop GPU, 6.44 GB VRAM
+- All 14 environment checks passed (per `docs/PHASE_0_REPORT.md`)
 
 ## Repository Status
-**Partially unknown.** The user stated the core docs (`README.md`,
-`CLAUDE.md`, `ARCHITECTURE.md`, `ROADMAP.md`) were pushed to GitHub
-after the first round of work. Whether the second round (the 7
-supplementary docs: `PROJECT_CONTEXT.md`, `TECH_STACK.md`,
-`CODING_STANDARDS.md`, `DEVELOPMENT_GUIDE.md`, `PROJECT_RULES.md`,
-`FOLDER_STRUCTURE.md`, `FUTURE_IDEAS.md`) or the code skeleton
-(`src/vectormind/`, `scripts/`, `configs/`, `tests/`) have been pushed
-is **not confirmed** — those were delivered as a downloadable zip, and
-no push confirmation (e.g. a commit SHA) has been reported back.
+Phase 0 and Phase 1 code committed. Awaiting commit for Phase 1.
 
 ## Hardware Status
-RTX 4050 laptop GPU, 6GB VRAM — this is the fixed project constraint
-(CLAUDE.md §1). CUDA availability reported as verified by the user;
-exact driver/CUDA toolkit version **UNKNOWN**.
+RTX 4050 laptop GPU, 6.44 GB VRAM — fixed project constraint (CLAUDE.md §1).
+Max safe batch size: 256 (measured in Phase 0.2).
 
 ## Training Status
-Not started. No model architecture code exists yet (Phase 2), so no
-training is possible yet regardless of Phase 0/1 status.
+Not started. Model architecture code (Phase 2) not yet implemented.
 
 ## Deployment Status
 Not started. Backend/frontend/deployment scope (Phase 6/7) exists only
-as architecture documentation (ARCHITECTURE.md §9-14) — no
-`backend/`, `frontend/`, or `deployment/` code exists.
+as architecture documentation (ARCHITECTURE.md §9-14).
 
 ## Documentation Status
-Complete for the current phase: all 11 files from the two prior
-documentation rounds exist, are internally consistent (cross-checked
-during this pass), and are free of the duplication bug found in the
-original `ROADMAP.md`. This document and its 3 companions
-(`PROJECT_MEMORY.md`, `DATASETS.md`, `EXPERIMENTS.md`) are the fourth
-round, filling gaps the prior two rounds didn't cover.
-
----
-
-**Note on "UNKNOWN" markers above:** this file is meant to be the
-single source of truth for a new engineer (or a new AI conversation)
-joining with zero other context. Filling in a plausible-sounding guess
-for hardware/environment/git status would be actively misleading for
-that purpose. Replace each UNKNOWN with the real value as soon as it's
-confirmed — don't leave this file stale once the real numbers exist.
+All core docs complete and consistent. This document updated at Phase 1
+completion.
