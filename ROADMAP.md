@@ -91,12 +91,12 @@ ARCHITECTURE.md.
 training-ready, verified-correct paired image-text dataset.
 
 **Deliverables:**
-- [ ] Flickr30k downloaded and verified (checksums / count matches
+- [x] Flickr30k downloaded and verified (checksums / count matches
       expected)
-- [ ] Image transforms + tokenization pipeline
-- [ ] Paired `Dataset`/`DataLoader` implementation
-- [ ] Train/val/test split with zero image leakage across splits
-- [ ] Sanity checks: visualize N batches with decoded captions
+- [x] Image transforms + tokenization pipeline
+- [x] Paired `Dataset`/`DataLoader` implementation
+- [x] Train/val/test split with zero image leakage across splits
+- [x] Sanity checks: visualize N batches with decoded captions
       side-by-side with images (manual inspection, not just shape
       checks) to catch pairing/tokenizer bugs
 
@@ -106,7 +106,7 @@ training-ready, verified-correct paired image-text dataset.
 correctly shaped tensors; manual inspection of 10+ samples confirms
 image-caption pairing is correct and captions decode to sensible text.
 
-**Status:** not started
+**Status:** complete
 
 ---
 
