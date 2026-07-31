@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+import torch
 from torchvision.transforms import v2
 
 logger = logging.getLogger(__name__)
@@ -50,7 +51,8 @@ def get_train_transforms(config: dict[str, Any]) -> v2.Compose:
         v2.Resize(resize_size, interpolation=v2.InterpolationMode.BILINEAR),
         v2.RandomCrop(image_size),
         v2.RandomHorizontalFlip(p=flip_p),
-        v2.ToDtype(dtype=None, scale=True),  # converts to float32, scales [0,255] -> [0,1]
+        v2.ToImage(),  # PIL Image -> Tensor (uint8)
+        v2.ToDtype(dtype=torch.float32, scale=True),  # scales [0,255] -> [0,1]
         v2.Normalize(mean=mean, std=std),
     ])
 
@@ -94,7 +96,8 @@ def get_eval_transforms(config: dict[str, Any]) -> v2.Compose:
     transforms = v2.Compose([
         v2.Resize(resize_size, interpolation=v2.InterpolationMode.BILINEAR),
         v2.CenterCrop(image_size),
-        v2.ToDtype(dtype=None, scale=True),
+        v2.ToImage(),  # PIL Image -> Tensor (uint8)
+        v2.ToDtype(dtype=torch.float32, scale=True),  # scales [0,255] -> [0,1]
         v2.Normalize(mean=mean, std=std),
     ])
 
