@@ -10,7 +10,6 @@ are loaded.
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 import torch
 from transformers import AutoTokenizer
@@ -90,7 +89,7 @@ class CaptionTokenizer:
         """
         encoded = self.tokenizer(
             text,
-            padding="longest",
+            padding="max_length",
             truncation=True,
             max_length=self.max_length,
             return_tensors="pt",
