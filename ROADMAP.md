@@ -142,13 +142,13 @@ actually training a real model (that's Phase 3.5/4). This phase is
 "does the machine run," not "does the model learn."
 
 **Deliverables:**
-- [ ] Symmetric InfoNCE loss implementation (unit tested against a
+- [x] Symmetric InfoNCE loss implementation (unit tested against a
       hand-computed small example)
-- [ ] MoCo-style memory queue implementation (unit tested for
+- [x] MoCo-style memory queue implementation (unit tested for
       correct enqueue/dequeue behavior)
-- [ ] Mixed precision + gradient accumulation wired in
-- [ ] Checkpointing (save/resume, including optimizer state)
-- [ ] Logging to W&B/TensorBoard: loss, temperature, embedding norm,
+- [x] Mixed precision + gradient accumulation wired in
+- [x] Checkpointing (save/resume, including optimizer state)
+- [x] Logging to W&B/TensorBoard: loss, temperature, embedding norm,
       embedding variance, GPU memory usage
 
 **Dependencies:** Phases 1 and 2 complete.
@@ -158,7 +158,7 @@ a known expected value; a training loop can run for a few steps on
 real data without crashing, and a checkpoint can be saved and
 successfully reloaded to resume.
 
-**Status:** not started
+**Status:** complete
 
 ---
 

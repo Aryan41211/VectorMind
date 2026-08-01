@@ -9,24 +9,26 @@ phase boundaries.
 VectorMind
 
 ## Current Phase
-Phase 2 — Model Architecture (per ROADMAP.md)
+Phase 3 — Training Infrastructure (per ROADMAP.md)
 
 ## Current Stage
-Phase 2 complete. All model architecture deliverables implemented,
-tested (85 model tests passing), and lint-clean. Smoke test validated
-on real Flickr30k data. Phases 0-1 were completed previously.
+Phase 3 complete. All training infrastructure deliverables implemented,
+tested (61 training tests passing), and lint-clean. Acceptance test
+validated on real Flickr30k data. Phases 0-2 were completed previously.
 
 ## Overall Completion %
-Rough estimate based on ROADMAP.md's 8 phases (0 through 7): **~38%**
-(Phases 0-2 complete; Phases 3-7 not started).
+Rough estimate based on ROADMAP.md's 8 phases (0 through 7): **~50%**
+(Phases 0-3 complete; Phases 4-7 not started).
 
 ## Current Status
-The dual-encoder model architecture is fully implemented: ResNet-18-style
-image encoder, 6-layer Transformer text encoder, modality-specific
-projection heads with L2 normalization, and learnable temperature.
-Smoke test passes on real Flickr30k data — shapes correct, no NaN/Inf,
-L2 normalization verified, temperature initialized to CLIP convention.
-All 133 tests pass (48 data + 85 model). Ruff/black/mypy clean.
+The training infrastructure is fully implemented: symmetric InfoNCE
+contrastive loss with hand-computed unit tests, MoCo-style memory queue
+for negative samples, mixed precision training with gradient accumulation,
+checkpoint save/load with exact state restoration, and TensorBoard
+metrics logging. Acceptance test passes on real Flickr30k data — 8
+training steps completed, all losses finite, weights updated,
+checkpoint saved and reloaded correctly. All 194 tests pass
+(48 data + 85 model + 61 training). Ruff/black/mypy clean.
 
 ## Completed Work
 - [x] Repository structure created (`src/vectormind/{data,models,training,evaluation,utils}`,
@@ -59,29 +61,39 @@ All 133 tests pass (48 data + 85 model). Ruff/black/mypy clean.
   - [x] `models/__init__.py` — public API exports
   - [x] `scripts/smoke_test_model.py` — Phase 2 acceptance gate (real data, no synthetic)
   - [x] `tests/models/` — 85 tests (image encoder, text encoder, projection head, combined model)
+- [x] **Phase 3 — Training Infrastructure:**
+  - [x] `training/losses.py` — symmetric InfoNCE with hand-computed unit tests
+  - [x] `training/memory_queue.py` — MoCo-style FIFO circular buffer
+  - [x] `training/train_loop.py` — train_one_step() with AMP, gradient accumulation, metrics
+  - [x] `training/checkpoint.py` — save/load with exact state restoration
+  - [x] `training/logger.py` — TensorBoard training metrics logging
+  - [x] `scripts/test_train_loop.py` — Phase 3 acceptance gate (real data, 8 steps)
+  - [x] `tests/training/` — 61 tests (losses, memory queue, train loop, checkpoint, logger)
 
 ## Current Work
-Phase 2 complete. Ready to begin Phase 3 (Training Infrastructure).
+Phase 3 complete. Ready to begin Phase 3.5 (tiny-subset overfit sanity check).
 
 ## Pending Work
-- Phase 3: InfoNCE loss, MoCo memory queue, mixed precision, checkpointing
-- Phases 4-7: not started (see ROADMAP.md for full detail)
+- Phase 3.5: Tiny-subset overfit sanity check (must pass before Phase 4)
+- Phase 4: Full training run
+- Phases 5-7: not started (see ROADMAP.md for full detail)
 
 ## Known Issues
 1. **Dataset not yet downloaded.** The data pipeline and model code are
    complete and tested, but the actual Flickr30k dataset has not been
-   downloaded yet. The `inspect_data_pipeline.py` and `smoke_test_model.py`
-   scripts handle downloading on first run via HuggingFace Datasets.
+   downloaded yet. The `inspect_data_pipeline.py`, `smoke_test_model.py`,
+   and `test_train_loop.py` scripts handle downloading on first run via
+   HuggingFace Datasets.
 
 ## Current Blockers
-None. Phases 0-2 code is complete and all tests pass.
+None. Phases 0-3 code is complete and all tests pass.
 
 ## Next Immediate Task
-Phase 3 — Training Infrastructure: InfoNCE loss, MoCo memory queue,
-mixed precision, gradient accumulation, checkpointing.
+Phase 3.5 — Tiny-subset overfit sanity check: train on 50-100 pairs,
+verify near-perfect Recall@1, confirm embedding variance stays healthy.
 
 ## Next Major Milestone
-Phase 3 — Training Infrastructure.
+Phase 3.5 — Sanity check (MUST pass before Phase 4 full training run).
 
 ## Last Updated
 2026-08-01
@@ -90,24 +102,25 @@ Phase 3 — Training Infrastructure.
 - Python 3.12.10
 - PyTorch 2.13.0+cu126
 - torchvision 0.28.0+cu126
+- tensorboard 2.21.0
 - RTX 4050 laptop GPU, 6.44 GB VRAM
 - All 14 environment checks passed (per `docs/PHASE_0_REPORT.md`)
 
 ## Repository Status
-Phases 0-2 code committed and pushed to origin/main.
+Phases 0-3 code committed and pushed to origin/main.
 
 ## Hardware Status
 RTX 4050 laptop GPU, 6.44 GB VRAM — fixed project constraint (CLAUDE.md §1).
 Max safe batch size: 256 (measured in Phase 0.2).
 
 ## Training Status
-Not started. Model architecture (Phase 2) complete, ready for Phase 3
-training infrastructure.
+Infrastructure complete. Acceptance test validated on real data.
+Ready for Phase 3.5 (tiny-subset overfit) and Phase 4 (full training).
 
 ## Deployment Status
 Not started. Backend/frontend/deployment scope (Phase 6/7) exists only
 as architecture documentation (ARCHITECTURE.md §9-14).
 
 ## Documentation Status
-All core docs complete and consistent. This document updated at Phase 2
+All core docs complete and consistent. This document updated at Phase 3
 completion.
