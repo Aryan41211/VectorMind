@@ -163,9 +163,9 @@ class TestSymmetricInfoNCEHandComputed:
         loss = symmetric_infonce(image_embeds, text_embeds, temperature)
 
         expected_loss = math.log(2)  # ≈ 0.693147
-        assert loss.item() == pytest.approx(expected_loss, abs=1e-5), (
-            f"Expected loss = log(2) ≈ {expected_loss:.6f}, got {loss.item():.6f}"
-        )
+        assert loss.item() == pytest.approx(
+            expected_loss, abs=1e-5
+        ), f"Expected loss = log(2) ≈ {expected_loss:.6f}, got {loss.item():.6f}"
 
     def test_perfect_alignment_loss_is_low(self) -> None:
         """B=2, identical embeddings, temperature=0.1 → loss close to -log(0.5).
@@ -236,9 +236,9 @@ class TestSymmetricInfoNCEHandComputed:
 
         loss = symmetric_infonce(image_embeds, text_embeds, temperature)
 
-        assert loss.item() == pytest.approx(expected_loss, abs=1e-5), (
-            f"Expected loss = log(1+1/e) ≈ {expected_loss:.6f}, got {loss.item():.6f}"
-        )
+        assert loss.item() == pytest.approx(
+            expected_loss, abs=1e-5
+        ), f"Expected loss = log(1+1/e) ≈ {expected_loss:.6f}, got {loss.item():.6f}"
 
     def test_misaligned_embeddings_loss_is_higher(self) -> None:
         """B=2, off-diagonal similarity → loss should be higher than aligned.
@@ -268,9 +268,9 @@ class TestSymmetricInfoNCEHandComputed:
 
         loss = symmetric_infonce(image_embeds, text_embeds, temperature)
 
-        assert loss.item() == pytest.approx(expected_loss, abs=1e-5), (
-            f"Expected loss = log(e+1) ≈ {expected_loss:.6f}, got {loss.item():.6f}"
-        )
+        assert loss.item() == pytest.approx(
+            expected_loss, abs=1e-5
+        ), f"Expected loss = log(e+1) ≈ {expected_loss:.6f}, got {loss.item():.6f}"
 
 
 # ---------------------------------------------------------------------------
@@ -311,9 +311,7 @@ class TestSymmetricInfoNCEQueue:
         )
 
         # Loss values should differ
-        assert loss_no_queue.item() != pytest.approx(
-            loss_with_queue.item(), abs=1e-6
-        )
+        assert loss_no_queue.item() != pytest.approx(loss_with_queue.item(), abs=1e-6)
 
     def test_queue_dimension_mismatch_raises(self) -> None:
         """Queue embedding dim must match image/text dim."""
@@ -410,16 +408,10 @@ class TestSymmetricInfoNCEGradient:
         image_embeds = torch.randn(8, 32)
         text_embeds = torch.randn(8, 32)
 
-        loss_low_temp = symmetric_infonce(
-            image_embeds, text_embeds, torch.tensor(0.01)
-        )
-        loss_high_temp = symmetric_infonce(
-            image_embeds, text_embeds, torch.tensor(1.0)
-        )
+        loss_low_temp = symmetric_infonce(image_embeds, text_embeds, torch.tensor(0.01))
+        loss_high_temp = symmetric_infonce(image_embeds, text_embeds, torch.tensor(1.0))
 
-        assert loss_low_temp.item() != pytest.approx(
-            loss_high_temp.item(), abs=1e-4
-        )
+        assert loss_low_temp.item() != pytest.approx(loss_high_temp.item(), abs=1e-4)
 
     def test_batch_size_one(self) -> None:
         """Should work with batch size 1 (degenerate case)."""
