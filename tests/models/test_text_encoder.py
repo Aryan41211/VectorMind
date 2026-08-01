@@ -55,7 +55,10 @@ class TestTransformerBlock:
     def test_forward_shape(self) -> None:
         """Output shape matches input shape."""
         block = TransformerBlock(
-            embed_dim=64, num_heads=4, ffn_dim=256, dropout=0.0,
+            embed_dim=64,
+            num_heads=4,
+            ffn_dim=256,
+            dropout=0.0,
         )
         x = torch.randn(2, 10, 64)
         out = block(x)
@@ -64,7 +67,10 @@ class TestTransformerBlock:
     def test_no_nan_in_output(self) -> None:
         """Forward pass produces no NaN values."""
         block = TransformerBlock(
-            embed_dim=64, num_heads=4, ffn_dim=256, dropout=0.0,
+            embed_dim=64,
+            num_heads=4,
+            ffn_dim=256,
+            dropout=0.0,
         )
         x = torch.randn(1, 8, 64)
         out = block(x)
@@ -74,13 +80,19 @@ class TestTransformerBlock:
         """embed_dim not divisible by num_heads raises ValueError."""
         with pytest.raises(ValueError, match="divisible"):
             TransformerBlock(
-                embed_dim=65, num_heads=4, ffn_dim=256, dropout=0.0,
+                embed_dim=65,
+                num_heads=4,
+                ffn_dim=256,
+                dropout=0.0,
             )
 
     def test_residual_connection(self) -> None:
         """Block output differs from input (residual adds information)."""
         block = TransformerBlock(
-            embed_dim=64, num_heads=4, ffn_dim=256, dropout=0.0,
+            embed_dim=64,
+            num_heads=4,
+            ffn_dim=256,
+            dropout=0.0,
         )
         x = torch.randn(1, 5, 64)
         out = block(x)
@@ -91,7 +103,10 @@ class TestTransformerBlock:
     def test_deterministic_eval(self) -> None:
         """Same input produces same output in eval mode."""
         block = TransformerBlock(
-            embed_dim=64, num_heads=4, ffn_dim=256, dropout=0.0,
+            embed_dim=64,
+            num_heads=4,
+            ffn_dim=256,
+            dropout=0.0,
         )
         block.eval()
         x = torch.randn(1, 5, 64)
@@ -102,7 +117,10 @@ class TestTransformerBlock:
     def test_gradient_flow(self) -> None:
         """Gradients flow through all parameters."""
         block = TransformerBlock(
-            embed_dim=64, num_heads=4, ffn_dim=256, dropout=0.0,
+            embed_dim=64,
+            num_heads=4,
+            ffn_dim=256,
+            dropout=0.0,
         )
         x = torch.randn(1, 5, 64)
         out = block(x)

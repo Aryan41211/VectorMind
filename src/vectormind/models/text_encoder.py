@@ -203,15 +203,17 @@ class TextEncoder(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
         # Transformer blocks
-        self.blocks = nn.ModuleList([
-            TransformerBlock(
-                embed_dim=self.embed_dim,
-                num_heads=num_heads,
-                ffn_dim=ffn_dim,
-                dropout=dropout,
-            )
-            for _ in range(self.num_layers)
-        ])
+        self.blocks = nn.ModuleList(
+            [
+                TransformerBlock(
+                    embed_dim=self.embed_dim,
+                    num_heads=num_heads,
+                    ffn_dim=ffn_dim,
+                    dropout=dropout,
+                )
+                for _ in range(self.num_layers)
+            ]
+        )
 
         # Final layer normalization
         self.final_norm = nn.LayerNorm(self.embed_dim)
@@ -222,8 +224,12 @@ class TextEncoder(nn.Module):
         logger.info(
             "TextEncoder initialized: vocab_size=%d, max_seq_len=%d, "
             "embed_dim=%d, num_layers=%d, num_heads=%d, ffn_dim=%d",
-            self.vocab_size, self.max_seq_len, self.embed_dim,
-            self.num_layers, num_heads, ffn_dim,
+            self.vocab_size,
+            self.max_seq_len,
+            self.embed_dim,
+            self.num_layers,
+            num_heads,
+            ffn_dim,
         )
 
     def _init_weights(self) -> None:

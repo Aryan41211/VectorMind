@@ -71,13 +71,21 @@ class BasicBlock(nn.Module):
             )
 
         self.conv1 = nn.Conv2d(
-            in_channels, out_channels, kernel_size=3,
-            stride=stride, padding=1, bias=False,
+            in_channels,
+            out_channels,
+            kernel_size=3,
+            stride=stride,
+            padding=1,
+            bias=False,
         )
         self.bn1 = nn.BatchNorm2d(out_channels)
         self.conv2 = nn.Conv2d(
-            out_channels, out_channels, kernel_size=3,
-            stride=1, padding=1, bias=False,
+            out_channels,
+            out_channels,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+            bias=False,
         )
         self.bn2 = nn.BatchNorm2d(out_channels)
 
@@ -86,8 +94,11 @@ class BasicBlock(nn.Module):
         if stride != 1 or in_channels != out_channels * self.expansion:
             self.shortcut = nn.Sequential(
                 nn.Conv2d(
-                    in_channels, out_channels * self.expansion,
-                    kernel_size=1, stride=stride, bias=False,
+                    in_channels,
+                    out_channels * self.expansion,
+                    kernel_size=1,
+                    stride=stride,
+                    bias=False,
                 ),
                 nn.BatchNorm2d(out_channels * self.expansion),
             )
@@ -106,11 +117,11 @@ class BasicBlock(nn.Module):
             Output tensor of shape ``[B, out_channels, H', W']`` where
             ``H'`` and ``W'`` depend on the stride.
         """
-        out: torch.Tensor = self.relu(self.bn1(self.conv1(x)))
+        out: torch.Tensor = self.relu(self.bn1(self.conv1(x)))  # type: ignore[no-any-return]
         out = self.bn2(self.conv2(out))
         shortcut: torch.Tensor = self.shortcut(x)  # type: ignore[no-any-return]
         out = out + shortcut
-        return self.relu(out)
+        return self.relu(out)  # type: ignore[no-any-return]
 
 
 class ImageEncoder(nn.Module):
@@ -180,8 +191,12 @@ class ImageEncoder(nn.Module):
 
         # Stage 0: initial convolution
         self.conv1 = nn.Conv2d(
-            in_channels, base_channels, kernel_size=7,
-            stride=2, padding=3, bias=False,
+            in_channels,
+            base_channels,
+            kernel_size=7,
+            stride=2,
+            padding=3,
+            bias=False,
         )
         self.bn1 = nn.BatchNorm2d(base_channels)
         self.relu = nn.ReLU(inplace=True)
@@ -189,10 +204,18 @@ class ImageEncoder(nn.Module):
 
         # Stages 1-4: residual blocks
         # Channel progression: base -> base*2 -> base*4 -> base*8
-        self.stage1 = self._make_stage(base_channels, base_channels, num_blocks=2, stride=1)
-        self.stage2 = self._make_stage(base_channels, base_channels * 2, num_blocks=2, stride=2)
-        self.stage3 = self._make_stage(base_channels * 2, base_channels * 4, num_blocks=2, stride=2)
-        self.stage4 = self._make_stage(base_channels * 4, base_channels * 8, num_blocks=2, stride=2)
+        self.stage1 = self._make_stage(
+            base_channels, base_channels, num_blocks=2, stride=1
+        )
+        self.stage2 = self._make_stage(
+            base_channels, base_channels * 2, num_blocks=2, stride=2
+        )
+        self.stage3 = self._make_stage(
+            base_channels * 2, base_channels * 4, num_blocks=2, stride=2
+        )
+        self.stage4 = self._make_stage(
+            base_channels * 4, base_channels * 8, num_blocks=2, stride=2
+        )
 
         # Global average pooling: [B, C, H, W] -> [B, C]
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
@@ -203,7 +226,9 @@ class ImageEncoder(nn.Module):
         logger.info(
             "ImageEncoder initialized: in_channels=%d, base_channels=%d, "
             "output_dim=%d",
-            in_channels, base_channels, self.output_dim,
+            in_channels,
+            base_channels,
+            self.output_dim,
         )
 
     @staticmethod
@@ -242,7 +267,9 @@ class ImageEncoder(nn.Module):
         for module in self.modules():
             if isinstance(module, nn.Conv2d):
                 nn.init.kaiming_normal_(
-                    module.weight, mode="fan_out", nonlinearity="relu",
+                    module.weight,
+                    mode="fan_out",
+                    nonlinearity="relu",
                 )
             elif isinstance(module, nn.BatchNorm2d):
                 nn.init.constant_(module.weight, 1)
