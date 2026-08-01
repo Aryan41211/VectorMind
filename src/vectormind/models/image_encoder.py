@@ -106,9 +106,10 @@ class BasicBlock(nn.Module):
             Output tensor of shape ``[B, out_channels, H', W']`` where
             ``H'`` and ``W'`` depend on the stride.
         """
-        out = self.relu(self.bn1(self.conv1(x)))
+        out: torch.Tensor = self.relu(self.bn1(self.conv1(x)))
         out = self.bn2(self.conv2(out))
-        out = out + self.shortcut(x)
+        shortcut: torch.Tensor = self.shortcut(x)  # type: ignore[no-any-return]
+        out = out + shortcut
         return self.relu(out)
 
 
