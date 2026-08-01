@@ -8,6 +8,8 @@ and rationale.
 """
 
 from vectormind.models.image_encoder import ImageEncoder
+from vectormind.models.projection_head import ProjectionHead
 from vectormind.models.text_encoder import TextEncoder
+from vectormind.models.vectormind_model import VectorMindModel
 
-__all__ = ["ImageEncoder", "TextEncoder"]
+__all__ = ["ImageEncoder", "ProjectionHead", "TextEncoder", "VectorMindModel"]
