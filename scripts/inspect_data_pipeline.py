@@ -16,9 +16,11 @@ import logging
 import sys
 from pathlib import Path
 
-# Ensure src/ is on the path for imports.
+# Ensure src/ and scripts/ are on the path for imports.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from _data_helpers import load_flickr30k_from_hf
 from vectormind.data.dataloader import create_dataloaders
 from vectormind.data.splitter import create_splits
 from vectormind.data.tokenizer import CaptionTokenizer
@@ -29,60 +31,6 @@ from vectormind.utils.logging_config import setup_logging
 logger = logging.getLogger(__name__)
 
 NUM_INSPECT_BATCHES = 10
-
-
-def _load_flickr30k_from_hf(cache_dir: str) -> tuple[list[str], list[str]]:
-    """Load Flickr30k from HuggingFace Datasets.
-
-    Returns:
-        A tuple (image_paths, captions) with each caption paired to
-        its image path. Each image appears 5 times (once per caption).
-
-    Raises:
-        ImportError: If ``datasets`` is not installed.
-        FileNotFoundError: If the cached dataset directory doesn't exist.
-    """
-    try:
-        from datasets import load_dataset
-    except ImportError:
-        logger.error(
-            "The 'datasets' package is required for downloading Flickr30k. "
-            "Install it with: pip install datasets"
-        )
-        raise
-
-    logger.info("Loading Flickr30k from HuggingFace (this may take a while)...")
-    ds = load_dataset("nlphuji/flickr30k", cache_dir=cache_dir, trust_remote_code=True)
-
-    image_paths: list[str] = []
-    captions: list[str] = []
-
-    for split_name in ["test", "train", "validation"]:
-        if split_name in ds:
-            for example in ds[split_name]:
-                # HF flickr30k stores image as a PIL Image in 'image' field.
-                # We need to save it to disk and get the path.
-                image = example["image"]
-                caption_list = example["caption"]
-
-                # Generate a deterministic filename.
-                idx = len(image_paths) // 5
-                img_path = Path(cache_dir) / "images" / f"{idx:06d}.jpg"
-                img_path.parent.mkdir(parents=True, exist_ok=True)
-
-                if not img_path.exists():
-                    image.save(img_path)
-
-                for cap in caption_list:
-                    image_paths.append(str(img_path))
-                    captions.append(cap)
-
-    logger.info(
-        "Loaded %d pairs (%d unique images) from Flickr30k",
-        len(image_paths),
-        len(image_paths) // 5,
-    )
-    return image_paths, captions
 
 
 def main() -> None:
@@ -98,7 +46,7 @@ def main() -> None:
 
     # Load dataset from HuggingFace.
     cache_dir = config["dataset"]["local_cache_dir"]
-    image_paths, captions = _load_flickr30k_from_hf(cache_dir)
+    image_paths, captions = load_flickr30k_from_hf(cache_dir)
 
     # Create splits.
     train_pairs, val_pairs, test_pairs = create_splits(config, image_paths, captions)

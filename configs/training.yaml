@@ -1,0 +1,42 @@
+# configs/training.yaml
+#
+# Phase 3+ (ROADMAP.md): Training hyperparameters.
+# All optimizer, scheduler, and training settings live here —
+# no hardcoded values in source code (CLAUDE.md §6).
+#
+# This config is consumed by scripts/acceptance tests and the Phase 3.5/4
+# training scripts. Function defaults in src/ are fallbacks only.
+
+# --- Optimizer (ARCHITECTURE.md §8) ---
+optimizer:
+  type: adamw
+  lr: 1.0e-3
+  weight_decay: 0.01
+
+# --- Learning Rate Schedule ---
+scheduler:
+  type: cosine_annealing
+  T_max: 10           # epochs (updated per full training config)
+  eta_min: 1.0e-6
+
+# --- Gradient Accumulation ---
+# Effective batch = accumulation_steps * batch_size (data.yaml)
+# Keep as 1 unless memory forces a smaller per-step batch.
+gradient_accumulation_steps: 1
+
+# --- Memory Queue (ARCHITECTURE.md §6) ---
+memory_queue:
+  # Size of the MoCo-style negative embedding queue.
+  # Recommended: 16 * batch_size (CLAUDE.md §9). With batch_size=256,
+  # that's 4096. Reduced to 128 for acceptance tests on limited VRAM.
+  queue_size: 4096
+
+# --- Training Schedule ---
+epochs: 10
+log_every_n_steps: 10
+eval_every_n_epochs: 1
+save_every_n_epochs: 2
+
+# --- Temperature (ARCHITECTURE.md §5) ---
+# Initialized from model config (log(1/0.07) per CLIP).
+# The model learns this — no manual scheduling.
