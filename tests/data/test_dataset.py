@@ -37,14 +37,17 @@ def sample_captions() -> list[str]:
 @pytest.fixture
 def mock_transform():
     """A simple transform that converts PIL to a [3, 64, 64] tensor."""
+
     def transform(img: Image.Image) -> torch.Tensor:
         return torch.tensor(np.array(img)).permute(2, 0, 1).float() / 255.0
+
     return transform
 
 
 @pytest.fixture
 def mock_tokenizer():
     """A minimal mock tokenizer for testing."""
+
     class MockTokenizer:
         def encode(self, text: str):
             # Simple: just return input_ids as [1, 8] and attention_mask as [1, 8].
@@ -54,11 +57,16 @@ def mock_tokenizer():
             if ids.shape[1] < 8:
                 pad_len = 8 - ids.shape[1]
                 ids = torch.cat([ids, torch.zeros(1, pad_len, dtype=torch.long)], dim=1)
-                mask = torch.cat([mask, torch.zeros(1, pad_len, dtype=torch.long)], dim=1)
+                mask = torch.cat(
+                    [mask, torch.zeros(1, pad_len, dtype=torch.long)], dim=1
+                )
             return {"input_ids": ids, "attention_mask": mask}
 
         def decode(self, token_ids):
-            return [f"decoded_{i}" for i in range(token_ids.shape[0] if token_ids.dim() > 1 else 1)]
+            return [
+                f"decoded_{i}"
+                for i in range(token_ids.shape[0] if token_ids.dim() > 1 else 1)
+            ]
 
         def __len__(self):
             return 8

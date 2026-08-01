@@ -116,11 +116,11 @@ image-caption pairing is correct and captions decode to sensible text.
 end-to-end, before any real training.
 
 **Deliverables:**
-- [ ] Image encoder (small CNN, from scratch)
-- [ ] Text encoder (small Transformer, from scratch)
-- [ ] Projection heads + L2 normalization into shared embedding space
-- [ ] Learnable temperature parameter
-- [ ] Forward-pass smoke test: one batch through the full model,
+- [x] Image encoder (small CNN, from scratch)
+- [x] Text encoder (small Transformer, from scratch)
+- [x] Projection heads + L2 normalization into shared embedding space
+- [x] Learnable temperature parameter
+- [x] Forward-pass smoke test: one batch through the full model,
       correct output shapes, no NaNs
 
 **Dependencies:** Phase 0 architecture decisions + measured batch
@@ -131,7 +131,7 @@ from the Phase 1 pipeline (not synthetic data), producing
 L2-normalized embeddings of the agreed shared dimension for both
 modalities, with no NaN/Inf values.
 
-**Status:** not started
+**Status:** complete
 
 ---
 

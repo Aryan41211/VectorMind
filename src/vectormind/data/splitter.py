@@ -98,8 +98,8 @@ def create_splits(
     # n_test = num_images - n_train - n_val (takes the remainder)
 
     train_images = shuffled[:n_train]
-    val_images = shuffled[n_train:n_train + n_val]
-    test_images = shuffled[n_train + n_val:]
+    val_images = shuffled[n_train : n_train + n_val]
+    test_images = shuffled[n_train + n_val :]
 
     # Expand images back to (image_path, caption) pairs.
     def _expand(image_list: list[Path]) -> list[tuple[Path, str]]:
@@ -126,9 +126,12 @@ def create_splits(
         "Split complete — Train: %d images (%d pairs), "
         "Val: %d images (%d pairs), "
         "Test: %d images (%d pairs)",
-        len(train_images), len(train_pairs),
-        len(val_images), len(val_pairs),
-        len(test_images), len(test_pairs),
+        len(train_images),
+        len(train_pairs),
+        len(val_images),
+        len(val_pairs),
+        len(test_images),
+        len(test_pairs),
     )
 
     return train_pairs, val_pairs, test_pairs

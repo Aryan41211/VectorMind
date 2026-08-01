@@ -140,11 +140,18 @@ def main() -> None:
         caption_texts = batch["caption_text"]
 
         # Check shapes.
-        expected_img_shape = (config["dataset"]["batch_size"], 3, config["dataset"]["image_size"], config["dataset"]["image_size"])
+        expected_img_shape = (
+            config["dataset"]["batch_size"],
+            3,
+            config["dataset"]["image_size"],
+            config["dataset"]["image_size"],
+        )
         if images.shape != expected_img_shape:
             logger.error(
                 "Batch %d: image shape mismatch — expected %s, got %s",
-                batch_idx, expected_img_shape, images.shape,
+                batch_idx,
+                expected_img_shape,
+                images.shape,
             )
             all_passed = False
         else:
@@ -163,7 +170,10 @@ def main() -> None:
         for i, (orig, dec) in enumerate(zip(caption_texts[:3], decoded)):
             logger.info(
                 "  Batch %d, sample %d: ORIGINAL=%r | DECODED=%r",
-                batch_idx, i, orig[:80], dec[:80],
+                batch_idx,
+                i,
+                orig[:80],
+                dec[:80],
             )
 
         # Check attention mask: sum should be > 0 for all samples.
@@ -174,7 +184,10 @@ def main() -> None:
 
     logger.info("-" * 60)
     if all_passed:
-        logger.info("ALL %d BATCHES PASSED sanity checks.", min(NUM_INSPECT_BATCHES, len(train_loader)))
+        logger.info(
+            "ALL %d BATCHES PASSED sanity checks.",
+            min(NUM_INSPECT_BATCHES, len(train_loader)),
+        )
     else:
         logger.error("SOME BATCHES FAILED — see errors above.")
         sys.exit(1)

@@ -8,8 +8,6 @@ and mixed precision support.
 from __future__ import annotations
 
 import sys
-from importlib.metadata import version as pkg_version
-from typing import Any
 
 
 def check_python() -> tuple[bool, str]:
@@ -20,14 +18,23 @@ def check_python() -> tuple[bool, str]:
 
 def check_torch() -> tuple[bool, str]:
     import torch
+
     ok = torch.cuda.is_available()
     device = torch.cuda.get_device_name(0) if ok else "CPU"
-    vram = round(torch.cuda.get_device_properties(0).total_memory / 1024**3, 2) if ok else "N/A"
-    return ok, f"PyTorch {torch.__version__} | CUDA: {ok} | Device: {device} | VRAM: {vram} GB"
+    vram = (
+        round(torch.cuda.get_device_properties(0).total_memory / 1024**3, 2)
+        if ok
+        else "N/A"
+    )
+    return (
+        ok,
+        f"PyTorch {torch.__version__} | CUDA: {ok} | Device: {device} | VRAM: {vram} GB",
+    )
 
 
 def check_amp() -> tuple[bool, str]:
     import torch
+
     try:
         with torch.autocast(device_type="cuda", enabled=True):
             x = torch.randn(2, 2, device="cuda")
@@ -44,6 +51,7 @@ def check_import(name: str, min_version: str | None = None) -> tuple[bool, str]:
         ok = True
         if min_version:
             from packaging.version import parse as parse_version
+
             ok = parse_version(ver) >= parse_version(min_version)
         return ok, f"{name} {ver}" + ("" if ok else f" (need >= {min_version})")
     except Exception as e:
