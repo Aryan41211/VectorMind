@@ -164,7 +164,9 @@ src/vectormind/
 ├── training/
 │   ├── losses.py            → §5 (InfoNCE)
 │   ├── memory_queue.py      → §6 (MoCo-style queue)
-│   └── train_loop.py        → training loop, mixed precision, accumulation
+│   ├── train_loop.py        → training loop, mixed precision, accumulation
+│   ├── checkpoint.py        → save/load full training state
+│   └── logger.py            → TensorBoard metrics logging
 ├── evaluation/    → Phase 4: Recall@K, embedding diagnostics
 └── utils/         → logging, checkpointing, seeding, config loading
 ```
