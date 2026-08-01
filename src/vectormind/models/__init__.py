@@ -6,3 +6,8 @@ swappable behind defined interfaces — no component may assume a specific
 encoder implementation. See ARCHITECTURE.md §2-4 for the chosen designs
 and rationale.
 """
+
+from vectormind.models.image_encoder import ImageEncoder
+from vectormind.models.text_encoder import TextEncoder
+
+__all__ = ["ImageEncoder", "TextEncoder"]

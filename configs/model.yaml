@@ -1,0 +1,38 @@
+# configs/model.yaml
+#
+# Phase 2 (ROADMAP.md): Model architecture hyperparameters.
+# All encoder dimensions, layer counts, and embedding sizes live here —
+# no hardcoded values in source code (CLAUDE.md §6).
+#
+# Values derived from ARCHITECTURE.md §2-6 and Phase 0.2 profiling
+# results (configs/profiling.yaml).
+
+# --- Image Encoder (ARCHITECTURE.md §2) ---
+# Small ResNet-18-style CNN, trained from scratch (no pretrained weights).
+image_encoder:
+  architecture: resnet18_style
+  in_channels: 3                   # RGB images
+  base_channels: 64                # width of the first conv block
+  # Channel progression: 64 -> 128 -> 256 -> 512 (standard ResNet-18)
+  # Output: global average pool -> [B, 512]
+  output_dim: 512                  # final feature dimension after GAP
+
+# --- Text Encoder (ARCHITECTURE.md §3) ---
+# Small Transformer encoder, trained from scratch.
+# Uses bert-base-uncased tokenizer for preprocessing only (no pretrained
+# embeddings or weights).
+text_encoder:
+  vocab_size: 30522                # bert-base-uncased vocabulary size
+  max_seq_len: 77                  # CLIP-style caption length cap
+  embed_dim: 256                   # token + positional embedding dimension
+  num_layers: 6                    # Transformer encoder layers (4-6 range)
+  num_heads: 8                     # attention heads (embed_dim must be divisible)
+  ffn_dim: 1024                    # feed-forward network hidden dim (4x embed_dim)
+  dropout: 0.1                     # dropout in attention + FFN
+  # Output: mean pooling over sequence -> [B, 256]
+
+# --- Shared Embedding Space (ARCHITECTURE.md §4) ---
+# Both towers map to a shared D-dimensional space via projection heads
+# (implemented separately in projection_heads.py — see Phase 2 Part 2).
+embedding:
+  shared_dim: 256                  # target embedding dimension for both modalities
