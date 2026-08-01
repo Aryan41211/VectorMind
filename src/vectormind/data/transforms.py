@@ -47,14 +47,16 @@ def get_train_transforms(config: dict[str, Any]) -> v2.Compose:
     std = config["transforms"]["image_std"]
     flip_p = config["transforms"]["random_horizontal_flip_p"]
 
-    transforms = v2.Compose([
-        v2.Resize(resize_size, interpolation=v2.InterpolationMode.BILINEAR),
-        v2.RandomCrop(image_size),
-        v2.RandomHorizontalFlip(p=flip_p),
-        v2.ToImage(),  # PIL Image -> Tensor (uint8)
-        v2.ToDtype(dtype=torch.float32, scale=True),  # scales [0,255] -> [0,1]
-        v2.Normalize(mean=mean, std=std),
-    ])
+    transforms = v2.Compose(
+        [
+            v2.Resize(resize_size, interpolation=v2.InterpolationMode.BILINEAR),
+            v2.RandomCrop(image_size),
+            v2.RandomHorizontalFlip(p=flip_p),
+            v2.ToImage(),  # PIL Image -> Tensor (uint8)
+            v2.ToDtype(dtype=torch.float32, scale=True),  # scales [0,255] -> [0,1]
+            v2.Normalize(mean=mean, std=std),
+        ]
+    )
 
     logger.info(
         "Train transforms: Resize(%d) -> RandomCrop(%d) -> "
@@ -93,17 +95,18 @@ def get_eval_transforms(config: dict[str, Any]) -> v2.Compose:
     mean = config["transforms"]["image_mean"]
     std = config["transforms"]["image_std"]
 
-    transforms = v2.Compose([
-        v2.Resize(resize_size, interpolation=v2.InterpolationMode.BILINEAR),
-        v2.CenterCrop(image_size),
-        v2.ToImage(),  # PIL Image -> Tensor (uint8)
-        v2.ToDtype(dtype=torch.float32, scale=True),  # scales [0,255] -> [0,1]
-        v2.Normalize(mean=mean, std=std),
-    ])
+    transforms = v2.Compose(
+        [
+            v2.Resize(resize_size, interpolation=v2.InterpolationMode.BILINEAR),
+            v2.CenterCrop(image_size),
+            v2.ToImage(),  # PIL Image -> Tensor (uint8)
+            v2.ToDtype(dtype=torch.float32, scale=True),  # scales [0,255] -> [0,1]
+            v2.Normalize(mean=mean, std=std),
+        ]
+    )
 
     logger.info(
-        "Eval transforms: Resize(%d) -> CenterCrop(%d) -> "
-        "ToFloat -> Normalize",
+        "Eval transforms: Resize(%d) -> CenterCrop(%d) -> " "ToFloat -> Normalize",
         resize_size,
         image_size,
     )

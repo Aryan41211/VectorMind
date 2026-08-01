@@ -78,16 +78,25 @@ class ImageEncoderStub(nn.Module):
 
     def __init__(self, in_channels: int, base_channels: int) -> None:
         super().__init__()
-        channels = [base_channels, base_channels * 2, base_channels * 4, base_channels * 8]
+        channels = [
+            base_channels,
+            base_channels * 2,
+            base_channels * 4,
+            base_channels * 8,
+        ]
         blocks = []
         prev_channels = in_channels
         for out_channels in channels:
             blocks.append(
                 nn.Sequential(
-                    nn.Conv2d(prev_channels, out_channels, kernel_size=3, stride=2, padding=1),
+                    nn.Conv2d(
+                        prev_channels, out_channels, kernel_size=3, stride=2, padding=1
+                    ),
                     nn.BatchNorm2d(out_channels),
                     nn.ReLU(inplace=True),
-                    nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1),
+                    nn.Conv2d(
+                        out_channels, out_channels, kernel_size=3, stride=1, padding=1
+                    ),
                     nn.BatchNorm2d(out_channels),
                     nn.ReLU(inplace=True),
                 )
@@ -144,7 +153,9 @@ class TextEncoderStub(nn.Module):
     def forward(self, token_ids: torch.Tensor) -> torch.Tensor:
         batch_size, seq_len = token_ids.shape
         positions = torch.arange(seq_len, device=token_ids.device).unsqueeze(0)
-        embeddings = self.token_embedding(token_ids) + self.position_embedding(positions)
+        embeddings = self.token_embedding(token_ids) + self.position_embedding(
+            positions
+        )
         encoded = self.encoder(embeddings)
         pooled = encoded.mean(dim=1)
         return pooled
@@ -181,7 +192,9 @@ class ProfilingModel(nn.Module):
         self.image_projection = nn.Linear(self.image_encoder.output_dim, shared_dim)
         self.text_projection = nn.Linear(text_cfg["embed_dim"], shared_dim)
         # Learnable temperature, initialized as in CLIP (ARCHITECTURE.md §5).
-        self.logit_scale = nn.Parameter(torch.tensor(float(torch.log(torch.tensor(1 / 0.07)))))
+        self.logit_scale = nn.Parameter(
+            torch.tensor(float(torch.log(torch.tensor(1 / 0.07))))
+        )
 
         self.image_size = image_cfg["image_size"]
         self.max_seq_len = text_cfg["max_seq_len"]
@@ -193,7 +206,10 @@ class ProfilingModel(nn.Module):
             batch_size, 3, self.image_size, self.image_size, device=device
         )
         token_ids = torch.randint(
-            low=0, high=self.vocab_size, size=(batch_size, self.max_seq_len), device=device
+            low=0,
+            high=self.vocab_size,
+            size=(batch_size, self.max_seq_len),
+            device=device,
         )
 
         image_features = self.image_projection(self.image_encoder(images))
@@ -231,7 +247,6 @@ def _try_batch_size(
     A batch size is considered successful only if ALL iterations complete
     without OOM and the peak memory is within physical VRAM.
     """
-    oom_occurred = False
     completed_iters = 0
 
     try:
@@ -271,7 +286,6 @@ def _try_batch_size(
         return True, peak_memory
 
     except torch.cuda.OutOfMemoryError:
-        oom_occurred = True
         torch.cuda.empty_cache()
         return False, float("nan")
 

@@ -91,8 +91,22 @@ def test_different_seeds_produce_different_splits(
 ) -> None:
     """Different seeds should (almost certainly) produce different splits."""
     paths, captions = sample_data
-    config_a = {"dataset": {"train_split": 0.8, "val_split": 0.1, "test_split": 0.1, "random_seed": 42}}
-    config_b = {"dataset": {"train_split": 0.8, "val_split": 0.1, "test_split": 0.1, "random_seed": 123}}
+    config_a = {
+        "dataset": {
+            "train_split": 0.8,
+            "val_split": 0.1,
+            "test_split": 0.1,
+            "random_seed": 42,
+        }
+    }
+    config_b = {
+        "dataset": {
+            "train_split": 0.8,
+            "val_split": 0.1,
+            "test_split": 0.1,
+            "random_seed": 123,
+        }
+    }
 
     t1, _, _ = create_splits(config_a, paths, captions)
     t2, _, _ = create_splits(config_b, paths, captions)
@@ -105,14 +119,28 @@ def test_different_seeds_produce_different_splits(
 
 def test_raises_on_invalid_ratios() -> None:
     """Split ratios that don't sum to 1.0 should raise ValueError."""
-    config = {"dataset": {"train_split": 0.5, "val_split": 0.3, "test_split": 0.3, "random_seed": 42}}
+    config = {
+        "dataset": {
+            "train_split": 0.5,
+            "val_split": 0.3,
+            "test_split": 0.3,
+            "random_seed": 42,
+        }
+    }
     with pytest.raises(ValueError, match="must sum to 1.0"):
         create_splits(config, [Path("a.jpg")], ["caption"])
 
 
 def test_raises_on_empty_data() -> None:
     """Empty inputs should raise ValueError."""
-    config = {"dataset": {"train_split": 0.8, "val_split": 0.1, "test_split": 0.1, "random_seed": 42}}
+    config = {
+        "dataset": {
+            "train_split": 0.8,
+            "val_split": 0.1,
+            "test_split": 0.1,
+            "random_seed": 42,
+        }
+    }
     with pytest.raises(ValueError, match="non-empty"):
         create_splits(config, [], [])
 

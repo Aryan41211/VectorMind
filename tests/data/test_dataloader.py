@@ -58,38 +58,64 @@ def sample_pairs(tmp_path: Path) -> list[tuple[Path, str]]:
 def train_transform():
     """A simple eval-like transform for testing."""
     import torch
-    from torchvision.transforms.v2 import Compose, Resize, CenterCrop, ToImage, ToDtype, Normalize
+    from torchvision.transforms.v2 import (
+        Compose,
+        Resize,
+        CenterCrop,
+        ToImage,
+        ToDtype,
+        Normalize,
+    )
 
-    return Compose([
-        Resize(256),
-        CenterCrop(224),
-        ToImage(),
-        ToDtype(dtype=torch.float32, scale=True),
-        Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-    ])
+    return Compose(
+        [
+            Resize(256),
+            CenterCrop(224),
+            ToImage(),
+            ToDtype(dtype=torch.float32, scale=True),
+            Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ]
+    )
 
 
 @pytest.fixture
 def eval_transform():
     import torch
-    from torchvision.transforms.v2 import Compose, Resize, CenterCrop, ToImage, ToDtype, Normalize
+    from torchvision.transforms.v2 import (
+        Compose,
+        Resize,
+        CenterCrop,
+        ToImage,
+        ToDtype,
+        Normalize,
+    )
 
-    return Compose([
-        Resize(256),
-        CenterCrop(224),
-        ToImage(),
-        ToDtype(dtype=torch.float32, scale=True),
-        Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-    ])
+    return Compose(
+        [
+            Resize(256),
+            CenterCrop(224),
+            ToImage(),
+            ToDtype(dtype=torch.float32, scale=True),
+            Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ]
+    )
 
 
 def test_collate_fn_output_keys() -> None:
     """_collate_fn should return a dict with expected keys."""
     batch = [
-        {"image": torch.randn(3, 224, 224), "input_ids": torch.ones(77, dtype=torch.long),
-         "attention_mask": torch.ones(77, dtype=torch.long), "caption_text": "hello"},
-        {"image": torch.randn(3, 224, 224), "input_ids": torch.ones(77, dtype=torch.long),
-         "attention_mask": torch.ones(77, dtype=torch.long), "caption_text": "world"},
+        {
+            "image": torch.randn(3, 224, 224),
+            "input_ids": torch.ones(77, dtype=torch.long),
+            "attention_mask": torch.ones(77, dtype=torch.long),
+            "caption_text": "hello",
+        },
+        {
+            "image": torch.randn(3, 224, 224),
+            "input_ids": torch.ones(77, dtype=torch.long),
+            "attention_mask": torch.ones(77, dtype=torch.long),
+            "caption_text": "world",
+        },
     ]
     result = _collate_fn(batch)
 
@@ -102,10 +128,18 @@ def test_collate_fn_output_keys() -> None:
 def test_collate_fn_tensor_shapes() -> None:
     """_collate_fn should produce correctly shaped tensors."""
     batch = [
-        {"image": torch.randn(3, 224, 224), "input_ids": torch.ones(77, dtype=torch.long),
-         "attention_mask": torch.ones(77, dtype=torch.long), "caption_text": "a"},
-        {"image": torch.randn(3, 224, 224), "input_ids": torch.ones(77, dtype=torch.long),
-         "attention_mask": torch.ones(77, dtype=torch.long), "caption_text": "b"},
+        {
+            "image": torch.randn(3, 224, 224),
+            "input_ids": torch.ones(77, dtype=torch.long),
+            "attention_mask": torch.ones(77, dtype=torch.long),
+            "caption_text": "a",
+        },
+        {
+            "image": torch.randn(3, 224, 224),
+            "input_ids": torch.ones(77, dtype=torch.long),
+            "attention_mask": torch.ones(77, dtype=torch.long),
+            "caption_text": "b",
+        },
     ]
     result = _collate_fn(batch)
 
@@ -205,8 +239,12 @@ def test_dataloader_raises_on_empty_train() -> None:
     """create_dataloaders should raise ValueError if train is empty."""
     config = {
         "dataset": {
-            "image_size": 224, "max_text_length": 77, "batch_size": 4,
-            "num_workers": 0, "pin_memory": False, "drop_last": True,
+            "image_size": 224,
+            "max_text_length": 77,
+            "batch_size": 4,
+            "num_workers": 0,
+            "pin_memory": False,
+            "drop_last": True,
         },
     }
     with pytest.raises(ValueError, match="non-empty"):

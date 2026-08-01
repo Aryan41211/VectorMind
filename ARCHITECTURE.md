@@ -159,7 +159,7 @@ src/vectormind/
 ├── models/
 │   ├── image_encoder.py     → §2
 │   ├── text_encoder.py      → §3
-│   ├── projection_heads.py  → §4
+│   ├── projection_head.py   → §4
 │   └── vectormind_model.py  → combines towers + heads into one model
 ├── training/
 │   ├── losses.py            → §5 (InfoNCE)
