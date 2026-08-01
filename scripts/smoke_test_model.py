@@ -20,9 +20,11 @@ from pathlib import Path
 
 import torch
 
-# Ensure src/ is on the path for imports.
+# Ensure src/ and scripts/ are on the path for imports.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from _data_helpers import load_flickr30k_from_hf
 from vectormind.data.dataloader import create_dataloaders
 from vectormind.data.splitter import create_splits
 from vectormind.data.tokenizer import CaptionTokenizer
@@ -35,57 +37,6 @@ logger = logging.getLogger(__name__)
 
 # Expected shared embedding dimension (ARCHITECTURE.md §4, configs/model.yaml)
 EXPECTED_SHARED_DIM: int = 256
-
-
-def _load_flickr30k_from_hf(cache_dir: str) -> tuple[list[str], list[str]]:
-    """Load Flickr30k from HuggingFace Datasets.
-
-    Returns:
-        A tuple (image_paths, captions) with each caption paired to
-        its image path. Each image appears 5 times (once per caption).
-
-    Raises:
-        ImportError: If ``datasets`` is not installed.
-        FileNotFoundError: If the cached dataset directory doesn't exist.
-    """
-    try:
-        from datasets import load_dataset
-    except ImportError:
-        logger.error(
-            "The 'datasets' package is required for downloading Flickr30k. "
-            "Install it with: pip install datasets"
-        )
-        raise
-
-    logger.info("Loading Flickr30k from HuggingFace (this may take a while)...")
-    ds = load_dataset("nlphuji/flickr30k", cache_dir=cache_dir, trust_remote_code=True)
-
-    image_paths: list[str] = []
-    captions: list[str] = []
-
-    for split_name in ["test", "train", "validation"]:
-        if split_name in ds:
-            for example in ds[split_name]:
-                image = example["image"]
-                caption_list = example["caption"]
-
-                idx = len(image_paths) // 5
-                img_path = Path(cache_dir) / "images" / f"{idx:06d}.jpg"
-                img_path.parent.mkdir(parents=True, exist_ok=True)
-
-                if not img_path.exists():
-                    image.save(img_path)
-
-                for cap in caption_list:
-                    image_paths.append(str(img_path))
-                    captions.append(cap)
-
-    logger.info(
-        "Loaded %d pairs (%d unique images) from Flickr30k",
-        len(image_paths),
-        len(image_paths) // 5,
-    )
-    return image_paths, captions
 
 
 def _validate_embeddings(
@@ -170,7 +121,7 @@ def main() -> None:
     # ---- Step 2: Load real data ----
     logger.info("Step 2: Loading real Flickr30k data...")
     cache_dir = data_config["dataset"]["local_cache_dir"]
-    image_paths, captions = _load_flickr30k_from_hf(cache_dir)
+    image_paths, captions = load_flickr30k_from_hf(cache_dir)
 
     # Create splits and tokenizer (reuse Phase 1 code exactly)
     train_pairs, val_pairs, test_pairs = create_splits(

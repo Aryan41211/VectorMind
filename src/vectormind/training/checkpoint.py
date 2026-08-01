@@ -24,6 +24,7 @@ Input:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import time
@@ -101,7 +102,9 @@ def save_checkpoint(
         "num_params": sum(p.numel() for p in model.parameters()),
     }
     if config is not None:
-        metadata["config_hash"] = str(hash(json.dumps(config, sort_keys=True)))
+        metadata["config_hash"] = hashlib.sha256(
+            json.dumps(config, sort_keys=True).encode()
+        ).hexdigest()[:16]
 
     checkpoint["metadata"] = metadata
 
@@ -154,6 +157,9 @@ def load_checkpoint(
     if not path.exists():
         raise FileNotFoundError(f"Checkpoint not found: {path}")
 
+    # weights_only=False is required because optimizer state dicts contain
+    # non-tensor objects (parameter group metadata). Checkpoint files are
+    # locally produced, not from untrusted sources.
     checkpoint = torch.load(path, map_location="cpu", weights_only=False)
 
     # Restore model
