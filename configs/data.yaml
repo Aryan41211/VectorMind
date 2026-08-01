@@ -29,7 +29,8 @@ dataset:
   random_seed: 42
 
   # DataLoader settings (constrained by 6GB VRAM — ARCHITECTURE.md §6)
-  batch_size: 64
+  # Measured max safe batch size: 256 (Phase 0.2 profiling, RTX 4050 6GB, AMP on)
+  batch_size: 256
   num_workers: 2
   pin_memory: true
   drop_last: true
