@@ -39,7 +39,6 @@ import torch
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _data_helpers import load_flickr30k_from_hf
 from vectormind.data.dataloader import create_dataloaders
 from vectormind.data.overfit_subset import load_subset_metadata
 from vectormind.data.tokenizer import CaptionTokenizer
@@ -134,8 +133,6 @@ def main() -> None:
     logger.info("=" * 60)
     logger.info("VectorMind Phase 3.5 — Overfit Sanity Check")
     logger.info("=" * 60)
-
-    start_time = time.time()
 
     # ---- Step 1: Load configs ----
     logger.info("Step 1: Loading configurations...")
@@ -260,8 +257,8 @@ def main() -> None:
                 device=device,
             )
 
-            # Optimizer step
-            optimizer.step()
+            # Optimizer step (must use scaler.step, not optimizer.step, with AMP)
+            scaler.step(optimizer)
             scaler.update()
             optimizer.zero_grad()
 
