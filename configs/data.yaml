@@ -6,10 +6,12 @@
 
 dataset:
   name: flickr30k
-  # HuggingFace Datasets mirror — most accessible, no form required.
+  # HuggingFace Datasets mirror — Parquet format, compatible with
+  # datasets>=5.0 (nlphuji/flickr30k uses a deprecated loading script).
   # See DATASETS.md for licensing details and access-route documentation.
   source: huggingface
-  hf_dataset_id: nlphuji/flickr30k
+  hf_dataset_id: lmms-lab/flickr30k
+  hf_split: test
   local_cache_dir: data/raw/flickr30k
 
   # Image settings (ARCHITECTURE.md §6)
