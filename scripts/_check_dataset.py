@@ -1,15 +1,14 @@
-"""Check all splits in lmms-lab/flickr30k."""
+"""Verify lmms-lab/flickr30k caption structure."""
 from datasets import load_dataset
 
-# Load without split to see all splits
-ds = load_dataset("lmms-lab/flickr30k")
-print("Available splits:", list(ds.keys()))
-for split_name in ds:
-    print(f"\nSplit '{split_name}': {len(ds[split_name])} examples")
-    sample = ds[split_name][0]
-    print(f"  Keys: {list(sample.keys())}")
-    cap = sample["caption"]
-    print(f"  Caption type: {type(cap)}, len: {len(cap)}")
-    print(f"  Caption[0][:80]: {cap[0][:80]}")
-    img = sample["image"]
-    print(f"  Image size: {img.size}")
+ds = load_dataset("lmms-lab/flickr30k", split="test", streaming=True)
+sample = next(iter(ds))
+print(f"Keys: {list(sample.keys())}")
+print(f"Caption type: {type(sample['caption'])}")
+print(f"Caption count: {len(sample['caption'])}")
+for i, cap in enumerate(sample["caption"]):
+    print(f"  Caption {i}: {cap[:100]}...")
+print(f"Filename: {sample['filename']}")
+print(f"img_id: {sample['img_id']}")
+print(f"sentids: {sample['sentids']}")
+print(f"Image mode: {sample['image'].mode}, size: {sample['image'].size}")
