@@ -1,0 +1,45 @@
+# configs/overfit.yaml
+#
+# Phase 3.5 (ROADMAP.md): Overfit sanity check configuration.
+# Trains on a tiny 100-image subset to verify the pipeline can
+# memorize data before any real training run.
+#
+# This config overrides training.yaml values where the overfit
+# scenario needs different settings (smaller batch, no queue, etc.).
+
+# --- Overfit subset settings ---
+subset:
+  metadata_path: data/processed/overfit_subset.json
+  # Subset is 100 images = 500 pairs. With batch_size=32,
+  # that's ~16 batches per epoch.
+  batch_size: 32
+
+# --- Training schedule (overfit-specific) ---
+training:
+  epochs: 50
+  # Log more frequently for a short run
+  log_every_n_steps: 5
+  # No validation during overfit — we evaluate on the training set itself
+  eval_every_n_epochs: 5
+  save_every_n_epochs: 10
+
+# --- Optimizer (more aggressive LR for overfit) ---
+optimizer:
+  type: adamw
+  lr: 3.0e-4
+  weight_decay: 0.01
+
+# --- Memory queue: DISABLED for overfit ---
+# The memory queue adds extra negatives from past batches.
+# For a 100-image overfit check, we want the model to memorize
+# these specific pairs — extra negatives from a queue would
+# actively work against memorization. Disable it.
+memory_queue:
+  enabled: false
+  queue_size: 0
+
+# --- Gradient accumulation ---
+gradient_accumulation_steps: 1
+
+# --- Temperature init ---
+# Same as training.yaml — learnable, CLIP init
