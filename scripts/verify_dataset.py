@@ -79,41 +79,58 @@ def verify_dataset() -> bool:
 
     logger.info("  Total pairs:      %d", total_pairs)
     logger.info("  Unique images:    %d", unique_images)
-    logger.info("  Captions/image:   %d (expected %d)",
-                captions_per_image[next(iter(captions_per_image))],
-                EXPECTED_CAPTIONS_PER_IMAGE)
+    logger.info(
+        "  Captions/image:   %d (expected %d)",
+        captions_per_image[next(iter(captions_per_image))],
+        EXPECTED_CAPTIONS_PER_IMAGE,
+    )
 
     # Check unique image count
     if abs(unique_images - EXPECTED_IMAGES) > IMAGE_COUNT_TOLERANCE:
         logger.error(
             "  Image count mismatch: got %d, expected ~%d (±%d)",
-            unique_images, EXPECTED_IMAGES, IMAGE_COUNT_TOLERANCE,
+            unique_images,
+            EXPECTED_IMAGES,
+            IMAGE_COUNT_TOLERANCE,
         )
         all_passed = False
     else:
-        logger.info("  Image count OK: %d (expected ~%d)", unique_images, EXPECTED_IMAGES)
+        logger.info(
+            "  Image count OK: %d (expected ~%d)", unique_images, EXPECTED_IMAGES
+        )
 
     # Check total pairs
     expected_pairs = unique_images * EXPECTED_CAPTIONS_PER_IMAGE
     if total_pairs != expected_pairs:
         logger.error(
             "  Total pair count mismatch: got %d, expected %d (%d images × %d captions)",
-            total_pairs, expected_pairs, unique_images, EXPECTED_CAPTIONS_PER_IMAGE,
+            total_pairs,
+            expected_pairs,
+            unique_images,
+            EXPECTED_CAPTIONS_PER_IMAGE,
         )
         all_passed = False
     else:
-        logger.info("  Total pairs OK: %d = %d × %d", total_pairs, unique_images, EXPECTED_CAPTIONS_PER_IMAGE)
+        logger.info(
+            "  Total pairs OK: %d = %d × %d",
+            total_pairs,
+            unique_images,
+            EXPECTED_CAPTIONS_PER_IMAGE,
+        )
 
     # Check captions per image is uniform
     cap_counts = set(captions_per_image.values())
     if cap_counts != {EXPECTED_CAPTIONS_PER_IMAGE}:
         logger.error(
             "  Non-uniform captions per image: found counts %s (expected all %d)",
-            cap_counts, EXPECTED_CAPTIONS_PER_IMAGE,
+            cap_counts,
+            EXPECTED_CAPTIONS_PER_IMAGE,
         )
         all_passed = False
     else:
-        logger.info("  All images have exactly %d captions", EXPECTED_CAPTIONS_PER_IMAGE)
+        logger.info(
+            "  All images have exactly %d captions", EXPECTED_CAPTIONS_PER_IMAGE
+        )
 
     # ---- Step 4: File existence check ----
     logger.info("Step 4: Checking file existence (sampling 500 images)...")
@@ -125,7 +142,9 @@ def verify_dataset() -> bool:
             logger.warning("  Missing file: %s", img_path)
 
     if missing_count > 0:
-        logger.error("  %d / %d sampled files are missing", missing_count, len(sample_paths))
+        logger.error(
+            "  %d / %d sampled files are missing", missing_count, len(sample_paths)
+        )
         all_passed = False
     else:
         logger.info("  All %d sampled files exist", len(sample_paths))
@@ -145,7 +164,9 @@ def verify_dataset() -> bool:
             logger.warning("  Corrupt image: %s (%s)", img_path, e)
 
     if corrupt_count > 0:
-        logger.error("  %d / %d sampled images are corrupt", corrupt_count, len(check_sample))
+        logger.error(
+            "  %d / %d sampled images are corrupt", corrupt_count, len(check_sample)
+        )
         for f in corrupt_files[:10]:
             logger.error("    %s", f)
         all_passed = False
@@ -170,16 +191,22 @@ def verify_dataset() -> bool:
         logger.error("  %d empty captions found in sample", empty_captions)
         all_passed = False
     else:
-        logger.info("  All %d sampled captions are non-empty", len(list(sample_indices)))
+        logger.info(
+            "  All %d sampled captions are non-empty", len(list(sample_indices))
+        )
 
     if short_captions > 0:
-        logger.warning("  %d very short captions found in sample (may be valid)", short_captions)
+        logger.warning(
+            "  %d very short captions found in sample (may be valid)", short_captions
+        )
 
     # ---- Step 7: Split sanity check ----
     logger.info("Step 7: Verifying train/val/test splitting...")
     from vectormind.data.splitter import create_splits
 
-    train_pairs, val_pairs, test_pairs = create_splits(data_config, image_paths, captions)
+    train_pairs, val_pairs, test_pairs = create_splits(
+        data_config, image_paths, captions
+    )
     train_images = len(set(p[0] for p in train_pairs))
     val_images = len(set(p[0] for p in val_pairs))
     test_images = len(set(p[0] for p in test_pairs))
@@ -202,7 +229,8 @@ def verify_dataset() -> bool:
     if total_split_images != unique_images:
         logger.error(
             "  Split image total mismatch: %d != %d",
-            total_split_images, unique_images,
+            total_split_images,
+            unique_images,
         )
         all_passed = False
     else:

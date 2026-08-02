@@ -62,34 +62,31 @@ def load_flickr30k_from_hf(cache_dir: str) -> tuple[list[str], list[str]]:
     image_paths: list[str] = []
     captions: list[str] = []
 
-    # Check if images are already cached
+    # Check if images and captions are already cached
     existing_images = sorted(images_dir.glob("*.jpg"))
-    if len(existing_images) >= 31700:
-        # Full or near-full cache — load from disk
+    captions_file = Path(cache_dir) / "captions.json"
+
+    if len(existing_images) >= 31700 and captions_file.exists():
+        # Full cache — load from disk
+        import json
+
         logger.info(
-            "Found %d cached images in %s — loading from cache",
-            len(existing_images), images_dir,
+            "Found %d cached images and captions.json — loading from cache",
+            len(existing_images),
         )
-        for img_path in existing_images:
-            for caption_idx in range(5):
-                image_paths.append(str(img_path))
-                captions.append("")  # placeholder — captions loaded below
+        with open(captions_file, "r", encoding="utf-8") as f:
+            captions_data = json.load(f)
 
-        # Load captions from the dataset (much smaller than images)
-        logger.info("Loading captions from HuggingFace (streaming)...")
-        ds = load_dataset(_HF_DATASET_ID, split=_HF_SPLIT, streaming=True)
-        cap_idx = 0
-        for example in ds:
-            for cap in example["caption"]:
-                if cap_idx < len(captions):
-                    captions[cap_idx] = cap
-                cap_idx += 1
-            if cap_idx >= len(captions):
-                break
+        for entry in captions_data:
+            img_path = entry["image_path"]
+            for cap in entry["captions"]:
+                image_paths.append(img_path)
+                captions.append(cap)
 
         logger.info(
-            "Loaded %d pairs (%d unique images) from cache + HuggingFace captions",
-            len(image_paths), len(existing_images),
+            "Loaded %d pairs (%d unique images) from cache",
+            len(image_paths),
+            len(existing_images),
         )
         return image_paths, captions
 
