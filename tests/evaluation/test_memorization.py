@@ -175,7 +175,9 @@ class TestTopKExamples:
     ) -> None:
         """Should return the requested number of examples."""
         image_embeds, text_embeds = perfect_embeddings
-        examples = compute_top_k_examples(image_embeds, text_embeds, k=5, num_examples=2)
+        examples = compute_top_k_examples(
+            image_embeds, text_embeds, k=5, num_examples=2
+        )
         assert len(examples) == 2
 
     def test_example_has_required_keys(
@@ -183,7 +185,9 @@ class TestTopKExamples:
     ) -> None:
         """Each example should have all required keys."""
         image_embeds, text_embeds = perfect_embeddings
-        examples = compute_top_k_examples(image_embeds, text_embeds, k=3, num_examples=1)
+        examples = compute_top_k_examples(
+            image_embeds, text_embeds, k=3, num_examples=1
+        )
         example = examples[0]
         assert "image_index" in example
         assert "correct_caption_range" in example
@@ -197,7 +201,9 @@ class TestTopKExamples:
     ) -> None:
         """Perfect embeddings should have recall_at_k = True for all examples."""
         image_embeds, text_embeds = perfect_embeddings
-        examples = compute_top_k_examples(image_embeds, text_embeds, k=5, num_examples=3)
+        examples = compute_top_k_examples(
+            image_embeds, text_embeds, k=5, num_examples=3
+        )
         for example in examples:
             assert example["recall_at_k"] is True
 
