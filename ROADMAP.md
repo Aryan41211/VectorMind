@@ -169,10 +169,10 @@ before spending real compute on a full run. This is the single most
 important risk-reduction step in the project and is not optional.
 
 **Deliverables:**
-- [ ] Train on a tiny fixed subset (e.g. 50–100 image-caption pairs)
+- [x] Train on a tiny fixed subset (e.g. 50–100 image-caption pairs)
       for enough steps to memorize it
-- [ ] Confirm near-perfect Recall@1 on that same tiny subset
-- [ ] Confirm embedding variance stays healthy (not collapsing to a
+- [x] Confirm near-perfect Recall@1 on that same tiny subset
+- [x] Confirm embedding variance stays healthy (not collapsing to a
       single point) throughout
 
 **Dependencies:** Phase 3 complete.
@@ -182,7 +182,14 @@ the tiny memorized subset. If it cannot, training does not proceed to
 Phase 4 — debug here first, since nothing downstream can be trusted
 otherwise.
 
-**Status:** not started
+**Status:** done — VERIFIED PASSED
+- Image->Text Recall@1: 100.0% (100x random baseline of 1%)
+- Text->Image Recall@1: 100.0% (100x random baseline of 1%)
+- Similarity separation: 0.964 (matched: 0.955, unmatched: -0.009)
+- Embedding variance: 0.0039 (healthy, no collapse)
+- Temperature learned: 15.33 (from CLIP init of 14.29)
+- 100 images, 500 pairs, 30 epochs, batch_size=32, lr=3e-4
+- Evaluation report: reports/overfit/phase3_5_evaluation.json
 
 ---
 

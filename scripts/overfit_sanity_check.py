@@ -65,36 +65,50 @@ LOG_DIR = Path("logs/overfit")
 def compute_recall_at_k(
     image_embeds: torch.Tensor,
     text_embeds: torch.Tensor,
+    captions_per_image: int = 5,
     k: int = 1,
 ) -> float:
-    """Compute Recall@K for image-to-text retrieval.
+    """Compute image-level Recall@K for image-to-text retrieval.
 
-    For each image, check whether its matching caption is within the
+    For each image, check whether ANY of its captions appears in the
     top-K results when ranking all captions by cosine similarity.
+    This is the correct metric because all 5 captions describe the
+    same image — retrieving any of them is a success.
 
     Args:
-        image_embeds: L2-normalized image embeddings [N, D].
-        text_embeds: L2-normalized text embeddings [N, D].
+        image_embeds: L2-normalized image embeddings [N_images, D].
+        text_embeds: L2-normalized text embeddings [N_pairs, D].
+            N_pairs = N_images * captions_per_image.
+        captions_per_image: Number of captions per image (default 5).
         k: Number of top results to consider.
 
     Returns:
-        Recall@K as a float between 0 and 1.
+        Image-level Recall@K as a float between 0 and 1.
     """
-    # Similarity matrix: [N_images, N_texts]
+    N_images = image_embeds.shape[0]
+
+    # Similarity matrix: [N_images, N_pairs]
     similarity = image_embeds @ text_embeds.T
 
-    # For each image (row), the matching caption is at the same index
-    # (diagonal), since image_paths[i] corresponds to captions[i]
-    labels = torch.arange(similarity.shape[0], device=similarity.device)
+    # For each image, the matching caption indices are:
+    # [i*captions_per_image, i*captions_per_image+1, ..., i*captions_per_image+4]
+    correct_indices = []
+    for i in range(N_images):
+        start = i * captions_per_image
+        end = start + captions_per_image
+        correct_indices.append(set(range(start, end)))
 
     # Top-K retrieval
     _, top_k_indices = similarity.topk(k, dim=1)
 
-    # Check if the correct label is in the top-K
-    correct = (top_k_indices == labels.unsqueeze(1)).any(dim=1)
-    recall_at_k = correct.float().mean().item()
+    # Check if any correct index is in the top-K
+    correct_count = 0
+    for i in range(N_images):
+        top_k_set = set(top_k_indices[i].tolist())
+        if top_k_set & correct_indices[i]:
+            correct_count += 1
 
-    return recall_at_k
+    return correct_count / N_images
 
 
 def compute_embedding_variance(
@@ -332,9 +346,9 @@ def main() -> None:
         all_image_embeds = torch.cat(all_image_embeds, dim=0)
         all_text_embeds = torch.cat(all_text_embeds, dim=0)
 
-        recall_1 = compute_recall_at_k(all_image_embeds, all_text_embeds, k=1)
-        recall_5 = compute_recall_at_k(all_image_embeds, all_text_embeds, k=5)
-        recall_10 = compute_recall_at_k(all_image_embeds, all_text_embeds, k=10)
+        recall_1 = compute_recall_at_k(all_image_embeds, all_text_embeds, captions_per_image=5, k=1)
+        recall_5 = compute_recall_at_k(all_image_embeds, all_text_embeds, captions_per_image=5, k=5)
+        recall_10 = compute_recall_at_k(all_image_embeds, all_text_embeds, captions_per_image=5, k=10)
         embed_stats = compute_embedding_variance(all_image_embeds)
 
         model.train()
