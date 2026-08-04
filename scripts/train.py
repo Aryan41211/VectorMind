@@ -79,6 +79,12 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Override learning rate.",
     )
+    parser.add_argument(
+        "--no-queue",
+        action="store_true",
+        default=False,
+        help="Disable memory queue (baseline experiment).",
+    )
     return parser.parse_args()
 
 
@@ -330,12 +336,24 @@ def main() -> None:
         eta_min=sched_cfg["eta_min"],
     )
 
-    # Memory queue
-    memory_queue = MemoryQueue(
-        queue_size=mq_cfg["queue_size"],
-        embed_dim=model_config["embedding"]["shared_dim"],
-        device=device,
-    )
+    # Memory queue — disabled for baseline experiment
+    use_queue = not args.no_queue
+    if use_queue:
+        memory_queue = MemoryQueue(
+            queue_size=mq_cfg["queue_size"],
+            embed_dim=model_config["embedding"]["shared_dim"],
+            device=device,
+        )
+        logger.info("  Memory queue: ENABLED (size=%d)", mq_cfg["queue_size"])
+    else:
+        # Dummy queue with size=1 — enqueue is a no-op, get returns empty
+        memory_queue = MemoryQueue(
+            queue_size=1,
+            embed_dim=model_config["embedding"]["shared_dim"],
+            device=device,
+        )
+        logger.info("  Memory queue: DISABLED (baseline experiment)")
+
     logger.info(
         "  Optimizer: AdamW (lr=%.1e, wd=%.4f), Scheduler: cosine (T_max=%d, eta_min=%.1e)",
         lr,
@@ -343,7 +361,6 @@ def main() -> None:
         sched_cfg["T_max"],
         sched_cfg["eta_min"],
     )
-    logger.info("  Memory queue: size=%d", mq_cfg["queue_size"])
 
     # ---- Step 6: Resume from checkpoint (if specified) ----
     start_epoch = 0
@@ -379,7 +396,15 @@ def main() -> None:
     )
 
     best_val_recall = 0.0
+    best_val_recall10 = 0.0
     training_start = time.time()
+    first_epoch_metrics: dict[str, float] | None = None
+    last_epoch_metrics: dict[str, float] | None = None
+    loss_ema: float | None = None  # Exponential moving average for spike detection
+    epochs_without_improvement = 0
+    early_stop_patience = train_cfg.get("early_stopping", {}).get("patience", 5)
+    early_stop_enabled = train_cfg.get("early_stopping", {}).get("enabled", True)
+    min_delta = train_cfg.get("early_stopping", {}).get("min_delta", 0.001)
 
     for epoch in range(start_epoch, num_epochs):
         epoch_start = time.time()
@@ -421,6 +446,32 @@ def main() -> None:
 
             epoch_losses.append(metrics["loss"])
             epoch_grad_norms.append(grad_norm)
+
+            # ---- Instability detection ----
+            loss_val = metrics["loss"]
+            if torch.isnan(torch.tensor(loss_val)) or torch.isinf(
+                torch.tensor(loss_val)
+            ):
+                logger.error(
+                    "  INSTABILITY DETECTED: loss is %s at step %d. Stopping training.",
+                    "NaN" if torch.isnan(torch.tensor(loss_val)) else "Inf",
+                    global_step,
+                )
+                break
+
+            # Loss spike detection (3x EMA)
+            if loss_ema is None:
+                loss_ema = loss_val
+            else:
+                loss_ema = 0.95 * loss_ema + 0.05 * loss_val
+                if loss_val > 3.0 * loss_ema and global_step > 100:
+                    logger.warning(
+                        "  LOSS SPIKE: loss=%.4f at step %d (EMA=%.4f, ratio=%.1fx)",
+                        loss_val,
+                        global_step,
+                        loss_val / loss_ema,
+                        loss_val / loss_ema,
+                    )
 
             # Log per-step
             if global_step % log_every == 0:
@@ -489,8 +540,9 @@ def main() -> None:
                 val_metrics["image_dim_variance"],
             )
 
-            # Track best model
-            if val_metrics["recall@1"] > best_val_recall:
+            # Track best model based on Recall@10
+            if val_metrics["recall@10"] > best_val_recall10 + min_delta:
+                best_val_recall10 = val_metrics["recall@10"]
                 best_val_recall = val_metrics["recall@1"]
                 best_ckpt_path = CHECKPOINT_DIR / "best_model.pt"
                 save_checkpoint(
@@ -503,19 +555,52 @@ def main() -> None:
                     step=global_step,
                     config=training_config,
                 )
-                logger.info("  New best model saved (R@1=%.4f)", best_val_recall)
+                epochs_without_improvement = 0
+                logger.info(
+                    "  New best model saved (R@10=%.4f, R@1=%.4f)",
+                    best_val_recall10,
+                    best_val_recall,
+                )
+            else:
+                epochs_without_improvement += 1
+                logger.info(
+                    "  No improvement for %d epochs (best R@10=%.4f)",
+                    epochs_without_improvement,
+                    best_val_recall10,
+                )
+
+            # Early stopping check
+            if early_stop_enabled and epochs_without_improvement >= early_stop_patience:
+                logger.warning(
+                    "  EARLY STOPPING: no improvement for %d epochs. Stopping.",
+                    epochs_without_improvement,
+                )
+                break
+
+            # Capture first epoch metrics for comparison
+            if first_epoch_metrics is None:
+                first_epoch_metrics = {
+                    "loss": avg_loss,
+                    "recall@1": val_metrics["recall@1"],
+                    "recall@5": val_metrics["recall@5"],
+                    "recall@10": val_metrics["recall@10"],
+                    "temperature": model.temperature.item(),
+                    "image_dim_variance": val_metrics["image_dim_variance"],
+                    "text_dim_variance": val_metrics["text_dim_variance"],
+                    "lr": current_lr,
+                }
 
         training_logger.log_epoch(epoch, epoch_metrics)
         training_logger.flush()
 
         logger.info(
-            "  Epoch %d/%d complete (%.1fs): loss=%.4f, lr=%.2e, best_val_R@1=%.4f",
+            "  Epoch %d/%d complete (%.1fs): loss=%.4f, lr=%.2e, best_val_R@10=%.4f",
             epoch + 1,
             num_epochs,
             epoch_elapsed,
             avg_loss,
             current_lr,
-            best_val_recall,
+            best_val_recall10,
         )
 
         # Save periodic checkpoint
@@ -534,19 +619,120 @@ def main() -> None:
 
     # ---- Step 9: Final summary ----
     total_elapsed = time.time() - training_start
-    logger.info("=" * 60)
-    logger.info("Phase 4 Training Complete")
-    logger.info("=" * 60)
+
+    # Capture last epoch metrics
+    last_epoch_metrics = {
+        "loss": avg_loss,
+        "recall@1": val_metrics["recall@1"] if (epoch + 1) % eval_every == 0 else 0.0,
+        "recall@5": val_metrics["recall@5"] if (epoch + 1) % eval_every == 0 else 0.0,
+        "recall@10": val_metrics["recall@10"] if (epoch + 1) % eval_every == 0 else 0.0,
+        "temperature": model.temperature.item(),
+        "image_dim_variance": (
+            val_metrics.get("image_dim_variance", 0.0)
+            if (epoch + 1) % eval_every == 0
+            else 0.0
+        ),
+        "text_dim_variance": (
+            val_metrics.get("text_dim_variance", 0.0)
+            if (epoch + 1) % eval_every == 0
+            else 0.0
+        ),
+        "lr": current_lr,
+    }
+
+    logger.info("=" * 70)
+    logger.info("Phase 4 Baseline Training Complete")
+    logger.info("=" * 70)
     logger.info(
         "  Total time: %.1f seconds (%.1f minutes)", total_elapsed, total_elapsed / 60
     )
-    logger.info("  Total epochs: %d", num_epochs)
+    logger.info("  Total epochs: %d", epoch + 1)
     logger.info("  Total steps: %d", global_step)
-    logger.info("  Best val Recall@1: %.4f", best_val_recall)
+    logger.info("  Best val Recall@10: %.4f", best_val_recall10)
+    logger.info("  Best val Recall@1:  %.4f", best_val_recall)
     logger.info("  Final loss: %.4f", avg_loss)
+    logger.info("  Memory queue: %s", "enabled" if use_queue else "disabled")
     logger.info("  Checkpoints saved to: %s", CHECKPOINT_DIR)
     logger.info("  TensorBoard logs at: %s", LOG_DIR)
-    logger.info("=" * 60)
+
+    # ---- First vs Last Epoch Comparison ----
+    if first_epoch_metrics and last_epoch_metrics:
+        logger.info("")
+        logger.info("--- First vs Last Epoch Comparison ---")
+        logger.info(
+            "  Loss:           %.4f -> %.4f (%.1f%% %s)",
+            first_epoch_metrics["loss"],
+            last_epoch_metrics["loss"],
+            abs(last_epoch_metrics["loss"] - first_epoch_metrics["loss"])
+            / max(first_epoch_metrics["loss"], 1e-8)
+            * 100,
+            (
+                "decrease"
+                if last_epoch_metrics["loss"] < first_epoch_metrics["loss"]
+                else "increase"
+            ),
+        )
+        logger.info(
+            "  Recall@1:       %.4f -> %.4f",
+            first_epoch_metrics["recall@1"],
+            last_epoch_metrics["recall@1"],
+        )
+        logger.info(
+            "  Recall@5:       %.4f -> %.4f",
+            first_epoch_metrics["recall@5"],
+            last_epoch_metrics["recall@5"],
+        )
+        logger.info(
+            "  Recall@10:      %.4f -> %.4f",
+            first_epoch_metrics["recall@10"],
+            last_epoch_metrics["recall@10"],
+        )
+        logger.info(
+            "  Temperature:    %.4f -> %.4f",
+            first_epoch_metrics["temperature"],
+            last_epoch_metrics["temperature"],
+        )
+        logger.info(
+            "  Image emb var:  %.6f -> %.6f",
+            first_epoch_metrics["image_dim_variance"],
+            last_epoch_metrics["image_dim_variance"],
+        )
+        logger.info(
+            "  Text emb var:   %.6f -> %.6f",
+            first_epoch_metrics["text_dim_variance"],
+            last_epoch_metrics["text_dim_variance"],
+        )
+        logger.info(
+            "  Learning rate:  %.2e -> %.2e",
+            first_epoch_metrics["lr"],
+            last_epoch_metrics["lr"],
+        )
+
+        # Learning progress assessment
+        recall_improved = (
+            last_epoch_metrics["recall@10"] > first_epoch_metrics["recall@10"]
+        )
+        loss_decreased = last_epoch_metrics["loss"] < first_epoch_metrics["loss"]
+        logger.info("")
+        logger.info("--- Learning Progress Assessment ---")
+        if loss_decreased and recall_improved:
+            logger.info(
+                "  STATUS: Model is LEARNING — loss decreased and Recall@10 improved."
+            )
+        elif loss_decreased:
+            logger.info(
+                "  STATUS: Loss decreasing but Recall@10 not yet improving — needs more epochs."
+            )
+        elif recall_improved:
+            logger.info(
+                "  STATUS: Recall@10 improving despite loss not decreasing — possible regime change."
+            )
+        else:
+            logger.info(
+                "  STATUS: NO LEARNING DETECTED — loss and Recall@10 both stagnant."
+            )
+
+    logger.info("=" * 70)
 
     # Save final checkpoint
     final_ckpt_path = CHECKPOINT_DIR / "final_model.pt"
