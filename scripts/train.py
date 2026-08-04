@@ -85,6 +85,12 @@ def parse_args() -> argparse.Namespace:
         default=False,
         help="Disable memory queue (baseline experiment).",
     )
+    parser.add_argument(
+        "--num-workers",
+        type=int,
+        default=4,
+        help="Number of DataLoader workers (default: 4).",
+    )
     return parser.parse_args()
 
 
@@ -255,15 +261,15 @@ def main() -> None:
 
     # Performance-tuned DataLoader settings for RTX 4050 6GB
     # batch_size=128 fits in ~4.6GB VRAM (measured: 2.31GB forward-only)
-    # num_workers=8 utilizes 16 logical cores for parallel data loading
-    # persistent_workers=True avoids worker respawn overhead each epoch
+    # num_workers=4 avoids Windows shared memory issues with persistent_workers
+    # persistent_workers=False to prevent shared memory mapping failures on Windows
     # prefetch_factor=4 keeps more batches ready in the pipeline
     data_config_optimized = dict(data_config)
     data_config_optimized["dataset"] = dict(data_config["dataset"])
     data_config_optimized["dataset"]["batch_size"] = 128
-    data_config_optimized["dataset"]["num_workers"] = 8
+    data_config_optimized["dataset"]["num_workers"] = args.num_workers
     data_config_optimized["dataset"]["pin_memory"] = True
-    data_config_optimized["dataset"]["persistent_workers"] = True
+    data_config_optimized["dataset"]["persistent_workers"] = False
     data_config_optimized["dataset"]["prefetch_factor"] = 4
 
     # ---- Step 2: Load and split dataset ----
@@ -308,7 +314,7 @@ def main() -> None:
         tokenizer=tokenizer,
     )
     logger.info(
-        "  DataLoader: batch_size=%d, num_workers=%d, persistent_workers=True, "
+        "  DataLoader: batch_size=%d, num_workers=%d, persistent_workers=False, "
         "prefetch_factor=%d, pin_memory=True",
         data_config_optimized["dataset"]["batch_size"],
         data_config_optimized["dataset"]["num_workers"],
