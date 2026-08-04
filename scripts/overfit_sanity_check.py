@@ -346,9 +346,15 @@ def main() -> None:
         all_image_embeds = torch.cat(all_image_embeds, dim=0)
         all_text_embeds = torch.cat(all_text_embeds, dim=0)
 
-        recall_1 = compute_recall_at_k(all_image_embeds, all_text_embeds, captions_per_image=5, k=1)
-        recall_5 = compute_recall_at_k(all_image_embeds, all_text_embeds, captions_per_image=5, k=5)
-        recall_10 = compute_recall_at_k(all_image_embeds, all_text_embeds, captions_per_image=5, k=10)
+        recall_1 = compute_recall_at_k(
+            all_image_embeds, all_text_embeds, captions_per_image=5, k=1
+        )
+        recall_5 = compute_recall_at_k(
+            all_image_embeds, all_text_embeds, captions_per_image=5, k=5
+        )
+        recall_10 = compute_recall_at_k(
+            all_image_embeds, all_text_embeds, captions_per_image=5, k=10
+        )
         embed_stats = compute_embedding_variance(all_image_embeds)
 
         model.train()

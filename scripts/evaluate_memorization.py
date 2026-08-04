@@ -75,7 +75,9 @@ def main() -> None:
     # ---- Step 2: Load overfit subset ----
     logger.info("Step 2: Loading overfit subset...")
     subset_pairs = load_subset_metadata(subset_cfg["metadata_path"])
-    logger.info("  Loaded %d pairs from %s", len(subset_pairs), subset_cfg["metadata_path"])
+    logger.info(
+        "  Loaded %d pairs from %s", len(subset_pairs), subset_cfg["metadata_path"]
+    )
 
     # ---- Step 3: Build DataLoader ----
     logger.info("Step 3: Building DataLoader...")
@@ -115,9 +117,12 @@ def main() -> None:
     logger.info("  Loading checkpoint: %s", ckpt_path)
 
     from vectormind.training.train_loop import create_optimizer, create_scaler
+
     optimizer = create_optimizer(model, lr=3e-4, weight_decay=0.01)
     scaler = create_scaler()
-    memory_queue = MemoryQueue(queue_size=1, embed_dim=model_config["embedding"]["shared_dim"], device=device)
+    memory_queue = MemoryQueue(
+        queue_size=1, embed_dim=model_config["embedding"]["shared_dim"], device=device
+    )
 
     epoch, step = load_checkpoint(ckpt_path, model, optimizer, scaler, memory_queue)
     logger.info("  Restored: epoch=%d, step=%d", epoch, step)
@@ -172,20 +177,30 @@ def main() -> None:
     # Average the 5 embeddings per image to get one embedding per unique image.
     N_total = all_image_embeds_cat.shape[0]
     N_unique = N_total // CAPTIONS_PER_IMAGE
-    image_embeds = all_image_embeds_cat.view(N_unique, CAPTIONS_PER_IMAGE, -1).mean(dim=1)
+    image_embeds = all_image_embeds_cat.view(N_unique, CAPTIONS_PER_IMAGE, -1).mean(
+        dim=1
+    )
     text_embeds = all_text_embeds_cat  # [N_total, D] — all 500 captions
 
     N_images = image_embeds.shape[0]
     N_texts = text_embeds.shape[0]
-    logger.info("  Computed: %d unique image embeddings, %d text embeddings", N_images, N_texts)
+    logger.info(
+        "  Computed: %d unique image embeddings, %d text embeddings", N_images, N_texts
+    )
 
     # ---- Step 6: Image -> Text Recall ----
     logger.info("Step 6: Image -> Text Retrieval Analysis")
     logger.info("-" * 50)
 
-    i2t_r1 = compute_image_level_recall(image_embeds, text_embeds, CAPTIONS_PER_IMAGE, k=1)
-    i2t_r5 = compute_image_level_recall(image_embeds, text_embeds, CAPTIONS_PER_IMAGE, k=5)
-    i2t_r10 = compute_image_level_recall(image_embeds, text_embeds, CAPTIONS_PER_IMAGE, k=10)
+    i2t_r1 = compute_image_level_recall(
+        image_embeds, text_embeds, CAPTIONS_PER_IMAGE, k=1
+    )
+    i2t_r5 = compute_image_level_recall(
+        image_embeds, text_embeds, CAPTIONS_PER_IMAGE, k=5
+    )
+    i2t_r10 = compute_image_level_recall(
+        image_embeds, text_embeds, CAPTIONS_PER_IMAGE, k=10
+    )
 
     logger.info("  Image -> Text Recall@1:   %.4f (%.1f%%)", i2t_r1, i2t_r1 * 100)
     logger.info("  Image -> Text Recall@5:   %.4f (%.1f%%)", i2t_r5, i2t_r5 * 100)
@@ -195,9 +210,15 @@ def main() -> None:
     logger.info("Step 7: Text -> Image Retrieval Analysis")
     logger.info("-" * 50)
 
-    t2i_r1 = compute_text_level_recall(image_embeds, text_embeds, CAPTIONS_PER_IMAGE, k=1)
-    t2i_r5 = compute_text_level_recall(image_embeds, text_embeds, CAPTIONS_PER_IMAGE, k=5)
-    t2i_r10 = compute_text_level_recall(image_embeds, text_embeds, CAPTIONS_PER_IMAGE, k=10)
+    t2i_r1 = compute_text_level_recall(
+        image_embeds, text_embeds, CAPTIONS_PER_IMAGE, k=1
+    )
+    t2i_r5 = compute_text_level_recall(
+        image_embeds, text_embeds, CAPTIONS_PER_IMAGE, k=5
+    )
+    t2i_r10 = compute_text_level_recall(
+        image_embeds, text_embeds, CAPTIONS_PER_IMAGE, k=10
+    )
 
     logger.info("  Text -> Image Recall@1:   %.4f (%.1f%%)", t2i_r1, t2i_r1 * 100)
     logger.info("  Text -> Image Recall@5:   %.4f (%.1f%%)", t2i_r5, t2i_r5 * 100)
@@ -207,27 +228,45 @@ def main() -> None:
     logger.info("Step 8: Similarity Matrix Analysis")
     logger.info("-" * 50)
 
-    sim_analysis = compute_similarity_analysis(image_embeds, text_embeds, CAPTIONS_PER_IMAGE)
+    sim_analysis = compute_similarity_analysis(
+        image_embeds, text_embeds, CAPTIONS_PER_IMAGE
+    )
 
-    logger.info("  Matched similarity (mean ± std):   %.4f ± %.4f",
-                sim_analysis["matched_mean_similarity"], sim_analysis["matched_std_similarity"])
-    logger.info("  Unmatched similarity (mean ± std): %.4f ± %.4f",
-                sim_analysis["unmatched_mean_similarity"], sim_analysis["unmatched_std_similarity"])
+    logger.info(
+        "  Matched similarity (mean ± std):   %.4f ± %.4f",
+        sim_analysis["matched_mean_similarity"],
+        sim_analysis["matched_std_similarity"],
+    )
+    logger.info(
+        "  Unmatched similarity (mean ± std): %.4f ± %.4f",
+        sim_analysis["unmatched_mean_similarity"],
+        sim_analysis["unmatched_std_similarity"],
+    )
     logger.info("  Separation (matched - unmatched):  %.4f", sim_analysis["separation"])
-    logger.info("  Min matched similarity:            %.4f", sim_analysis["min_matched_similarity"])
-    logger.info("  Max unmatched similarity:          %.4f", sim_analysis["max_unmatched_similarity"])
+    logger.info(
+        "  Min matched similarity:            %.4f",
+        sim_analysis["min_matched_similarity"],
+    )
+    logger.info(
+        "  Max unmatched similarity:          %.4f",
+        sim_analysis["max_unmatched_similarity"],
+    )
 
     # ---- Step 9: Top-K Examples ----
     logger.info("Step 9: Top-K Ranking Examples")
     logger.info("-" * 50)
 
-    examples = compute_top_k_examples(image_embeds, text_embeds, CAPTIONS_PER_IMAGE, k=10, num_examples=5)
+    examples = compute_top_k_examples(
+        image_embeds, text_embeds, CAPTIONS_PER_IMAGE, k=10, num_examples=5
+    )
 
     for i, ex in enumerate(examples):
         status = "HIT" if ex["recall_at_k"] else "MISS"
         logger.info(
             "  Example %d (image %d): %s | top scores: [%.4f, %.4f, %.4f, %.4f, %.4f]",
-            i + 1, ex["image_index"], status,
+            i + 1,
+            ex["image_index"],
+            status,
             *ex["top_k_scores"][:5],
         )
 
@@ -239,10 +278,18 @@ def main() -> None:
 
     logger.info("  Image dim variance:       %.6f", embed_diag["image_dim_variance"])
     logger.info("  Text dim variance:        %.6f", embed_diag["text_dim_variance"])
-    logger.info("  Image mean pairwise dist: %.4f", embed_diag["image_mean_pairwise_dist"])
-    logger.info("  Text mean pairwise dist:  %.4f", embed_diag["text_mean_pairwise_dist"])
-    logger.info("  Image min pairwise dist:  %.4f", embed_diag["image_min_pairwise_dist"])
-    logger.info("  Text min pairwise dist:   %.4f", embed_diag["text_min_pairwise_dist"])
+    logger.info(
+        "  Image mean pairwise dist: %.4f", embed_diag["image_mean_pairwise_dist"]
+    )
+    logger.info(
+        "  Text mean pairwise dist:  %.4f", embed_diag["text_mean_pairwise_dist"]
+    )
+    logger.info(
+        "  Image min pairwise dist:  %.4f", embed_diag["image_min_pairwise_dist"]
+    )
+    logger.info(
+        "  Text min pairwise dist:   %.4f", embed_diag["text_min_pairwise_dist"]
+    )
 
     # ---- Step 11: Verdict ----
     elapsed = time.time() - start_time
@@ -260,10 +307,18 @@ def main() -> None:
     logger.info("  Text -> Image Recall@1: %.4f (1/%d)", random_t2i_r1, N_images)
     logger.info("")
     logger.info("Achieved results:")
-    logger.info("  Image -> Text Recall@1: %.4f (%.0fx above random)", i2t_r1, i2t_r1 / random_i2t_r1)
+    logger.info(
+        "  Image -> Text Recall@1: %.4f (%.0fx above random)",
+        i2t_r1,
+        i2t_r1 / random_i2t_r1,
+    )
     logger.info("  Image -> Text Recall@5: %.4f", i2t_r5)
     logger.info("  Image -> Text Recall@10: %.4f", i2t_r10)
-    logger.info("  Text -> Image Recall@1: %.4f (%.0fx above random)", t2i_r1, t2i_r1 / random_t2i_r1)
+    logger.info(
+        "  Text -> Image Recall@1: %.4f (%.0fx above random)",
+        t2i_r1,
+        t2i_r1 / random_t2i_r1,
+    )
     logger.info("  Text -> Image Recall@5: %.4f", t2i_r5)
     logger.info("  Text -> Image Recall@10: %.4f", t2i_r10)
     logger.info("  Similarity separation: %.4f", sim_analysis["separation"])
@@ -286,16 +341,22 @@ def main() -> None:
     # Criterion 2: Embedding variance healthy
     if embed_diag["image_dim_variance"] < 1e-6:
         passed = False
-        failure_reasons.append(f"Image embedding variance={embed_diag['image_dim_variance']:.8f} < 1e-6 (collapse)")
+        failure_reasons.append(
+            f"Image embedding variance={embed_diag['image_dim_variance']:.8f} < 1e-6 (collapse)"
+        )
 
     if embed_diag["text_dim_variance"] < 1e-6:
         passed = False
-        failure_reasons.append(f"Text embedding variance={embed_diag['text_dim_variance']:.8f} < 1e-6 (collapse)")
+        failure_reasons.append(
+            f"Text embedding variance={embed_diag['text_dim_variance']:.8f} < 1e-6 (collapse)"
+        )
 
     # Criterion 3: Positive similarity separation
     if sim_analysis["separation"] <= 0:
         passed = False
-        failure_reasons.append(f"Similarity separation={sim_analysis['separation']:.4f} <= 0 (no discrimination)")
+        failure_reasons.append(
+            f"Similarity separation={sim_analysis['separation']:.4f} <= 0 (no discrimination)"
+        )
 
     logger.info("")
     if passed:
