@@ -88,8 +88,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--num-workers",
         type=int,
-        default=4,
-        help="Number of DataLoader workers (default: 4).",
+        default=2,
+        help="Number of DataLoader workers (default: 2).",
     )
     return parser.parse_args()
 
