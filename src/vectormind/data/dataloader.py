@@ -92,6 +92,8 @@ def create_dataloaders(
     pin_memory = config["dataset"]["pin_memory"]
     drop_last = config["dataset"]["drop_last"]
     max_text_length = config["dataset"]["max_text_length"]
+    persistent_workers = config["dataset"].get("persistent_workers", False)
+    prefetch_factor = config["dataset"].get("prefetch_factor", 2)
 
     if not train_pairs:
         raise ValueError("train_pairs must be non-empty.")
@@ -137,6 +139,8 @@ def create_dataloaders(
         pin_memory=pin_memory,
         drop_last=drop_last,
         collate_fn=_collate_fn,
+        persistent_workers=persistent_workers if num_workers > 0 else False,
+        prefetch_factor=prefetch_factor if num_workers > 0 else None,
     )
     val_loader = DataLoader(
         val_dataset,
@@ -146,6 +150,8 @@ def create_dataloaders(
         pin_memory=pin_memory,
         drop_last=False,
         collate_fn=_collate_fn,
+        persistent_workers=persistent_workers if num_workers > 0 else False,
+        prefetch_factor=prefetch_factor if num_workers > 0 else None,
     )
     test_loader = DataLoader(
         test_dataset,
@@ -155,6 +161,8 @@ def create_dataloaders(
         pin_memory=pin_memory,
         drop_last=False,
         collate_fn=_collate_fn,
+        persistent_workers=persistent_workers if num_workers > 0 else False,
+        prefetch_factor=prefetch_factor if num_workers > 0 else None,
     )
 
     logger.info(

@@ -222,6 +222,10 @@ def main() -> None:
     logger.info("VectorMind Phase 4 -- Full Training Run")
     logger.info("=" * 60)
 
+    # ---- Performance optimizations ----
+    torch.backends.cudnn.benchmark = True
+    logger.info("  cuDNN benchmark: enabled")
+
     # ---- Step 1: Load configurations ----
     logger.info("Step 1: Loading configurations...")
     data_config = load_config("configs/data.yaml")
@@ -242,6 +246,19 @@ def main() -> None:
     # Apply CLI overrides
     num_epochs = args.epochs or train_cfg["epochs"]
     lr = args.lr or optim_cfg["lr"]
+
+    # Performance-tuned DataLoader settings for RTX 4050 6GB
+    # batch_size=128 fits in ~4.6GB VRAM (measured: 2.31GB forward-only)
+    # num_workers=8 utilizes 16 logical cores for parallel data loading
+    # persistent_workers=True avoids worker respawn overhead each epoch
+    # prefetch_factor=4 keeps more batches ready in the pipeline
+    data_config_optimized = dict(data_config)
+    data_config_optimized["dataset"] = dict(data_config["dataset"])
+    data_config_optimized["dataset"]["batch_size"] = 128
+    data_config_optimized["dataset"]["num_workers"] = 8
+    data_config_optimized["dataset"]["pin_memory"] = True
+    data_config_optimized["dataset"]["persistent_workers"] = True
+    data_config_optimized["dataset"]["prefetch_factor"] = 4
 
     # ---- Step 2: Load and split dataset ----
     logger.info("Step 2: Loading Flickr30k dataset...")
@@ -267,7 +284,7 @@ def main() -> None:
     )
 
     # ---- Step 3: Build DataLoaders ----
-    logger.info("Step 3: Building DataLoaders...")
+    logger.info("Step 3: Building DataLoaders (optimized)...")
     tokenizer = CaptionTokenizer(
         tokenizer_name=data_config["dataset"]["tokenizer_name"],
         max_length=data_config["dataset"]["max_text_length"],
@@ -276,13 +293,20 @@ def main() -> None:
     eval_transform = get_eval_transforms(data_config)
 
     train_loader, val_loader, _ = create_dataloaders(
-        config=data_config,
+        config=data_config_optimized,
         train_pairs=train_pairs,
         val_pairs=val_pairs,
         test_pairs=test_pairs,
         train_transform=train_transform,
         eval_transform=eval_transform,
         tokenizer=tokenizer,
+    )
+    logger.info(
+        "  DataLoader: batch_size=%d, num_workers=%d, persistent_workers=True, "
+        "prefetch_factor=%d, pin_memory=True",
+        data_config_optimized["dataset"]["batch_size"],
+        data_config_optimized["dataset"]["num_workers"],
+        data_config_optimized["dataset"]["prefetch_factor"],
     )
 
     # ---- Step 4: Initialize model ----
@@ -341,7 +365,7 @@ def main() -> None:
     training_logger = TrainingLogger(log_dir=LOG_DIR)
 
     # ---- Step 8: Training loop ----
-    log_every = train_cfg["log_every_n_steps"]
+    log_every = 50  # Reduced from 10 to minimize logging overhead
     eval_every = train_cfg["eval_every_n_epochs"]
     save_every = train_cfg["save_every_n_epochs"]
     accum_steps = train_cfg.get("gradient_accumulation_steps", 1)
@@ -445,6 +469,8 @@ def main() -> None:
 
         # ---- Validation every N epochs ----
         if (epoch + 1) % eval_every == 0:
+            # Free GPU memory before validation to avoid OOM
+            torch.cuda.empty_cache()
             logger.info("  Running validation...")
             val_metrics = evaluate(
                 model=model,
