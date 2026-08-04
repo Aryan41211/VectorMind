@@ -33,7 +33,6 @@ from typing import Any
 
 import torch
 
-from vectormind.models.vectormind_model import VectorMindModel
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +60,6 @@ def compute_image_level_recall(
         Image-level Recall@K as a float between 0 and 1.
     """
     N_images = image_embeds.shape[0]
-    N_texts = text_embeds.shape[0]
 
     # Similarity matrix: [N_images, N_texts]
     similarity = image_embeds @ text_embeds.T
@@ -107,7 +105,6 @@ def compute_text_level_recall(
     Returns:
         Text-level Recall@K as a float between 0 and 1.
     """
-    N_images = image_embeds.shape[0]
     N_texts = text_embeds.shape[0]
 
     # Similarity matrix: [N_texts, N_images]
@@ -210,9 +207,7 @@ def compute_top_k_examples(
 
         # Top-K for this image
         scores, indices = similarity[i].topk(k)
-        correct_in_top_k = [
-            idx.item() for idx in indices if start <= idx.item() < end
-        ]
+        correct_in_top_k = [idx.item() for idx in indices if start <= idx.item() < end]
 
         examples.append(
             {
@@ -249,8 +244,12 @@ def compute_embedding_diagnostics(
     img_pairwise = torch.cdist(image_embeds, image_embeds, p=2)
     txt_pairwise = torch.cdist(text_embeds, text_embeds, p=2)
 
-    mask_img = ~torch.eye(img_pairwise.shape[0], dtype=torch.bool, device=img_pairwise.device)
-    mask_txt = ~torch.eye(txt_pairwise.shape[0], dtype=torch.bool, device=txt_pairwise.device)
+    mask_img = ~torch.eye(
+        img_pairwise.shape[0], dtype=torch.bool, device=img_pairwise.device
+    )
+    mask_txt = ~torch.eye(
+        txt_pairwise.shape[0], dtype=torch.bool, device=txt_pairwise.device
+    )
 
     return {
         "image_dim_variance": img_dim_var,
