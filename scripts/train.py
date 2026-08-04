@@ -135,21 +135,21 @@ def compute_embedding_diagnostics(
     img_dim_var = image_embeds.var(dim=0).mean().item()
     txt_dim_var = text_embeds.var(dim=0).mean().item()
 
-    img_pairwise = torch.cdist(image_embeds, image_embeds, p=2)
-    txt_pairwise = torch.cdist(text_embeds, text_embeds, p=2)
+    max_n = 500
+    img_cpu = image_embeds[:max_n].cpu()
+    txt_cpu = text_embeds[:max_n].cpu()
 
-    mask_img = ~torch.eye(
-        img_pairwise.shape[0], dtype=torch.bool, device=img_pairwise.device
-    )
-    mask_txt = ~torch.eye(
-        txt_pairwise.shape[0], dtype=torch.bool, device=txt_pairwise.device
-    )
+    img_dist = torch.cdist(img_cpu, img_cpu, p=2)
+    txt_dist = torch.cdist(txt_cpu, txt_cpu, p=2)
+
+    mask_img = ~torch.eye(img_dist.shape[0], dtype=torch.bool)
+    mask_txt = ~torch.eye(txt_dist.shape[0], dtype=torch.bool)
 
     return {
         "image_dim_variance": img_dim_var,
         "text_dim_variance": txt_dim_var,
-        "image_mean_pairwise_dist": img_pairwise[mask_img].mean().item(),
-        "text_mean_pairwise_dist": txt_pairwise[mask_txt].mean().item(),
+        "image_mean_pairwise_dist": img_dist[mask_img].mean().item(),
+        "text_mean_pairwise_dist": txt_dist[mask_txt].mean().item(),
     }
 
 
