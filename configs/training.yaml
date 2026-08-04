@@ -20,7 +20,7 @@ optimizer:
 # --- Learning Rate Schedule ---
 scheduler:
   type: cosine_annealing
-  T_max: 10           # epochs — matches total epochs
+  T_max: 20           # epochs — spans full training budget
   eta_min: 1.0e-6     # minimum LR at end of schedule
 
 # --- Gradient Accumulation ---
@@ -41,7 +41,7 @@ memory_queue:
   queue_size: 4096
 
 # --- Training Schedule ---
-epochs: 10
+epochs: 20
 log_every_n_steps: 50
 eval_every_n_epochs: 1
 save_every_n_epochs: 2
