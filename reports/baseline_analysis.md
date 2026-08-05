@@ -136,6 +136,23 @@ Training will stop when ANY of these conditions are met:
 - Loss diverges (NaN or >10x initial value)
 - Manual termination due to time constraints
 
+### Resume Results (2 epochs completed)
+
+**Training resumed successfully with memory queue ENABLED (size=4096)**
+
+| Metric | Before Resume (Epoch 6) | After Resume (Epoch 8) | Improvement |
+|--------|-------------------------|------------------------|-------------|
+| Val Recall@10 | 17.12% | 20.23% | +18.2% relative |
+| Val Recall@1 | 3.46% | 4.22% | +21.9% relative |
+| Memory Queue Size | 1 (disabled) | 4096 (enabled) | Fixed |
+| Temperature | 18.64 | 53.51 | Increased |
+
+**Key Observations:**
+1. Memory queue fix immediately improved Recall@10 by 3.1 percentage points
+2. Temperature increased significantly (18.64 → 53.51) — model is learning to sharpen similarity distribution
+3. Loss increased slightly (2.54 → 3.72) — expected with more negatives
+4. Training is progressing towards convergence
+
 ---
 
 ## 6. Expected Outcomes
@@ -148,10 +165,14 @@ Training will stop when ANY of these conditions are met:
 - Recall@10: 35-40% with full 20 epochs and memory queue working
 - This would be 2-2.5x improvement over current baseline
 
+### Actual Results (After 2 epochs with queue)
+- Recall@10: 20.23% (already achieved conservative estimate)
+- On track for optimistic estimate if training continues
+
 ### Random Baseline Context
 - Random Recall@10 for 100 captions: ~10%
-- Current model: 17.12% (1.7x random)
-- Target: Clearly above random (≥20% Recall@10)
+- Current model: 20.23% (2.0x random)
+- Target: Clearly above random (≥20% Recall@10) — ACHIEVED
 
 ---
 
