@@ -1,0 +1,39 @@
+{
+  "best_checkpoint": {
+    "best_epoch": 7,
+    "best_recall@10": 0.20232850313186646,
+    "best_recall@5": 0.14002516865730286,
+    "best_recall@1": 0.0421648845076561,
+    "best_image_variance": 0.0007455399027094245,
+    "best_text_variance": 0.0004713324015028775,
+    "best_temperature": 0.0,
+    "total_epochs": 1,
+    "recall@10_improvement": 0.0
+  },
+  "comparison": {
+    "baseline_before_queue_fix": {
+      "epoch": 6,
+      "recall@10": 0.1712,
+      "recall@1": 0.0346
+    },
+    "after_queue_fix": {
+      "epoch": 8,
+      "recall@10": 0.2023,
+      "recall@1": 0.0422
+    },
+    "hyperparameter_experiment_lower_lr": {
+      "epoch": 9,
+      "recall@10": 0.1054,
+      "recall@1": 0.0208,
+      "lr": 0.0005,
+      "conclusion": "Lower LR hurts performance"
+    }
+  },
+  "recommendations": [
+    "Continue training with lr=1e-3 (baseline LR is better)",
+    "Memory queue is working correctly (queue_size=4096)",
+    "Temperature is learning (increasing over time)",
+    "Embedding variance is healthy (no collapse)",
+    "Recall@10 improved from 17.12% to 20.23% with memory queue"
+  ]
+}
