@@ -35,7 +35,7 @@ from vectormind.data.splitter import create_splits
 from vectormind.data.tokenizer import CaptionTokenizer
 from vectormind.data.transforms import get_eval_transforms, get_train_transforms
 from vectormind.models.vectormind_model import VectorMindModel
-from vectormind.training.checkpoint import load_checkpoint, save_checkpoint
+from vectormind.training.checkpoint import save_checkpoint
 from vectormind.training.logger import TrainingLogger
 from vectormind.training.memory_queue import MemoryQueue
 from vectormind.training.train_loop import (
