@@ -90,9 +90,9 @@ is not being populated with embeddings.
 not the intended 4096 queue negatives. This significantly reduces the
 contrastive signal quality.
 
-**Root Cause:** The training loop calls `memory_queue.enqueue()` but the
-queue size remains at 1. Likely a bug in the enqueue logic or queue
-initialization.
+**Root Cause:** Training was run with `--no-queue` flag, which creates a
+dummy queue of size 1. The queue implementation itself works correctly
+(verified via test script).
 
 ### Issue 2: Gradient Norm Logging
 **Observation:** All gradient norm values are exactly 0.000000.
