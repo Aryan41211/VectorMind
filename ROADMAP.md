@@ -199,11 +199,11 @@ otherwise.
 iterating on hyperparameters as needed.
 
 **Deliverables:**
-- [ ] At least one full training run to convergence (loss plateaued,
+- [x] At least one full training run to convergence (loss plateaued,
       val metrics stopped improving)
-- [ ] Training curves documented (loss, embedding stats, val Recall@K
+- [x] Training curves documented (loss, embedding stats, val Recall@K
       over time)
-- [ ] At least one hyperparameter iteration informed by the first run
+- [x] At least one hyperparameter iteration informed by the first run
       (e.g. adjusted LR, queue size, or temperature init)
 
 **Dependencies:** Phase 3.5 passed.
@@ -212,7 +212,28 @@ iterating on hyperparameters as needed.
 clearly and reproducibly above random-chance baseline (documented
 with the actual number, not just "it works").
 
-**Status:** not started
+**Status:** complete
+
+**Results:**
+- **Best Checkpoint:** Epoch 7, Step 7944 (checkpoints/train/best_model.pt)
+- **Val Recall@1:** 4.22% (4.2x random baseline)
+- **Val Recall@5:** 14.00%
+- **Val Recall@10:** 20.23% (2.0x random baseline)
+- **Training Time:** ~8 minutes (2 epochs with memory queue)
+- **Memory Queue:** Enabled (size=4096)
+- **Temperature:** Learned from 14.29 to 53.51
+
+**Key Findings:**
+1. Memory queue fix improved Recall@10 from 17.12% to 20.23% (+18.2% relative)
+2. Lower learning rate (5e-4) hurt performance (Recall@10 dropped to 10.54%)
+3. Embedding variance remained healthy (no collapse)
+4. Temperature increased significantly, indicating model learned to sharpen similarity
+
+**Documentation:**
+- Baseline analysis: reports/baseline_analysis.md
+- Training curves: reports/figures/training_curves.png
+- Checkpoint summary: reports/checkpoint_summary.json
+- Training log: TRAINING_LOG.md
 
 ---
 

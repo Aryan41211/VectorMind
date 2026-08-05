@@ -9,26 +9,35 @@ phase boundaries.
 VectorMind
 
 ## Current Phase
-Phase 3 — Training Infrastructure (per ROADMAP.md)
+Phase 4 — Full Training Run (per ROADMAP.md)
 
 ## Current Stage
-Phase 3 complete. All training infrastructure deliverables implemented,
-tested (61 training tests passing), and lint-clean. Acceptance test
-validated on real Flickr30k data. Phases 0-2 were completed previously.
+Phase 4 complete. Baseline training run executed with memory queue
+enabled, achieving val Recall@10 of 20.23% (2.0x random baseline).
+Hyperparameter experiment completed (lower LR tested, found to hurt
+performance). Training visualizations generated. Best checkpoint
+identified at Epoch 7, Step 7944.
 
 ## Overall Completion %
-Rough estimate based on ROADMAP.md's 8 phases (0 through 7): **~50%**
-(Phases 0-3 complete; Phases 4-7 not started).
+Rough estimate based on ROADMAP.md's 8 phases (0 through 7): **~62%**
+(Phases 0-4 complete; Phases 5-7 not started).
 
 ## Current Status
-The training infrastructure is fully implemented: symmetric InfoNCE
-contrastive loss with hand-computed unit tests, MoCo-style memory queue
-for negative samples, mixed precision training with gradient accumulation,
-checkpoint save/load with exact state restoration, and TensorBoard
-metrics logging. Acceptance test passes on real Flickr30k data — 8
-training steps completed, all losses finite, weights updated,
-checkpoint saved and reloaded correctly. All 194 tests pass
-(48 data + 85 model + 61 training). Ruff/black/mypy clean.
+Phase 4 training complete with the following results:
+- **Best Checkpoint:** Epoch 7, Step 7944 (checkpoints/train/best_model.pt)
+- **Val Recall@1:** 4.22% (4.2x random baseline)
+- **Val Recall@5:** 14.00%
+- **Val Recall@10:** 20.23% (2.0x random baseline)
+- **Memory Queue:** Enabled (size=4096) — fixed from initial run
+- **Temperature:** Learned from 14.29 to 53.51
+- **Embedding Variance:** Healthy (0.0007 image, 0.0005 text)
+
+**Key Achievements:**
+1. Memory queue fix improved Recall@10 by 18.2% relative (17.12% → 20.23%)
+2. Hyperparameter experiment completed (lower LR 5e-4 tested, found to hurt performance)
+3. Training visualizations generated (reports/figures/training_curves.png)
+4. Best checkpoint identified and documented
+5. All acceptance criteria met: val Recall@10 clearly above random baseline
 
 ## Completed Work
 - [x] Repository structure created (`src/vectormind/{data,models,training,evaluation,utils}`,
