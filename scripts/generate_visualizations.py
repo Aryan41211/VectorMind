@@ -327,7 +327,7 @@ def main() -> None:
     if "error" in best_info:
         print(f"Error: {best_info['error']}")
     else:
-        print(f"\nBest Checkpoint Summary:")
+        print("\nBest Checkpoint Summary:")
         print(f"  Epoch: {best_info['best_epoch']}")
         print(f"  Recall@10: {best_info['best_recall@10']*100:.2f}%")
         print(f"  Recall@5: {best_info['best_recall@5']*100:.2f}%")

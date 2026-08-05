@@ -25,7 +25,6 @@ from vectormind.data.splitter import create_splits
 from vectormind.data.tokenizer import CaptionTokenizer
 from vectormind.data.transforms import get_eval_transforms, get_train_transforms
 from vectormind.models.vectormind_model import VectorMindModel
-from vectormind.training.checkpoint import load_checkpoint
 from vectormind.utils.config import load_config
 
 
@@ -228,7 +227,7 @@ def print_results(results: dict) -> None:
     # Interpretation
     print("\n--- Interpretation ---")
     random_baseline_r1 = 1.0 / (r10 * 100 / r1) if r1 > 0 else 0.01
-    print(f"  Random baseline Recall@1: ~1% (for 100 candidate captions)")
+    print("  Random baseline Recall@1: ~1% (for 100 candidate captions)")
     print(f"  Actual Recall@1: {r1*100:.2f}% ({r1/random_baseline_r1:.1f}x random)")
     
     if diag["image_dim_variance"] > 0.001 and diag["text_dim_variance"] > 0.001:

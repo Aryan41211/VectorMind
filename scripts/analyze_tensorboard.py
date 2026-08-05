@@ -127,19 +127,19 @@ def print_metrics_summary(metrics: dict) -> None:
     
     if "val/recall@10" in metrics:
         r10_data = metrics["val/recall@10"]
-        print(f"\n  Validation Recall@10:")
+        print("\n  Validation Recall@10:")
         print(f"    Latest: {r10_data['latest']:.4f} ({r10_data['latest']*100:.2f}%)")
         print(f"    Best:   {r10_data['max']:.4f} ({r10_data['max']*100:.2f}%)")
     
     if "val/recall@1" in metrics:
         r1_data = metrics["val/recall@1"]
-        print(f"\n  Validation Recall@1:")
+        print("\n  Validation Recall@1:")
         print(f"    Latest: {r1_data['latest']:.4f} ({r1_data['latest']*100:.2f}%)")
         print(f"    Best:   {r1_data['max']:.4f} ({r1_data['max']*100:.2f}%)")
     
     if "train/loss" in metrics:
         loss_data = metrics["train/loss"]
-        print(f"\n  Training Loss:")
+        print("\n  Training Loss:")
         print(f"    Latest: {loss_data['latest']:.4f}")
         print(f"    Range: [{loss_data['min']:.4f}, {loss_data['max']:.4f}]")
     
