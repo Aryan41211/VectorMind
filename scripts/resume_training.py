@@ -266,9 +266,26 @@ def main() -> None:
     
     # Resume from checkpoint
     logger.info("Resuming from checkpoint %s...", args.checkpoint)
-    start_epoch, global_step = load_checkpoint(
-        args.checkpoint, model, optimizer, scaler, memory_queue
-    )
+    
+    # Load checkpoint manually to handle queue size mismatch
+    checkpoint = torch.load(args.checkpoint, map_location=device)
+    model.load_state_dict(checkpoint["model_state_dict"])
+    optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+    scaler.load_state_dict(checkpoint["scaler_state_dict"])
+    
+    # Don't restore queue state if sizes don't match (old checkpoint with queue_size=1)
+    queue_state = checkpoint.get("queue", {})
+    if queue_state.get("queue_size", 0) == mq_cfg["queue_size"]:
+        memory_queue.queue.copy_(queue_state["tensor"])
+        memory_queue.pointer = queue_state["pointer"]
+        memory_queue.num_filled = queue_state["num_filled"]
+        logger.info("  Restored memory queue from checkpoint")
+    else:
+        logger.info("  Starting with fresh memory queue (checkpoint queue_size=%d, current=%d)",
+                    queue_state.get("queue_size", 0), mq_cfg["queue_size"])
+    
+    start_epoch = checkpoint.get("epoch", 0)
+    global_step = checkpoint.get("step", 0)
     start_epoch += 1  # Resume from next epoch
     logger.info("  Resumed: epoch=%d, step=%d", start_epoch, global_step)
     logger.info("  Memory queue size after resume: %d", memory_queue.current_size)
