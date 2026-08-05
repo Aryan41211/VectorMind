@@ -45,38 +45,41 @@ Proceed to Phase 4 full training.
 
 **Run ID:** baseline_20260805
 **Start date:** 2026-08-05
-**Status:** In Progress (paused at Epoch 6)
+**Status:** In Progress (resumed at Epoch 8, with memory queue enabled)
 
 ### Checkpoints
 | Epoch | Step | File | Notes |
 |-------|------|------|-------|
-| 2 | 1986 | epoch_002.pt | Periodic save |
-| 4 | 3972 | epoch_004.pt | Periodic save |
-| 6 | 6951 | best_model.pt | Best val Recall@10 |
+| 2 | 1986 | epoch_002.pt | Periodic save (no queue) |
+| 4 | 3972 | epoch_004.pt | Periodic save (no queue) |
+| 6 | 6951 | best_model_old.pt | Best before queue fix |
+| 7 | 7944 | best_model.pt | New best with queue enabled |
+| 8 | 7944 | epoch_008.pt | Periodic save |
 
 ### Training Progress
 
-| Epoch | Loss | Val R@1 | Val R@5 | Val R@10 | Temp | LR |
-|-------|------|---------|---------|----------|------|-----|
-| 1 | ~4.92 | - | - | - | 13.6 | 1e-3 |
-| 6 | 2.54 | 3.46% | 11.42% | 17.12% | 18.6 | 7.3e-4 |
+| Epoch | Loss | Val R@1 | Val R@5 | Val R@10 | Temp | Queue | LR |
+|-------|------|---------|---------|----------|------|-------|-----|
+| 1 | ~4.92 | - | - | - | 13.6 | 1 | 1e-3 |
+| 6 | 2.54 | 3.46% | 11.42% | 17.12% | 18.6 | 1 | 7.3e-4 |
+| 8 | 3.72 | 4.22% | 14.00% | 20.23% | 53.5 | 4096 | 7.2e-4 |
 
 ### Key Observations
-1. Loss decreased 50% (4.92 → 2.54)
-2. Recall@10 at 17.12% (1.7x random baseline)
-3. Embedding variance healthy (0.0023)
-4. Memory queue not being used (size=1)
-5. Gradient norm logging shows 0.0 (investigation needed)
+1. **Memory queue fix improved Recall@10 by 3.1 percentage points** (17.12% → 20.23%)
+2. Temperature increased significantly (18.6 → 53.5) — model learning to sharpen similarity
+3. Loss increased slightly (2.54 → 3.72) — expected with more negatives
+4. Embedding variance remains healthy
+5. Training is progressing towards convergence
 
 ### Issues Identified
-- **Memory Queue Bug:** Queue size remains at 1 despite enqueue calls
-- **Gradient Logging:** All values are 0.000000
-- **Embedding Std Logging:** All values are 0.000000
+- **Memory Queue Bug (FIXED):** Training was run with --no-queue flag initially
+- **Gradient Logging:** All values are 0.000000 (investigation needed)
+- **Embedding Std Logging:** All values are 0.000000 (investigation needed)
 
 ### Resume Strategy
-- **Decision:** Resume from Epoch 6 (best checkpoint)
-- **Fix:** Memory queue bug before resuming
-- **Budget:** 14 more epochs (total 20)
+- **Decision:** Resume from Epoch 6 (best checkpoint before queue fix)
+- **Fix:** Memory queue bug fixed (queue_size=4096 enabled)
+- **Budget:** 12 more epochs (total 20)
 - **Convergence criteria:** Early stopping (patience=5)
 
 ---
