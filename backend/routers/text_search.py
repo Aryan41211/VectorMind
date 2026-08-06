@@ -4,6 +4,11 @@ VectorMind Text Search Router — /search/text endpoint
 Handles text queries and returns images ranked by similarity.
 Uses the text encoder to generate query embeddings and FAISS
 index for efficient similarity search.
+
+NOTE: This endpoint uses synchronous def (not async def) because
+it performs blocking operations (tokenization, model inference, FAISS
+search). FastAPI runs synchronous endpoints in a threadpool to avoid
+blocking the event loop.
 """
 
 from __future__ import annotations
@@ -34,7 +39,7 @@ router = APIRouter(prefix="/search", tags=["search"])
     summary="Search images by text query",
     description="Find images matching a text description using semantic similarity.",
 )
-async def search_by_text(request: TextSearchRequest) -> SearchResponse:
+def search_by_text(request: TextSearchRequest) -> SearchResponse:
     """
     Search images by text query.
 
@@ -68,7 +73,7 @@ async def search_by_text(request: TextSearchRequest) -> SearchResponse:
     try:
         # Tokenize the query
         tokenizer = _get_tokenizer()
-        text_input = tokenizer(
+        encoded = tokenizer(
             request.query,
             return_tensors="pt",
             padding=True,
@@ -76,13 +81,14 @@ async def search_by_text(request: TextSearchRequest) -> SearchResponse:
             max_length=77,
         )
 
-        # Move to device
+        # Move to device — extract input_ids and attention_mask separately
         device = app_state.device
-        text_input = {k: v.to(device) for k, v in text_input.items()}
+        input_ids = encoded["input_ids"].to(device)
+        attention_mask = encoded["attention_mask"].to(device)
 
-        # Generate text embedding
+        # Generate text embedding — pass as separate tensor arguments
         with torch.no_grad():
-            text_embedding = app_state.model.encode_text(text_input)
+            text_embedding = app_state.model.encode_text(input_ids, attention_mask)
             text_embedding = text_embedding.cpu().numpy().astype(np.float32)
 
         # Normalize for inner product search
@@ -119,8 +125,10 @@ async def search_by_text(request: TextSearchRequest) -> SearchResponse:
             latency_ms=latency_ms,
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Text search failed: {e}")
+        logger.error(f"Text search failed: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"Search failed: {str(e)}",

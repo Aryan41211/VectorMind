@@ -30,11 +30,11 @@ class MockModel:
     def __init__(self, dim: int = 256):
         self.dim = dim
 
-    def encode_text(self, text_input):
+    def encode_text(self, input_ids, attention_mask=None):
         """Return deterministic embeddings based on input."""
-        batch_size = text_input["input_ids"].shape[0]
+        batch_size = input_ids.shape[0]
         # Use input hash for deterministic results
-        seed = text_input["input_ids"].sum().item() % 1000
+        seed = input_ids.sum().item() % 1000
         rng = np.random.RandomState(seed)
         embeddings = rng.randn(batch_size, self.dim).astype(np.float32)
         return torch.tensor(embeddings)
