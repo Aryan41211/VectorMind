@@ -1,0 +1,544 @@
+{
+  "checkpoint": "checkpoints/train/best_model.pt",
+  "epoch": 7,
+  "step": 7944,
+  "split": "test",
+  "split_size": {
+    "images": 3178,
+    "captions": 15890
+  },
+  "image_to_text": {
+    "recall@1": 0.04216488357457521,
+    "recall@5": 0.14002517306482065,
+    "recall@10": 0.2026431718061674
+  },
+  "text_to_image": {
+    "recall@1": 0.027879169210791588,
+    "recall@5": 0.09358086436986923,
+    "recall@10": 0.15210823714733124
+  },
+  "embedding_diagnostics": {
+    "image_dim_variance": 0.0007455362938344479,
+    "text_dim_variance": 0.0004713324015028775,
+    "image_mean_pairwise_dist": 0.6054257750511169,
+    "text_mean_pairwise_dist": 0.4765464663505554,
+    "image_min_pairwise_dist": 0.08535883575677872,
+    "text_min_pairwise_dist": 0.0,
+    "image_uniformity": -0.7213153839111328,
+    "text_uniformity": -0.457462340593338,
+    "alignment": 0.12532557547092438
+  },
+  "failure_analysis": {
+    "total_images": 3178,
+    "total_failures": 2534,
+    "failure_rate": 0.7973568281938326,
+    "success_rate": 0.20264317180616742,
+    "failure_rank_distribution": [
+      2534,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "random_baseline": {
+    "recall@1": 0.01,
+    "recall@5": 0.05,
+    "recall@10": 0.1
+  },
+  "retrieval_examples": {
+    "successes": [
+      {
+        "image_index": 7,
+        "image_path": "image_7",
+        "correct_caption_range": [
+          35,
+          40
+        ],
+        "query_caption": "caption_35",
+        "top_k_indices": [
+          12439,
+          8557,
+          5692,
+          14832,
+          2145,
+          14045,
+          11849,
+          37,
+          12605,
+          7588
+        ],
+        "top_k_scores": [
+          0.967620313167572,
+          0.9641222357749939,
+          0.9610080718994141,
+          0.9593965411186218,
+          0.9585299491882324,
+          0.9585273265838623,
+          0.9576598405838013,
+          0.9575033783912659,
+          0.9566100835800171,
+          0.9564409255981445
+        ],
+        "top_k_captions": [
+          "caption_12439",
+          "caption_8557",
+          "caption_5692",
+          "caption_14832",
+          "caption_2145",
+          "caption_14045",
+          "caption_11849",
+          "caption_37",
+          "caption_12605",
+          "caption_7588"
+        ],
+        "correct_in_top_k": [
+          37
+        ],
+        "recall_at_k": true
+      },
+      {
+        "image_index": 12,
+        "image_path": "image_12",
+        "correct_caption_range": [
+          60,
+          65
+        ],
+        "query_caption": "caption_60",
+        "top_k_indices": [
+          61,
+          15310,
+          9651,
+          15311,
+          9650,
+          3370,
+          3373,
+          4695,
+          15312,
+          15776
+        ],
+        "top_k_scores": [
+          0.9853248000144958,
+          0.9847157001495361,
+          0.9832550883293152,
+          0.9822516441345215,
+          0.9813668727874756,
+          0.9813304543495178,
+          0.9811391830444336,
+          0.9804628491401672,
+          0.979456901550293,
+          0.978167712688446
+        ],
+        "top_k_captions": [
+          "caption_61",
+          "caption_15310",
+          "caption_9651",
+          "caption_15311",
+          "caption_9650",
+          "caption_3370",
+          "caption_3373",
+          "caption_4695",
+          "caption_15312",
+          "caption_15776"
+        ],
+        "correct_in_top_k": [
+          61
+        ],
+        "recall_at_k": true
+      },
+      {
+        "image_index": 15,
+        "image_path": "image_15",
+        "correct_caption_range": [
+          75,
+          80
+        ],
+        "query_caption": "caption_75",
+        "top_k_indices": [
+          76,
+          75,
+          14250,
+          11474,
+          11473,
+          78,
+          9344,
+          11472,
+          11397,
+          6718
+        ],
+        "top_k_scores": [
+          0.9774352312088013,
+          0.9762890934944153,
+          0.9762598872184753,
+          0.9746443629264832,
+          0.9746440649032593,
+          0.9727181792259216,
+          0.9726231694221497,
+          0.9721415042877197,
+          0.9720982909202576,
+          0.971473753452301
+        ],
+        "top_k_captions": [
+          "caption_76",
+          "caption_75",
+          "caption_14250",
+          "caption_11474",
+          "caption_11473",
+          "caption_78",
+          "caption_9344",
+          "caption_11472",
+          "caption_11397",
+          "caption_6718"
+        ],
+        "correct_in_top_k": [
+          76,
+          75,
+          78
+        ],
+        "recall_at_k": true
+      },
+      {
+        "image_index": 29,
+        "image_path": "image_29",
+        "correct_caption_range": [
+          145,
+          150
+        ],
+        "query_caption": "caption_145",
+        "top_k_indices": [
+          263,
+          15449,
+          695,
+          2082,
+          12606,
+          145,
+          6199,
+          1270,
+          2333,
+          1230
+        ],
+        "top_k_scores": [
+          0.9709185361862183,
+          0.9683594107627869,
+          0.9683114886283875,
+          0.9678525924682617,
+          0.9676468968391418,
+          0.9667613506317139,
+          0.9665158987045288,
+          0.9665045738220215,
+          0.9650359153747559,
+          0.9646428823471069
+        ],
+        "top_k_captions": [
+          "caption_263",
+          "caption_15449",
+          "caption_695",
+          "caption_2082",
+          "caption_12606",
+          "caption_145",
+          "caption_6199",
+          "caption_1270",
+          "caption_2333",
+          "caption_1230"
+        ],
+        "correct_in_top_k": [
+          145
+        ],
+        "recall_at_k": true
+      },
+      {
+        "image_index": 34,
+        "image_path": "image_34",
+        "correct_caption_range": [
+          170,
+          175
+        ],
+        "query_caption": "caption_170",
+        "top_k_indices": [
+          12065,
+          2223,
+          10495,
+          218,
+          1814,
+          174,
+          1091,
+          7855,
+          14353,
+          2191
+        ],
+        "top_k_scores": [
+          0.9881292581558228,
+          0.9838671684265137,
+          0.9834535121917725,
+          0.9831053614616394,
+          0.9823138117790222,
+          0.9817451238632202,
+          0.9817069172859192,
+          0.9816281795501709,
+          0.9814730882644653,
+          0.9801737666130066
+        ],
+        "top_k_captions": [
+          "caption_12065",
+          "caption_2223",
+          "caption_10495",
+          "caption_218",
+          "caption_1814",
+          "caption_174",
+          "caption_1091",
+          "caption_7855",
+          "caption_14353",
+          "caption_2191"
+        ],
+        "correct_in_top_k": [
+          174
+        ],
+        "recall_at_k": true
+      }
+    ],
+    "failures": [
+      {
+        "image_index": 0,
+        "image_path": "image_0",
+        "correct_caption_range": [
+          0,
+          5
+        ],
+        "query_caption": "caption_0",
+        "top_k_indices": [
+          4740,
+          12960,
+          4743,
+          9676,
+          10416,
+          11109,
+          4741,
+          12963,
+          13688,
+          8693
+        ],
+        "top_k_scores": [
+          0.9813866019248962,
+          0.9785230159759521,
+          0.9767848253250122,
+          0.9752611517906189,
+          0.9751165509223938,
+          0.9748474359512329,
+          0.9736925959587097,
+          0.9732162356376648,
+          0.972819447517395,
+          0.9727538228034973
+        ],
+        "top_k_captions": [
+          "caption_4740",
+          "caption_12960",
+          "caption_4743",
+          "caption_9676",
+          "caption_10416",
+          "caption_11109",
+          "caption_4741",
+          "caption_12963",
+          "caption_13688",
+          "caption_8693"
+        ],
+        "correct_in_top_k": [],
+        "recall_at_k": false
+      },
+      {
+        "image_index": 1,
+        "image_path": "image_1",
+        "correct_caption_range": [
+          5,
+          10
+        ],
+        "query_caption": "caption_5",
+        "top_k_indices": [
+          11115,
+          15259,
+          11464,
+          15661,
+          13123,
+          4888,
+          7137,
+          11157,
+          13357,
+          15772
+        ],
+        "top_k_scores": [
+          0.9809607267379761,
+          0.9797579646110535,
+          0.9797284603118896,
+          0.9791816473007202,
+          0.9790932536125183,
+          0.9782126545906067,
+          0.9782006740570068,
+          0.9762674570083618,
+          0.9753444194793701,
+          0.9751468300819397
+        ],
+        "top_k_captions": [
+          "caption_11115",
+          "caption_15259",
+          "caption_11464",
+          "caption_15661",
+          "caption_13123",
+          "caption_4888",
+          "caption_7137",
+          "caption_11157",
+          "caption_13357",
+          "caption_15772"
+        ],
+        "correct_in_top_k": [],
+        "recall_at_k": false
+      },
+      {
+        "image_index": 2,
+        "image_path": "image_2",
+        "correct_caption_range": [
+          10,
+          15
+        ],
+        "query_caption": "caption_10",
+        "top_k_indices": [
+          11287,
+          1869,
+          1868,
+          11285,
+          7069,
+          9242,
+          11916,
+          9244,
+          7292,
+          8120
+        ],
+        "top_k_scores": [
+          0.9718461036682129,
+          0.9712510108947754,
+          0.9661747217178345,
+          0.9655112028121948,
+          0.9643765091896057,
+          0.9641016125679016,
+          0.963931143283844,
+          0.9633700847625732,
+          0.9631341695785522,
+          0.9630232453346252
+        ],
+        "top_k_captions": [
+          "caption_11287",
+          "caption_1869",
+          "caption_1868",
+          "caption_11285",
+          "caption_7069",
+          "caption_9242",
+          "caption_11916",
+          "caption_9244",
+          "caption_7292",
+          "caption_8120"
+        ],
+        "correct_in_top_k": [],
+        "recall_at_k": false
+      },
+      {
+        "image_index": 3,
+        "image_path": "image_3",
+        "correct_caption_range": [
+          15,
+          20
+        ],
+        "query_caption": "caption_15",
+        "top_k_indices": [
+          2427,
+          15059,
+          12677,
+          6015,
+          13993,
+          4449,
+          15273,
+          8628,
+          6010,
+          6816
+        ],
+        "top_k_scores": [
+          0.9864524602890015,
+          0.985727846622467,
+          0.9849912524223328,
+          0.9846097230911255,
+          0.9842151999473572,
+          0.9841811656951904,
+          0.9834891557693481,
+          0.9832043051719666,
+          0.9824678301811218,
+          0.982177734375
+        ],
+        "top_k_captions": [
+          "caption_2427",
+          "caption_15059",
+          "caption_12677",
+          "caption_6015",
+          "caption_13993",
+          "caption_4449",
+          "caption_15273",
+          "caption_8628",
+          "caption_6010",
+          "caption_6816"
+        ],
+        "correct_in_top_k": [],
+        "recall_at_k": false
+      },
+      {
+        "image_index": 4,
+        "image_path": "image_4",
+        "correct_caption_range": [
+          20,
+          25
+        ],
+        "query_caption": "caption_20",
+        "top_k_indices": [
+          9715,
+          524,
+          521,
+          5309,
+          13499,
+          11771,
+          11630,
+          11770,
+          9683,
+          7435
+        ],
+        "top_k_scores": [
+          0.992158055305481,
+          0.9892234802246094,
+          0.9881188869476318,
+          0.9874454736709595,
+          0.9871044158935547,
+          0.9869027733802795,
+          0.984907865524292,
+          0.9842079281806946,
+          0.9836952686309814,
+          0.9831050634384155
+        ],
+        "top_k_captions": [
+          "caption_9715",
+          "caption_524",
+          "caption_521",
+          "caption_5309",
+          "caption_13499",
+          "caption_11771",
+          "caption_11630",
+          "caption_11770",
+          "caption_9683",
+          "caption_7435"
+        ],
+        "correct_in_top_k": [],
+        "recall_at_k": false
+      }
+    ],
+    "total_images_evaluated": 3178,
+    "k": 10
+  }
+}
