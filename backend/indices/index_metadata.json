@@ -1,0 +1,22 @@
+{
+  "image_index": {
+    "index_type": "IndexFlatIP",
+    "dimension": 256,
+    "num_vectors": 15895,
+    "build_time_seconds": 0.03210902214050293,
+    "checkpoint_path": "checkpoints\\train\\best_model.pt",
+    "dataset_split": "test",
+    "creation_timestamp": "2026-08-07 01:39:34"
+  },
+  "text_index": {
+    "index_type": "IndexFlatIP",
+    "dimension": 256,
+    "num_vectors": 15895,
+    "build_time_seconds": 0.03210902214050293,
+    "checkpoint_path": "checkpoints\\train\\best_model.pt",
+    "dataset_split": "test",
+    "creation_timestamp": "2026-08-07 01:39:34"
+  },
+  "captions_per_image": 5,
+  "total_images": 15895
+}
