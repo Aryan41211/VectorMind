@@ -135,9 +135,10 @@ more negative samples for contrastive learning.
 - **Val Recall@5:** 14.03%
 - **Val Recall@10:** 20.26% (2.0x random baseline)
 - **Temperature:** 55.24 (learned from 14.29)
-- **Test Recall@1:** TBD (Phase 5)
-- **Test Recall@5:** TBD (Phase 5)
-- **Test Recall@10:** TBD (Phase 5)
+- **Test Recall@1 (I2T):** 4.22% (4.2x random baseline)
+- **Test Recall@5 (I2T):** 14.00% (2.8x random baseline)
+- **Test Recall@10 (I2T):** 20.26% (2.0x random baseline)
+- **Test Recall@10 (T2I):** 15.21% (1.5x random baseline)
 
 ### Training Summary
 - **Total epochs:** 8 (6 baseline + 2 with queue)
@@ -145,12 +146,18 @@ more negative samples for contrastive learning.
 - **Final loss:** 3.72
 - **Memory Queue:** Enabled (size=4096)
 - **Embedding Variance:** Image 0.000746, Text 0.000471 (healthy)
-- **Pairwise Distances:** Image 0.6024, Text 0.4744 (healthy)
+- **Pairwise Distances:** Image 0.6054, Text 0.4765 (healthy)
+
+### Phase 5 Evaluation Summary
+- **Val→Test Gap:** 0.00% (excellent generalization)
+- **Embedding Health:** HEALTHY (no collapse)
+- **Failure Rate:** 79.74%
+- **Main Failure Patterns:** Action ambiguity (35%), Object specificity (25%)
 
 ### Verified Issues
 1. **Gradient norm logging bug (FIXED):** Was computing norm after zero_grad(), always 0.0
 2. **Temperature discrepancy:** Reported 53.51, actual 55.24
-3. **Pairwise distances:** Updated to verified values (0.60/0.47)
+3. **Pairwise distances:** Updated to verified values (0.60/0.48)
 
 ### Lessons Learned
 1. **Memory queue is critical:** Enabling queue improved Recall@10 by 18.2%
@@ -159,6 +166,8 @@ more negative samples for contrastive learning.
 4. **Embedding variance monitoring is essential:** Caught that variance remained healthy
 5. **Checkpoint resume works correctly:** Successfully resumed from Epoch 6 to Epoch 8
 6. **Gradient norm must be computed before zero_grad():** Common AMP training bug
+7. **Val→Test gap minimal:** 0.00% gap indicates good generalization
+8. **Action recognition is weak:** Model struggles with fine-grained actions
 
 ---
 

@@ -244,9 +244,9 @@ with the actual number, not just "it works").
 quantitatively and qualitatively.
 
 **Deliverables:**
-- [ ] Recall@1/5/10 for image→text and text→image on the test split
-- [ ] Embedding space diagnostics (collapse/uniformity checks)
-- [ ] Qualitative review: manually inspect 10+ retrieval
+- [x] Recall@1/5/10 for image→text and text→image on the test split
+- [x] Embedding space diagnostics (collapse/uniformity checks)
+- [x] Qualitative review: manually inspect 10+ retrieval
       successes AND failures, write down patterns observed
 
 **Dependencies:** Phase 4 complete.
@@ -255,7 +255,31 @@ quantitatively and qualitatively.
 with a stated comparison to random-chance baseline; qualitative
 failure analysis documented, not just the numbers.
 
-**Status:** not started
+**Status:** complete
+
+**Results:**
+- **Test Recall@1 (I2T):** 4.22% (4.2x random baseline)
+- **Test Recall@5 (I2T):** 14.00% (2.8x random baseline)
+- **Test Recall@10 (I2T):** 20.26% (2.0x random baseline)
+- **Test Recall@1 (T2I):** 2.79% (2.8x random baseline)
+- **Test Recall@5 (T2I):** 9.36% (1.9x random baseline)
+- **Test Recall@10 (T2I):** 15.21% (1.5x random baseline)
+- **Val→Test Gap:** 0.00% (excellent generalization)
+- **Embedding Health:** HEALTHY (no collapse)
+- **Failure Rate:** 79.74%
+
+**Key Findings:**
+1. Model achieves 2.0x random baseline for image→text retrieval
+2. Text→image direction weaker (1.5x vs 2.0x)
+3. No embedding collapse detected
+4. Main failure patterns: action ambiguity (35%), object specificity (25%)
+5. Strong scene understanding, weak fine-grained action recognition
+
+**Documentation:**
+- Test metrics: reports/phase5_test_metrics.json
+- Embedding diagnostics: reports/phase5_embedding_diagnostics.json
+- Qualitative analysis: reports/phase5_qualitative_analysis.md
+- Final report: reports/phase5_final_report.md
 
 ---
 
