@@ -28,9 +28,9 @@ class MockModel:
     def __init__(self, dim: int = 256):
         self.dim = dim
 
-    def encode_text(self, text_input):
+    def encode_text(self, input_ids, attention_mask=None):
         """Return random embeddings."""
-        batch_size = text_input["input_ids"].shape[0]
+        batch_size = input_ids.shape[0]
         embeddings = np.random.randn(batch_size, self.dim).astype(np.float32)
         return torch.tensor(embeddings)
 

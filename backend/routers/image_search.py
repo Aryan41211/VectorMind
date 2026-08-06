@@ -4,6 +4,11 @@ VectorMind Image Search Router — /search/image endpoint
 Handles image queries and returns captions ranked by similarity.
 Uses the image encoder to generate query embeddings and FAISS
 text index for efficient similarity search.
+
+NOTE: This endpoint uses synchronous def (not async def) because
+it performs blocking operations (image transforms, model inference,
+FAISS search). FastAPI runs synchronous endpoints in a threadpool
+to avoid blocking the event loop.
 """
 
 from __future__ import annotations
@@ -57,7 +62,7 @@ def _get_transforms():
     summary="Search captions by image query",
     description="Find captions matching an uploaded image using semantic similarity.",
 )
-async def search_by_image(
+def search_by_image(
     file: UploadFile = File(..., description="Image file to search with"),
     top_k: int = 10,
 ) -> SearchResponse:
@@ -93,8 +98,8 @@ async def search_by_image(
     start_time = time.time()
 
     try:
-        # Validate and load image
-        image = await _validate_image(file)
+        # Validate and load image (synchronous file read)
+        image = _validate_image_sync(file)
 
         # Preprocess image
         transforms = _get_transforms()
@@ -146,16 +151,16 @@ async def search_by_image(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Image search failed: {e}")
+        logger.error(f"Image search failed: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"Search failed: {str(e)}",
         )
 
 
-async def _validate_image(file: UploadFile) -> Image.Image:
+def _validate_image_sync(file: UploadFile) -> Image.Image:
     """
-    Validate and load an uploaded image file.
+    Validate and load an uploaded image file (synchronous).
 
     Args:
         file: Uploaded file.
@@ -173,8 +178,8 @@ async def _validate_image(file: UploadFile) -> Image.Image:
             detail=f"Invalid file type: {file.content_type}. Expected image.",
         )
 
-    # Read file content
-    content = await file.read()
+    # Read file content synchronously via the underlying file object
+    content = file.file.read()
 
     # Check file size (max 10MB)
     max_size = 10 * 1024 * 1024
