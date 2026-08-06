@@ -133,8 +133,9 @@ def create_app(
         }
 
     # Include routers
-    from backend.routers import text_search
+    from backend.routers import text_search, image_search
     app.include_router(text_search.router)
+    app.include_router(image_search.router)
 
     return app
 
