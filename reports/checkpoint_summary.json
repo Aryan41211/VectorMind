@@ -1,14 +1,24 @@
 {
   "best_checkpoint": {
     "best_epoch": 7,
-    "best_recall@10": 0.20232850313186646,
-    "best_recall@5": 0.14002516865730286,
-    "best_recall@1": 0.0421648845076561,
-    "best_image_variance": 0.0007455399027094245,
-    "best_text_variance": 0.0004713324015028775,
-    "best_temperature": 0.0,
-    "total_epochs": 1,
-    "recall@10_improvement": 0.0
+    "best_recall@10": 0.2026,
+    "best_recall@5": 0.1403,
+    "best_recall@1": 0.0422,
+    "best_image_variance": 0.000746,
+    "best_text_variance": 0.000471,
+    "best_temperature": 55.24,
+    "total_epochs": 8,
+    "recall@10_improvement": 0.0314
+  },
+  "verification": {
+    "verified_date": "2026-08-06",
+    "evaluation_script": "scripts/evaluate_checkpoint.py",
+    "metrics_match": true,
+    "temperature_discrepancy": "Reported 53.51, actual 55.24",
+    "pairwise_distances": {
+      "image_mean_pairwise_dist": 0.6024,
+      "text_mean_pairwise_dist": 0.4744
+    }
   },
   "comparison": {
     "baseline_before_queue_fix": {
@@ -18,7 +28,7 @@
     },
     "after_queue_fix": {
       "epoch": 8,
-      "recall@10": 0.2023,
+      "recall@10": 0.2026,
       "recall@1": 0.0422
     },
     "hyperparameter_experiment_lower_lr": {
@@ -34,6 +44,7 @@
     "Memory queue is working correctly (queue_size=4096)",
     "Temperature is learning (increasing over time)",
     "Embedding variance is healthy (no collapse)",
-    "Recall@10 improved from 17.12% to 20.23% with memory queue"
+    "Recall@10 improved from 17.12% to 20.26% with memory queue",
+    "Gradient norm logging bug fixed (was always 0.0)"
   ]
 }
