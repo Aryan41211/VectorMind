@@ -47,6 +47,11 @@ class ImageSearchRequest(BaseModel):
 
 class SearchResult(BaseModel):
     """A single search result."""
+    rank: int = Field(
+        ...,
+        description="Rank of the result (1-indexed)",
+        examples=[1],
+    )
     index: int = Field(
         ...,
         description="Index of the result in the dataset",
@@ -56,6 +61,16 @@ class SearchResult(BaseModel):
         ...,
         description="Similarity score (higher = more similar)",
         examples=[0.85],
+    )
+    filename: str | None = Field(
+        default=None,
+        description="Image filename (e.g., '1000092795.jpg')",
+        examples=["1000092795.jpg"],
+    )
+    image_url: str | None = Field(
+        default=None,
+        description="URL to retrieve the image (e.g., '/images/1000092795.jpg')",
+        examples=["/images/1000092795.jpg"],
     )
     caption: str | None = Field(
         default=None,

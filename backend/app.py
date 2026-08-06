@@ -15,7 +15,7 @@ from __future__ import annotations
 import logging
 import time
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +25,7 @@ import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from backend.index_builder import load_model
 from backend.schemas import HealthResponse, ServerConfig
@@ -40,6 +41,7 @@ class AppState:
     image_index: faiss.Index | None = None
     text_index: faiss.Index | None = None
     index_metadata: dict[str, Any] | None = None
+    sample_metadata: list[dict[str, Any]] | None = None
     loaded: bool = False
 
 
@@ -137,6 +139,14 @@ def create_app(
     app.include_router(text_search.router)
     app.include_router(image_search.router)
 
+    # Serve Flickr30k images as static files
+    images_dir = Path("data/raw/flickr30k/images")
+    if images_dir.exists():
+        app.mount("/images", StaticFiles(directory=str(images_dir)), name="images")
+        logger.info(f"Mounted static images from {images_dir}")
+    else:
+        logger.warning(f"Images directory not found: {images_dir}")
+
     return app
 
 
@@ -202,6 +212,15 @@ def _load_model_and_index(model_config: dict[str, Any] | None = None) -> None:
         if metadata_path.exists():
             with open(metadata_path) as f:
                 app_state.index_metadata = json.load(f)
+
+        # Load sample metadata (per-vector image paths and captions)
+        sample_metadata_path = index_dir / "sample_metadata.json"
+        if sample_metadata_path.exists():
+            with open(sample_metadata_path, encoding="utf-8") as f:
+                app_state.sample_metadata = json.load(f)
+            logger.info(
+                f"Loaded sample metadata: {len(app_state.sample_metadata)} entries"
+            )
 
         app_state.loaded = True
         logger.info("FAISS indices loaded successfully")

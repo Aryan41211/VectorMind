@@ -123,14 +123,28 @@ def search_by_image(
 
         # Build results
         results = []
-        for i, (idx, score) in enumerate(zip(indices[0], distances[0])):
+        for rank, (idx, score) in enumerate(zip(indices[0], distances[0]), start=1):
             if idx == -1:  # FAISS returns -1 for failed searches
                 continue
 
+            # Look up real metadata from sample_metadata
+            filename = None
+            image_url = None
+            caption = None
+            if app_state.sample_metadata and 0 <= idx < len(app_state.sample_metadata):
+                entry = app_state.sample_metadata[idx]
+                filename = entry.get("filename")
+                caption = entry.get("caption")
+                if filename:
+                    image_url = f"/images/{filename}"
+
             result = SearchResult(
+                rank=rank,
                 index=int(idx),
                 score=float(score),
-                caption=f"caption_{idx}",  # Placeholder — real caption from metadata
+                filename=filename,
+                image_url=image_url,
+                caption=caption,
             )
             results.append(result)
 

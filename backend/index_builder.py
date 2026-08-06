@@ -136,7 +136,7 @@ def load_model(
 
 @torch.no_grad()
 def generate_embeddings(
-    model: DualEncoder,
+    model: VectorMindModel,
     dataloader: DataLoader,
     device: torch.device,
     captions_per_image: int = 5,
@@ -145,8 +145,8 @@ def generate_embeddings(
     Generate image and text embeddings for all batches.
 
     Args:
-        model: Trained DualEncoder model.
-        dataloader: DataLoader yielding (images, captions, image_ids).
+        model: Trained VectorMindModel.
+        dataloader: DataLoader yielding batches with image, input_ids, attention_mask.
         device: Device for inference.
         captions_per_image: Number of captions per image.
 
@@ -158,30 +158,18 @@ def generate_embeddings(
 
     for batch_idx, batch in enumerate(dataloader):
         images = batch["image"].to(device)
-        captions = {
-            k: v.to(device) for k, v in batch["caption"].items()
-        }
+        input_ids = batch["input_ids"].to(device)
+        attention_mask = batch["attention_mask"].to(device)
         batch_size = images.shape[0]
 
         # Generate image embeddings
         image_emb = model.encode_image(images)  # [B, D]
 
-        # Generate text embeddings (process all captions per image)
-        all_caption_emb = []
-        for cap_idx in range(captions_per_image):
-            caption_input = {
-                "input_ids": captions["input_ids"][:, cap_idx, :],
-                "attention_mask": captions["attention_mask"][:, cap_idx, :],
-            }
-            text_emb = model.encode_text(caption_input)  # [B, D]
-            all_caption_emb.append(text_emb.cpu().numpy())
-
-        # Stack and average captions per image
-        caption_emb_array = np.stack(all_caption_emb, axis=1)  # [B, C, D]
-        mean_caption_emb = caption_emb_array.mean(axis=1)  # [B, D]
+        # Generate text embeddings
+        text_emb = model.encode_text(input_ids, attention_mask)  # [B, D]
 
         all_image_embeddings.append(image_emb.cpu().numpy())
-        all_text_embeddings.append(mean_caption_emb)
+        all_text_embeddings.append(text_emb.cpu().numpy())
 
         if (batch_idx + 1) % 50 == 0:
             logger.info(f"Processed {batch_idx + 1} batches")
@@ -202,6 +190,7 @@ def save_indices(
     text_metadata: IndexMetadata,
     captions_per_image: int,
     total_images: int,
+    sample_metadata: list[dict[str, Any]] | None = None,
 ) -> None:
     """
     Save FAISS indices and metadata to disk.
@@ -216,6 +205,7 @@ def save_indices(
         text_metadata: Metadata for text index.
         captions_per_image: Number of captions per image.
         total_images: Total number of images.
+        sample_metadata: Per-vector metadata mapping index to image/caption.
     """
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -240,6 +230,15 @@ def save_indices(
         json.dump(metadata, f, indent=2)
     logger.info(f"Saved metadata to {output_dir / 'index_metadata.json'}")
 
+    # Save sample metadata (per-vector image paths and captions)
+    if sample_metadata is not None:
+        with open(output_dir / "sample_metadata.json", "w", encoding="utf-8") as f:
+            json.dump(sample_metadata, f, indent=2, ensure_ascii=False)
+        logger.info(
+            f"Saved sample metadata ({len(sample_metadata)} entries) to "
+            f"{output_dir / 'sample_metadata.json'}"
+        )
+
 
 def build_indices(
     checkpoint_path: str | Path,
@@ -263,6 +262,19 @@ def build_indices(
     Returns:
         IndexBuildResult with indices and metadata.
     """
+    import sys
+    from pathlib import Path as PathLib
+
+    # Add scripts/ to path for _data_helpers
+    scripts_dir = PathLib(__file__).resolve().parent.parent / "scripts"
+    if str(scripts_dir) not in sys.path:
+        sys.path.insert(0, str(scripts_dir))
+
+    from _data_helpers import load_flickr30k_from_hf
+    from src.vectormind.data.dataloader import _collate_fn
+    from src.vectormind.data.splitter import create_splits
+    from src.vectormind.data.tokenizer import CaptionTokenizer
+    from src.vectormind.data.transforms import get_eval_transforms
     from src.vectormind.utils.config import load_config
 
     if device is None:
@@ -282,20 +294,57 @@ def build_indices(
     # Load model
     model = load_model(checkpoint_path, model_config, device)
 
-    # Load dataset
-    dataset = Flickr30kDataset(
-        config=data_config,
-        split=dataset_split,
+    # Load Flickr30k data
+    cache_dir = data_config["dataset"]["local_cache_dir"]
+    image_paths, captions = load_flickr30k_from_hf(cache_dir)
+
+    # Split data
+    train_pairs, val_pairs, test_pairs = create_splits(
+        data_config, [Path(p) for p in image_paths], captions
     )
+
+    # Select split
+    if dataset_split == "train":
+        pairs = train_pairs
+    elif dataset_split == "val":
+        pairs = val_pairs
+    else:
+        pairs = test_pairs
+
+    split_paths, split_caps = zip(*pairs)
+    split_paths = list(split_paths)
+    split_caps = list(split_caps)
+
+    logger.info(f"Loaded {len(split_paths)} pairs for {dataset_split} split")
+
+    # Create transform and tokenizer
+    transform = get_eval_transforms(data_config)
+    tokenizer = CaptionTokenizer(
+        tokenizer_name=data_config["dataset"]["tokenizer_name"],
+        max_length=data_config["dataset"]["max_text_length"],
+    )
+    max_text_length = data_config["dataset"]["max_text_length"]
+
+    # Create dataset
+    dataset = Flickr30kDataset(
+        image_paths=split_paths,
+        captions=split_caps,
+        transform=transform,
+        tokenizer=tokenizer,
+        max_text_length=max_text_length,
+    )
+
+    # Create dataloader
     dataloader = DataLoader(
         dataset,
         batch_size=64,
         shuffle=False,
         num_workers=2,
         pin_memory=True,
+        collate_fn=_collate_fn,
     )
 
-    captions_per_image = data_config.get("dataset", {}).get("num_captions_per_image", 5)
+    captions_per_image = 5  # Flickr30k has 5 captions per image
 
     # Generate embeddings
     start_time = time.time()
@@ -333,6 +382,17 @@ def build_indices(
     )
 
     # Save to disk
+    # Build per-vector sample metadata: maps FAISS index → image/caption info
+    sample_metadata = []
+    for i, (img_path, cap) in enumerate(zip(split_paths, split_caps)):
+        path_obj = Path(img_path)
+        sample_metadata.append({
+            "index": i,
+            "image_path": str(img_path),
+            "filename": path_obj.name,
+            "caption": cap,
+        })
+
     save_indices(
         output_dir,
         image_index,
@@ -343,6 +403,7 @@ def build_indices(
         text_metadata,
         captions_per_image,
         len(dataset),
+        sample_metadata,
     )
 
     return IndexBuildResult(
