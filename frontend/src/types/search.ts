@@ -3,8 +3,11 @@
  */
 
 export interface SearchResult {
+  rank: number;
   index: number;
   score: number;
+  filename?: string;
+  image_url?: string;
   caption?: string;
   image_path?: string;
   metadata?: Record<string, unknown>;
