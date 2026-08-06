@@ -12,11 +12,9 @@ VectorMind
 Phase 4 — Full Training Run (per ROADMAP.md)
 
 ## Current Stage
-Phase 4 complete. Baseline training run executed with memory queue
-enabled, achieving val Recall@10 of 20.23% (2.0x random baseline).
-Hyperparameter experiment completed (lower LR tested, found to hurt
-performance). Training visualizations generated. Best checkpoint
-identified at Epoch 7, Step 7944.
+Phase 4 complete. Best checkpoint identified at Epoch 7, Step 7944 with
+val Recall@10 of 20.26% (2.0x random baseline). Training beyond Epoch 7
+caused embedding collapse (variance dropped 83%). Proceeding to Phase 5.
 
 ## Overall Completion %
 Rough estimate based on ROADMAP.md's 8 phases (0 through 7): **~62%**
@@ -26,18 +24,26 @@ Rough estimate based on ROADMAP.md's 8 phases (0 through 7): **~62%**
 Phase 4 training complete with the following results:
 - **Best Checkpoint:** Epoch 7, Step 7944 (checkpoints/train/best_model.pt)
 - **Val Recall@1:** 4.22% (4.2x random baseline)
-- **Val Recall@5:** 14.00%
-- **Val Recall@10:** 20.23% (2.0x random baseline)
+- **Val Recall@5:** 14.03%
+- **Val Recall@10:** 20.26% (2.0x random baseline)
 - **Memory Queue:** Enabled (size=4096) — fixed from initial run
-- **Temperature:** Learned from 14.29 to 53.51
-- **Embedding Variance:** Healthy (0.0007 image, 0.0005 text)
+- **Temperature:** Learned from 14.29 to 55.24
+- **Embedding Variance:** Image 0.000746, Text 0.000471 (healthy at Epoch 7)
 
 **Key Achievements:**
-1. Memory queue fix improved Recall@10 by 18.2% relative (17.12% → 20.23%)
-2. Hyperparameter experiment completed (lower LR 5e-4 tested, found to hurt performance)
-3. Training visualizations generated (reports/figures/training_curves.png)
-4. Best checkpoint identified and documented
-5. All acceptance criteria met: val Recall@10 clearly above random baseline
+1. Memory queue fix improved Recall@10 by 18.2% relative (17.12% → 20.26%)
+2. Gradient norm logging bug identified and fixed
+3. Embedding collapse detected after Epoch 7 — restored to Epoch 7 checkpoint
+4. All acceptance criteria met: val Recall@10 clearly above random baseline
+
+**Critical Finding:**
+Training beyond Epoch 7 caused embedding collapse:
+- Image variance: 0.000746 → 0.000125 (-83%)
+- Text variance: 0.000471 → 0.000067 (-86%)
+- Temperature: 55 → 500+ (extreme increase)
+- Recall@10 dropped from 20.26% to 18.16%
+
+Decision: Epoch 7 is the true convergence point. No further training recommended.
 
 ## Completed Work
 - [x] Repository structure created (`src/vectormind/{data,models,training,evaluation,utils}`,

@@ -217,17 +217,18 @@ with the actual number, not just "it works").
 **Results:**
 - **Best Checkpoint:** Epoch 7, Step 7944 (checkpoints/train/best_model.pt)
 - **Val Recall@1:** 4.22% (4.2x random baseline)
-- **Val Recall@5:** 14.00%
-- **Val Recall@10:** 20.23% (2.0x random baseline)
-- **Training Time:** ~8 minutes (2 epochs with memory queue)
+- **Val Recall@5:** 14.03%
+- **Val Recall@10:** 20.26% (2.0x random baseline)
+- **Training Time:** ~45 minutes total (8 epochs baseline + continuation)
 - **Memory Queue:** Enabled (size=4096)
-- **Temperature:** Learned from 14.29 to 53.51
+- **Temperature:** Learned from 14.29 to 55.24
 
 **Key Findings:**
-1. Memory queue fix improved Recall@10 from 17.12% to 20.23% (+18.2% relative)
+1. Memory queue fix improved Recall@10 from 17.12% to 20.26% (+18.2% relative)
 2. Lower learning rate (5e-4) hurt performance (Recall@10 dropped to 10.54%)
-3. Embedding variance remained healthy (no collapse)
-4. Temperature increased significantly, indicating model learned to sharpen similarity
+3. **Embedding collapse after Epoch 7** — temperature grew too large, causing variance to drop 83%
+4. Epoch 7 is the true convergence point — no improvement beyond this
+5. Gradient norm logging bug identified and fixed (was always 0.0)
 
 **Documentation:**
 - Baseline analysis: reports/baseline_analysis.md
