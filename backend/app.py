@@ -132,10 +132,9 @@ def create_app(
             "health": "/health",
         }
 
-    # Include routers (will be added in commits 4 and 5)
-    # from backend.routers import text_search, image_search
-    # app.include_router(text_search.router)
-    # app.include_router(image_search.router)
+    # Include routers
+    from backend.routers import text_search
+    app.include_router(text_search.router)
 
     return app
 
