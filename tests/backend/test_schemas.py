@@ -100,7 +100,8 @@ class TestSearchResult:
 
     def test_minimal_result(self):
         """Minimal result with only required fields."""
-        result = SearchResult(index=0, score=0.85)
+        result = SearchResult(rank=1, index=0, score=0.85)
+        assert result.rank == 1
         assert result.index == 0
         assert result.score == 0.85
         assert result.caption is None
@@ -110,21 +111,27 @@ class TestSearchResult:
     def test_full_result(self):
         """Result with all fields populated."""
         result = SearchResult(
+            rank=1,
             index=42,
             score=0.92,
             caption="a dog playing",
             image_path="data/images/42.jpg",
+            filename="000042.jpg",
+            image_url="/images/000042.jpg",
             metadata={"distance": 0.08},
         )
+        assert result.rank == 1
         assert result.index == 42
         assert result.score == 0.92
         assert result.caption == "a dog playing"
         assert result.image_path == "data/images/42.jpg"
+        assert result.filename == "000042.jpg"
+        assert result.image_url == "/images/000042.jpg"
         assert result.metadata == {"distance": 0.08}
 
     def test_negative_index_accepted(self):
         """Negative index is accepted (no constraint defined)."""
-        result = SearchResult(index=-1, score=0.5)
+        result = SearchResult(rank=1, index=-1, score=0.5)
         assert result.index == -1
 
 
@@ -134,7 +141,7 @@ class TestSearchResponse:
     def test_valid_response(self):
         """Valid search response is created."""
         response = SearchResponse(
-            results=[SearchResult(index=0, score=0.85)],
+            results=[SearchResult(rank=1, index=0, score=0.85)],
             query="a dog",
             search_type="text_to_image",
             total_results=1,
@@ -260,7 +267,7 @@ class TestSchemaSerialization:
     def test_search_response_json(self):
         """SearchResponse serializes to JSON correctly."""
         response = SearchResponse(
-            results=[SearchResult(index=0, score=0.85)],
+            results=[SearchResult(rank=1, index=0, score=0.85)],
             query="a dog",
             search_type="text_to_image",
             total_results=1,
@@ -285,6 +292,7 @@ class TestSchemaSerialization:
     def test_search_result_json(self):
         """SearchResult serializes to JSON correctly."""
         result = SearchResult(
+            rank=1,
             index=42,
             score=0.92,
             caption="a dog playing",
