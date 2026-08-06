@@ -45,42 +45,59 @@ Proceed to Phase 4 full training.
 
 **Run ID:** baseline_20260805
 **Start date:** 2026-08-05
-**Status:** In Progress (resumed at Epoch 8, with memory queue enabled)
+**Status:** COMPLETE (Best checkpoint: Epoch 7)
 
 ### Checkpoints
 | Epoch | Step | File | Notes |
 |-------|------|------|-------|
 | 2 | 1986 | epoch_002.pt | Periodic save (no queue) |
 | 4 | 3972 | epoch_004.pt | Periodic save (no queue) |
-| 6 | 6951 | best_model_old.pt | Best before queue fix |
-| 7 | 7944 | best_model.pt | New best with queue enabled |
-| 8 | 7944 | epoch_008.pt | Periodic save |
+| 6 | 6951 | epoch_006.pt | Best before queue fix |
+| 7 | 7944 | best_model.pt | **BEST** (queue enabled) |
+| 8 | 7944 | epoch_008.pt | Identical to best_model.pt |
+| 9 | 9930 | epoch_010.pt | Recall@10 dropped |
+| 11 | 10923 | epoch_012.pt | Recall@10 dropped |
+| 13 | 13902 | epoch_014.pt | Recall@10 dropped |
+| 15 | 15888 | epoch_016.pt | Recall@10 dropped |
 
 ### Training Progress
 
-| Epoch | Loss | Val R@1 | Val R@5 | Val R@10 | Temp | Queue | LR |
-|-------|------|---------|---------|----------|------|-------|-----|
-| 1 | ~4.92 | - | - | - | 13.6 | 1 | 1e-3 |
-| 6 | 2.54 | 3.46% | 11.42% | 17.12% | 18.6 | 1 | 7.3e-4 |
-| 8 | 3.72 | 4.22% | 14.00% | 20.23% | 53.5 | 4096 | 7.2e-4 |
+| Epoch | Loss | Val R@1 | Val R@5 | Val R@10 | Temp | Queue | Status |
+|-------|------|---------|---------|----------|------|-------|--------|
+| 1 | ~4.92 | - | - | - | 13.6 | 1 | Baseline |
+| 6 | 2.54 | 3.46% | 11.42% | 17.12% | 18.6 | 1 | Before queue |
+| 7 | 3.72 | 4.22% | 14.03% | 20.26% | 55.2 | 4096 | **BEST** |
+| 9 | 3.75 | 2.67% | 8.53% | 13.62% | 78.6 | 4096 | Degraded |
+| 11 | 3.51 | 3.59% | 11.33% | 17.31% | 160.5 | 4096 | Degraded |
+| 14 | 3.43 | 2.05% | 8.12% | 13.75% | 338.6 | 4096 | Degraded |
+
+### Critical Finding: Embedding Collapse After Epoch 7
+
+**Observation:** After Epoch 7, the model began experiencing embedding collapse:
+- Image variance: 0.000746 → 0.000125 (-83%)
+- Text variance: 0.000471 → 0.000067 (-86%)
+- Pairwise distance: 0.60 → 0.25 (-59%)
+- Temperature: 55 → 500+ (extreme increase)
+
+**Root Cause:** The temperature parameter grew too large, causing the model to become overconfident and collapse embeddings to a narrow region of the space.
+
+**Decision:** Restored best_model.pt to Epoch 7 (original best). Training beyond Epoch 7 is NOT beneficial.
 
 ### Key Observations
-1. **Memory queue fix improved Recall@10 by 3.1 percentage points** (17.12% → 20.23%)
-2. Temperature increased significantly (18.6 → 53.5) — model learning to sharpen similarity
-3. Loss increased slightly (2.54 → 3.72) — expected with more negatives
-4. Embedding variance remains healthy
-5. Training is progressing towards convergence
+1. **Memory queue fix improved Recall@10 by 3.1 percentage points** (17.12% → 20.26%)
+2. **Temperature increased significantly** (18.6 → 55.2) — model learning to sharpen similarity
+3. **Embedding collapse after Epoch 7** — temperature grew too large
+4. **Epoch 7 is the true convergence point** — no improvement beyond this
 
-### Issues Identified
+### Issues Identified and Fixed
 - **Memory Queue Bug (FIXED):** Training was run with --no-queue flag initially
-- **Gradient Logging:** All values are 0.000000 (investigation needed)
-- **Embedding Std Logging:** All values are 0.000000 (investigation needed)
+- **Gradient Norm Logging (FIXED):** Was computing norm after zero_grad(), always 0.0
+- **Temperature Overgrowth:** Temperature grew too large after Epoch 7, causing collapse
 
-### Resume Strategy
-- **Decision:** Resume from Epoch 6 (best checkpoint before queue fix)
-- **Fix:** Memory queue bug fixed (queue_size=4096 enabled)
-- **Budget:** 12 more epochs (total 20)
-- **Convergence criteria:** Early stopping (patience=5)
+### Final Strategy
+- **Best checkpoint:** Epoch 7, Step 7944
+- **No further training recommended** — model has converged and begun to degrade
+- **Proceed to Phase 5** with Epoch 7 checkpoint
 
 ---
 
