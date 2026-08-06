@@ -360,6 +360,13 @@ def main() -> None:
         forward_end = time.time()
         forward_times.append(forward_end - forward_start)
 
+        # Gradient norm (BEFORE optimizer step to capture actual gradients)
+        total_norm = 0.0
+        for p in model.parameters():
+            if p.grad is not None:
+                total_norm += p.grad.data.norm(2).item() ** 2
+        grad_norm = total_norm**0.5
+
         # Optimizer step at accumulation boundary
         opt_start = time.time()
         if (batch_idx + 1) % accum_steps == 0:
@@ -376,13 +383,6 @@ def main() -> None:
             text_embeds = model.encode_text(input_ids, attention_mask)
             memory_queue.enqueue(text_embeds)
         queue_times.append(time.time() - q_start)
-
-        # Gradient norm
-        total_norm = 0.0
-        for p in model.parameters():
-            if p.grad is not None:
-                total_norm += p.grad.data.norm(2).item() ** 2
-        grad_norm = total_norm**0.5
 
         epoch_losses.append(metrics["loss"])
         epoch_grad_norms.append(grad_norm)

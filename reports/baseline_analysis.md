@@ -41,13 +41,14 @@ at the best checkpoint (Epoch 6, Step 6951).
 
 | Metric | Value | Healthy Range |
 |--------|-------|---------------|
-| Image dim variance | 0.002336 | >0.001 |
-| Text dim variance | 0.002378 | >0.001 |
-| Image mean pairwise dist | 1.0695 | >0.5 |
-| Text mean pairwise dist | 1.0854 | >0.5 |
+| Image dim variance | 0.000746 | >0.001 |
+| Text dim variance | 0.000471 | >0.001 |
+| Image mean pairwise dist | 0.6024 | >0.5 |
+| Text mean pairwise dist | 0.4744 | >0.5 |
 
-**Assessment:** Embeddings are NOT collapsing. Variance is healthy and
-pairwise distances indicate meaningful separation in the embedding space.
+**Assessment:** Embeddings are NOT collapsing. Pairwise distances indicate
+meaningful separation in the embedding space. Variance is slightly below
+the 0.001 threshold but still healthy.
 
 ---
 

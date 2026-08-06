@@ -430,6 +430,13 @@ def main() -> None:
                 device=device,
             )
 
+            # Gradient norm (BEFORE optimizer step to capture actual gradients)
+            total_norm = 0.0
+            for p in model.parameters():
+                if p.grad is not None:
+                    total_norm += p.grad.data.norm(2).item() ** 2
+            grad_norm = total_norm**0.5
+
             # Optimizer step at accumulation boundary
             if (batch_idx + 1) % accum_steps == 0:
                 scaler.step(optimizer)
@@ -442,13 +449,6 @@ def main() -> None:
                 attention_mask = batch["attention_mask"].to(device, non_blocking=True)
                 text_embeds = model.encode_text(input_ids, attention_mask)
                 memory_queue.enqueue(text_embeds)
-
-            # Gradient norm
-            total_norm = 0.0
-            for p in model.parameters():
-                if p.grad is not None:
-                    total_norm += p.grad.data.norm(2).item() ** 2
-            grad_norm = total_norm**0.5
 
             epoch_losses.append(metrics["loss"])
             epoch_grad_norms.append(grad_norm)
