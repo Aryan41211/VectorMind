@@ -289,14 +289,14 @@ failure analysis documented, not just the numbers.
 embeddings. See ARCHITECTURE.md §9 for the full design.
 
 **Deliverables:**
-- [ ] FAISS `IndexFlatIP` built offline from the Phase 5 embedding set
+- [x] FAISS `IndexFlatIP` built offline from the Phase 5 embedding set
       (`backend/index_builder.py`)
-- [ ] FastAPI app with `/search/text` and `/search/image` endpoints,
+- [x] FastAPI app with `/search/text` and `/search/image` endpoints,
       Pydantic request/response schemas (`backend/schemas.py`)
-- [ ] Model + index loaded once at app startup, not per-request
-- [ ] Unit tests for the API layer (request validation, response
+- [x] Model + index loaded once at app startup, not per-request
+- [x] Unit tests for the API layer (request validation, response
       shape) and the index builder
-- [ ] Basic request logging (latency, query type) via the existing
+- [x] Basic request logging (latency, query type) via the existing
       `logging` setup
 
 **Dependencies:** Phase 5 complete, model quality validated as
@@ -307,7 +307,22 @@ correctly-shaped results from the index via the API, matching what
 Phase 5's offline evaluation predicted. p95 latency for a single
 text query measured and documented (not just "it works").
 
-**Status:** not started
+**Status:** complete
+
+**Results:**
+- **FAISS Index:** IndexFlatIP with 256-dim embeddings
+- **API Endpoints:** POST /search/text, POST /search/image, GET /health
+- **Test Coverage:** 63 backend tests (index builder, schemas, routers, integration)
+- **Total Tests:** 345 passing
+
+**Documentation:**
+- Index builder: backend/index_builder.py
+- API schemas: backend/schemas.py
+- FastAPI app: backend/app.py
+- Text search: backend/routers/text_search.py
+- Image search: backend/routers/image_search.py
+- Unit tests: tests/backend/
+- Integration tests: tests/backend/test_integration.py
 
 ---
 
