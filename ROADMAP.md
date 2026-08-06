@@ -344,14 +344,21 @@ ARCHITECTURE.md §10.
 image in the browser and see ranked results rendered, with no console
 errors and correct loading/empty/error states handled.
 
-**Status:** in progress
+**Status:** complete
 
 **Results:**
 - **Framework:** React + TypeScript + Tailwind CSS v4
 - **Build Tool:** Vite
-- **Components:** SearchBar, ImageUploader, ResultGrid
+- **Components:** SearchBar, ImageUploader, ResultGrid, HealthIndicator
 - **API Client:** Typed fetch wrapper with error handling
 - **Build Status:** Passing
+- **States:** Loading, empty, error, success all handled
+
+**Documentation:**
+- Frontend code: frontend/src/
+- Components: frontend/src/components/
+- API client: frontend/src/api/client.ts
+- Types: frontend/src/types/search.ts
 
 ---
 
