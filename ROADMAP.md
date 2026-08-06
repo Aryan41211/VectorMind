@@ -332,9 +332,9 @@ text query measured and documented (not just "it works").
 ARCHITECTURE.md §10.
 
 **Deliverables:**
-- [ ] React + TypeScript app: text search bar, image drag-and-drop
+- [x] React + TypeScript app: text search bar, image drag-and-drop
       upload, ranked result grid
-- [ ] Typed API client mirroring the backend's Pydantic schemas
+- [x] Typed API client mirroring the backend's Pydantic schemas
 - [ ] (Stretch) 2D embedding-space visualization (UMAP/t-SNE) for the
       portfolio write-up
 
@@ -344,7 +344,14 @@ ARCHITECTURE.md §10.
 image in the browser and see ranked results rendered, with no console
 errors and correct loading/empty/error states handled.
 
-**Status:** not started
+**Status:** in progress
+
+**Results:**
+- **Framework:** React + TypeScript + Tailwind CSS v4
+- **Build Tool:** Vite
+- **Components:** SearchBar, ImageUploader, ResultGrid
+- **API Client:** Typed fetch wrapper with error handling
+- **Build Status:** Passing
 
 ---
 
