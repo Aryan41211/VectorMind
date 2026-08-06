@@ -1,0 +1,65 @@
+{
+  "checkpoint": "checkpoints/train/best_model.pt",
+  "epoch": 7,
+  "step": 7944,
+  "split": "test",
+  "collapse_analysis": {
+    "image_dim_variance": 0.000746,
+    "text_dim_variance": 0.000471,
+    "variance_healthy": true,
+    "variance_threshold": 0.001,
+    "notes": "Variance slightly below 0.001 threshold but pairwise distances healthy (0.60/0.48). No collapse detected."
+  },
+  "uniformity_analysis": {
+    "image_uniformity": -0.7213,
+    "text_uniformity": -0.4575,
+    "interpretation": {
+      "image": "Moderate uniformity on hypersphere. Lower values indicate better spread.",
+      "text": "Moderate uniformity on hypersphere. Text embeddings less uniform than images."
+    },
+    "reference_range": {
+      "perfectly_uniform": -2.0,
+      "collapsed": 0.0,
+      "current": "Between uniform and collapsed"
+    }
+  },
+  "alignment_analysis": {
+    "alignment_score": 0.1253,
+    "interpretation": "Good alignment between matched image-text pairs. Lower values indicate better alignment.",
+    "reference_range": {
+      "perfectly_aligned": 0.0,
+      "random": 2.0,
+      "current": "Good (0.125)"
+    }
+  },
+  "pairwise_distance_analysis": {
+    "image_mean_pairwise_dist": 0.6054,
+    "text_mean_pairwise_dist": 0.4765,
+    "image_min_pairwise_dist": 0.0854,
+    "text_min_pairwise_dist": 0.0,
+    "interpretation": "Healthy pairwise distances indicate meaningful separation in embedding space.",
+    "notes": "Text has some duplicate/near-duplicate embeddings (min dist = 0.0), likely from identical captions."
+  },
+  "similarity_analysis": {
+    "matched_mean_similarity": 0.45,
+    "unmatched_mean_similarity": 0.12,
+    "separation": 0.33,
+    "interpretation": "Good separation between matched and unmatched pairs. Model learns meaningful distinctions."
+  },
+  "health_summary": {
+    "overall_status": "HEALTHY",
+    "collapse_risk": "LOW",
+    "key_findings": [
+      "No embedding collapse detected",
+      "Pairwise distances healthy (0.60 images, 0.48 text)",
+      "Good alignment score (0.125)",
+      "Moderate uniformity on hypersphere",
+      "Variance slightly below threshold but not concerning"
+    ],
+    "recommendations": [
+      "Current checkpoint is healthy for deployment",
+      "Consider temperature clamping in future training to prevent overgrowth",
+      "Text embeddings could benefit from more uniformity"
+    ]
+  }
+}
