@@ -1,47 +1,73 @@
 # VectorMind Backend — Docker Image
 #
-# Multi-stage build: installs dependencies, copies source, runs uvicorn.
-# Model checkpoint, FAISS indices, and images are mounted as volumes
-# (not baked in — checkpoint is ~292MB, images are 4GB+).
+# Runs the FastAPI app (model + FAISS index) under uvicorn.
+#
+# Model checkpoint, FAISS indices, and the Flickr30k images are mounted
+# as volumes rather than baked in: the checkpoint is ~278MB and the
+# image set is 1.3GB.
 #
 # Build:  docker build -f deployment/backend.Dockerfile -t vectormind-backend .
-# Run:    docker run -p 8000:8000 \
-#           -v $(pwd)/checkpoints:/app/checkpoints \
-#           -v $(pwd)/backend/indices:/app/backend/indices \
-#           -v $(pwd)/data/raw/flickr30k/images:/app/data/raw/flickr30k/images \
-#           -v $(pwd)/frontend/dist:/app/frontend/dist \
-#           vectormind-backend
+# Run:    see deployment/docker-compose.yml, or the CMD comment below.
 
-FROM python:3.11-slim AS base
+FROM python:3.12-slim AS base
 
 WORKDIR /app
 
-# System deps for FAISS (CPU) and Pillow
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    # Keep the tokenizer inside the image so the first query does not
+    # depend on network access (see the pre-warm step below).
+    HF_HOME=/opt/hf
+
+# System deps for FAISS (CPU) and Pillow.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         libgl1 libglib2.0-0 && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Python deps first (layer caching)
+# Install dependencies first so this layer caches across source edits.
+# requirements.txt is now complete — it previously omitted fastapi,
+# uvicorn, faiss-cpu and numpy, so the resulting image could not start.
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir faiss-cpu uvicorn[standard]
+RUN pip install --upgrade pip && \
+    pip install -r requirements.txt
 
-# Copy source code
+# Install the package itself. Without this, `vectormind` is not on
+# sys.path and backend/ fails at import: modules under src/ import
+# `vectormind.*`, which only resolves once the package is installed.
+COPY pyproject.toml README.md LICENSE ./
 COPY src/ src/
+RUN pip install --no-deps -e .
+
 COPY configs/ configs/
 COPY backend/ backend/
 
-# Expose port
+# Pre-download the tokenizer named in configs/serving.yaml. The text
+# search endpoint loads it on first request; without this the container
+# needs outbound network access at query time, and fails without it.
+RUN python -c "\
+import yaml; \
+from transformers import AutoTokenizer; \
+name = yaml.safe_load(open('configs/serving.yaml'))['tokenizer']['name']; \
+AutoTokenizer.from_pretrained(name); \
+print(f'Cached tokenizer: {name}')"
+
+# Fail the build rather than shipping an image that cannot import.
+RUN python -c "import backend.app; print('backend.app imports OK')"
+
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
 
-# Run — volumes must be mounted at runtime:
-#   /app/checkpoints          — model checkpoint
-#   /app/backend/indices      — FAISS index files
-#   /app/data/raw/flickr30k/images — Flickr30k images
-#   /app/frontend/dist        — built React frontend
+# Volumes expected at runtime (paths from configs/serving.yaml):
+#   /app/checkpoints                 — model checkpoint
+#   /app/backend/indices             — FAISS indices and index maps
+#   /app/data/raw/flickr30k/images   — Flickr30k images
+#   /app/frontend/dist               — built React frontend (optional)
+#
+# Missing volumes are logged and skipped: the app still starts and
+# /health reports what loaded, so a misconfigured mount is diagnosable
+# instead of a crash loop.
 CMD ["python", "-m", "uvicorn", "backend.app:app", "--host", "0.0.0.0", "--port", "8000"]
