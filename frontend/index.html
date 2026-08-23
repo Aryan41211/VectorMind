@@ -2,12 +2,55 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
     <title>VectorMind — Multimodal Semantic Search</title>
+    <meta
+      name="description"
+      content="Search photographs by meaning. A CLIP-style dual encoder trained entirely from scratch on Flickr30k, on a single 6GB laptop GPU."
+    />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#181819" media="(prefers-color-scheme: dark)" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="VectorMind — Multimodal Semantic Search" />
+    <meta
+      property="og:description"
+      content="A CLIP-style dual encoder trained from scratch on Flickr30k, on a single 6GB laptop GPU."
+    />
+
+    <!--
+      Apply the stored theme before first paint.
+
+      React cannot do this: it runs after the document has already
+      painted, so a dark-mode visitor sees a white flash on every load.
+      This must stay inline and synchronous in <head> — deferring it or
+      moving it to a module reintroduces the flash.
+    -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('vectormind:theme');
+          var dark =
+            stored === 'dark' ||
+            ((stored === 'system' || stored === null) &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (dark) document.documentElement.classList.add('dark');
+        } catch (e) {
+          /* private mode or blocked storage: fall back to the light theme */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      VectorMind is an interactive search demo and needs JavaScript enabled.
+      The model, training write-up, and results are readable without it at
+      <a href="https://github.com/Aryan41211/VectorMind">the repository</a>.
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
