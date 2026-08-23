@@ -8,14 +8,23 @@ things that pass.
 Each entry states the evidence, not just the claim. Entries are removed
 only when fixed, never when they become inconvenient.
 
-**Last audited:** 2026-08-23
+**Last audited:** 2026-08-24
 
 ---
 
-## 1. The embedding space is severely anisotropic (the "no collapse" claim is wrong)
+## 1. The embedding space is severely anisotropic ✅ FIXED (2026-08-24)
 
-**Severity:** high — this is the project's central technical finding and
-it is currently documented backwards.
+**Status:** root cause found and removed. Retained in full because the
+diagnosis is the most useful thing in this document.
+
+**Fix:** the cause was the memory queue, not the temperature (§11). With
+the queue disabled and the logit scale clamped, separation went from
+**0.094 to 0.322** and mean image–image cosine from **0.810 to 0.409**,
+at equal or better retrieval quality. See ARCHITECTURE.md §6.1 and
+EXPERIMENTS.md 006.
+
+**Severity when open:** high — this was the project's central technical
+finding and it was documented backwards.
 
 `reports/phase5_embedding_diagnostics.json` reports
 `"overall_status": "HEALTHY"`, `"collapse_risk": "LOW"`, and a
@@ -110,9 +119,16 @@ one valid caption.
 
 ---
 
-## 2. The image FAISS index contains 5 duplicate vectors per image
+## 2. The image FAISS index contains 5 duplicate vectors per image ✅ FIXED (2026-08-23)
 
-**Severity:** high — user-visible in the demo.
+**Fix:** `deduplicate_image_embeddings()` collapses to one row per
+image, the two indices get separate index maps, and `save_indices()`
+refuses to write when either map length disagrees with its index. The
+frontend has a regression test asserting result keys stay unique.
+**The shipped index still needs rebuilding** — see the checklist at the
+end of this file.
+
+**Severity when open:** high — user-visible in the demo.
 
 `backend/indices/image_index.faiss` holds 15,895 vectors, but only
 **3,180 are unique**. Flickr30k has 5 captions per image, and the index
@@ -150,7 +166,7 @@ actually been observed green** — see issue 5.
 
 ---
 
-## 4. Backend imports break outside the repo root
+## 4. Backend imports break outside the repo root ✅ FIXED (2026-08-23)
 
 **Severity:** high — the Docker image does not run.
 
@@ -185,7 +201,7 @@ honestly.
 
 ---
 
-## 6. Train/serve tokenization skew
+## 6. Train/serve tokenization skew ✅ FIXED (2026-08-23)
 
 Training (`src/vectormind/data/tokenizer.py`) uses
 `AutoTokenizer.from_pretrained(cfg.tokenizer_name)` with
@@ -205,7 +221,7 @@ baked in, the first query fails.
 
 ---
 
-## 7. CORS is configured invalidly
+## 7. CORS is configured invalidly ✅ FIXED (2026-08-23)
 
 `backend/app.py` sets `allow_origins=["*"]` together with
 `allow_credentials=True`. Browsers reject that combination outright —
@@ -232,7 +248,7 @@ acknowledged, unresolved inconsistency left in a shipped artifact.
 
 ---
 
-## 9. Four training scripts duplicate the same evaluation code
+## 9. Four training scripts duplicate the same evaluation code ✅ FIXED (2026-08-23)
 
 `scripts/train.py` (761 lines), `resume_training.py` (519),
 `benchmark_epoch.py` (692), and `hyperparameter_experiment.py` (506)
@@ -245,13 +261,80 @@ four violate both.
 
 ---
 
-## 10. Repository hygiene
+## 10. Repository hygiene ✅ MOSTLY FIXED (2026-08-23/24)
 
 - **Git history:** ~90 of 132 commits are *empty* commits with fabricated `chore: preserve milestone…` messages. CLAUDE.md §7 explicitly forbids commit padding. See the audit note in `CHANGELOG.md`.
 - **Binary payload:** `backend/indices/` still ships ~35 MB of `.faiss` + `sample_metadata.json` in git. Kept deliberately so the demo runs from a clean clone; revisit if the repo grows.
 - **Doc sprawl:** 16 Markdown files at the repository root. Several contradict each other (see issue 5) and `EXPERIMENTS.md` claimed no training had occurred while `TRAINING_LOG.md` documented 8 epochs.
 - **No frontend tests.** `frontend/src/` has 5 components and 0 test files, while the Python side has 345 tests.
 - **`mypy` does not run clean** — `src/vectormind/utils/config.py` resolves under two module names, which aborts the check before it reaches the code.
+
+---
+
+## 11. The memory queue causes the collapse it was added to prevent ✅ FIXED (2026-08-24)
+
+**Severity when open:** high — it is the root cause of §1, and the
+project's architecture document named it "the key mitigation".
+
+`ARCHITECTURE.md` §6 added a MoCo-style memory queue to decouple the
+number of negatives from the 6GB-limited batch size. `TRAINING_LOG.md`
+credited it with +18.2% Recall@10. Both were wrong.
+
+**Controlled A/B, same starting checkpoint, one variable:**
+
+| Epoch 7 from `epoch_006.pt` | Queue active | Queue inactive |
+|---|---|---|
+| Train loss | 3.86 | **2.51** |
+| Val R@1 | 1.73% | **3.81%** |
+| Val R@10 | 10.51% | **19.63%** |
+| Separation | 0.062 | **0.322** |
+| Mean image–image cosine | 0.872 | **0.409** |
+| Logit scale | 67.6 | **18.6** |
+
+One epoch of queue negatives undid six epochs of improvement.
+
+**Why the original conclusion survived so long.** Three compounding
+problems:
+
+1. **Measured one epoch after activation**, before the collapse reached recall. Epochs 9-15 then fell to 13.62%, and that decline was logged as a *separate* "temperature overgrowth" failure rather than as this one arriving.
+2. **Never a controlled A/B.** `--no-queue` substituted a size-1 stub queue, which `load_checkpoint` rejects against a 4096-entry checkpoint, so the baseline arm could only run from scratch. The "comparison" was epoch 6 of one run against epoch 7 of another.
+3. **No embedding-health metric existed.** Recall@K was the only signal, and it is precisely the signal that lags a collapse.
+
+**Mechanism.** MoCo pairs its queue with a momentum encoder, whose slow
+EMA update keeps queued keys comparable to what the live encoder
+produces. VectorMind has none. At `queue_size` 4096 against batch 128,
+stale negatives outnumber in-batch ones 32:1, and minimising loss
+against thousands of mismatched stale negatives is easier by sharpening
+the similarity distribution than by improving the representation. An
+unbounded logit scale is the cheapest way to sharpen. So the scale runs
+away, the space collapses, and recall follows several epochs later —
+which is exactly the sequence Phase 4 recorded without connecting.
+
+**Warmup does not rescue it.** Holding the queue inactive for six epochs
+so it activates already full of recent embeddings only delayed the
+damage; the collapse arrived in full at the first epoch after
+activation. Staleness is structural here, not a startup transient.
+
+**Fix:** train with in-batch negatives only. `warmup_epochs` is retained
+for anyone re-running the experiment. A momentum encoder is the correct
+way to make a queue work at this scale and is in
+[FUTURE_IDEAS.md](FUTURE_IDEAS.md) — until it exists, the honest claim
+is "a queue does not work here *without the mechanism that makes it work
+elsewhere*", which is a statement about this implementation rather than
+about MoCo.
+
+---
+
+## Remaining before the repository is consistent
+
+Fixes landed in code that the shipped artifacts do not yet reflect.
+Listed so the gap is visible rather than assumed closed.
+
+- [ ] **Rebuild `backend/indices/`** from the final checkpoint. The committed index still has the 5× duplication of §2 and was built from the superseded model.
+- [ ] **Regenerate `reports/`** with `scripts/generate_reports.py`. §8's mutually inconsistent files are still the committed ones.
+- [ ] **Propagate the final numbers** to ROADMAP.md, PROJECT_STATUS.md, README.md and the frontend About panel, all of which still quote the old checkpoint and the wrong baselines from §1b.
+- [ ] **Build and run both Docker images** (§5). They are written and statically checked; neither has been built.
+- [ ] **Observe CI green once** (§3, §5).
 
 ---
 
