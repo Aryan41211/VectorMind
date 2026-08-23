@@ -40,6 +40,23 @@ memory_queue:
   # that's 2048. Using 4096 for maximum negative diversity.
   queue_size: 4096
 
+  # Epochs to train on in-batch negatives alone before the queue starts
+  # serving negatives. It still fills during warmup, so it is full of
+  # recent embeddings the moment it activates.
+  #
+  # This is not a tuning preference. Real MoCo pairs its queue with a
+  # momentum encoder that keeps queued keys consistent; this project has
+  # none, so early queue entries come from an encoder that has since
+  # moved. At 4096 against a batch of 128 they outnumber in-batch
+  # negatives 32:1 and swamp the gradient.
+  #
+  # Measured: queue active from step 1 left the model at chance
+  # (val R@10 0.35%) after two epochs. Warming up first reached 17.12%
+  # by epoch 6, then gained 3.1pp when the queue came on. Phase 4's best
+  # result used exactly this schedule by accident — a forgotten
+  # --no-queue flag. See EXPERIMENTS.md experiment 004.
+  warmup_epochs: 6
+
 # --- Training Schedule ---
 epochs: 20
 log_every_n_steps: 50

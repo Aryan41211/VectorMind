@@ -353,15 +353,23 @@ def main() -> None:
         eta_min=sched_cfg["eta_min"],
     )
 
-    # Memory queue — disabled for baseline experiment
+    # Memory queue. It starts inactive and warms up: without a momentum
+    # encoder, early queue entries are stale enough to swamp the gradient
+    # at 4096-against-128 (see MemoryQueue's class docstring).
     use_queue = not args.no_queue
+    queue_warmup_epochs = int(mq_cfg.get("warmup_epochs", 0))
     if use_queue:
         memory_queue = MemoryQueue(
             queue_size=mq_cfg["queue_size"],
             embed_dim=model_config["embedding"]["shared_dim"],
             device=device,
+            active=queue_warmup_epochs <= 0,
         )
-        logger.info("  Memory queue: ENABLED (size=%d)", mq_cfg["queue_size"])
+        logger.info(
+            "  Memory queue: ENABLED (size=%d, warmup=%d epochs)",
+            mq_cfg["queue_size"],
+            queue_warmup_epochs,
+        )
     else:
         # Dummy queue with size=1 — enqueue is a no-op, get returns empty
         memory_queue = MemoryQueue(
@@ -436,6 +444,13 @@ def main() -> None:
 
     for epoch in range(start_epoch, num_epochs):
         epoch_start = time.time()
+
+        # Activate the queue once the encoder has stabilized. It has been
+        # filling throughout warmup, so it switches on already full of
+        # recent embeddings rather than starting empty.
+        if use_queue and not memory_queue.active and epoch >= queue_warmup_epochs:
+            memory_queue.activate()
+
         model.train()
         epoch_losses: list[float] = []
         epoch_grad_norms: list[float] = []
