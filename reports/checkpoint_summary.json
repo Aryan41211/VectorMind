@@ -1,56 +1,13 @@
 {
-  "best_checkpoint": {
-    "best_epoch": 7,
-    "best_val_recall@10": 0.2023,
-    "best_val_recall@5": 0.1400,
-    "best_val_recall@1": 0.0422,
-    "best_test_recall@10": 0.1963,
-    "best_test_recall@5": 0.1343,
-    "best_test_recall@1": 0.0462,
-    "best_image_variance": 0.000746,
-    "best_text_variance": 0.000471,
-    "best_temperature": 55.24,
-    "total_epochs": 8,
-    "recall@10_improvement": 0.0314,
-    "val_test_gap_r10": -0.0060
-  },
-  "verification": {
-    "verified_date": "2026-08-07",
-    "evaluation_script": "scripts/evaluate_test_set.py",
-    "metrics_match": true,
-    "temperature_discrepancy": "Reported 53.51, actual 55.24",
-    "test_eval_bug_fixed": "2026-08-07: destructuring bug caused --split test to always evaluate on val split",
-    "pairwise_distances": {
-      "image_mean_pairwise_dist": 0.6028,
-      "text_mean_pairwise_dist": 0.4740
-    }
-  },
-  "comparison": {
-    "baseline_before_queue_fix": {
-      "epoch": 6,
-      "recall@10": 0.1712,
-      "recall@1": 0.0346
-    },
-    "after_queue_fix": {
-      "epoch": 8,
-      "recall@10": 0.2026,
-      "recall@1": 0.0422
-    },
-    "hyperparameter_experiment_lower_lr": {
-      "epoch": 9,
-      "recall@10": 0.1054,
-      "recall@1": 0.0208,
-      "lr": 0.0005,
-      "conclusion": "Lower LR hurts performance"
-    }
-  },
-  "recommendations": [
-    "Continue training with lr=1e-3 (baseline LR is better)",
-    "Memory queue is working correctly (queue_size=4096)",
-    "Temperature is learning (increasing over time)",
-    "Embedding variance is healthy (no collapse)",
-    "Recall@10 improved from 17.12% to 20.23% with memory queue",
-    "Gradient norm logging bug fixed (was always 0.0)",
-    "Test eval destructuring bug fixed (was always evaluating val split)"
-  ]
+  "checkpoint": "checkpoints/train/best_model.pt",
+  "epoch": 9,
+  "step": 9930,
+  "logit_scale": 22.103347778320312,
+  "val_recall@10": 0.23064820641913153,
+  "test_recall@10": 0.23906888958792072,
+  "val_test_gap_r10": 0.00842068316878919,
+  "embedding_separation": 0.32951223850250244,
+  "collapsed": true,
+  "generated_by": "scripts/generate_reports.py",
+  "generated_at": "2026-08-23T20:39:31.737826+00:00"
 }
