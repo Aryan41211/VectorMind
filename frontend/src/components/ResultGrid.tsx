@@ -88,7 +88,7 @@ function ResultCard({
     <button
       type="button"
       onClick={onSelect}
-      className="group w-full text-left rounded-[--radius-card] overflow-hidden border border-subtle transition-all hover:shadow-lifted focus-visible:shadow-lifted"
+      className="group w-full text-left rounded-card overflow-hidden border border-subtle transition-all hover:shadow-lifted focus-visible:shadow-lifted"
       style={{ background: 'var(--surface-raised)' }}
     >
       <div className="relative aspect-square surface-sunken overflow-hidden">
@@ -188,7 +188,7 @@ function ResultDialog({
     >
       <div
         onClick={stop}
-        className="surface border border-subtle rounded-[--radius-card] shadow-lifted w-full max-w-3xl max-h-[90vh] overflow-y-auto"
+        className="surface border border-subtle rounded-card shadow-lifted w-full max-w-3xl max-h-[90vh] overflow-y-auto"
       >
         <header className="sticky top-0 z-10 flex items-center justify-between gap-4 px-5 py-3 border-b border-subtle surface">
           <div className="flex items-center gap-3 text-sm tabular">

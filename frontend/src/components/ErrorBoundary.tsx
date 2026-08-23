@@ -47,7 +47,7 @@ export class ErrorBoundary extends Component<Props, State> {
         role="alert"
         className="min-h-screen flex items-center justify-center p-6"
       >
-        <div className="surface border border-subtle rounded-[--radius-card] shadow-card max-w-md w-full p-8 text-center">
+        <div className="surface border border-subtle rounded-card shadow-card max-w-md w-full p-8 text-center">
           <span
             className="inline-flex items-center justify-center w-12 h-12 rounded-full mb-4"
             style={{ background: 'var(--accent-subtle)', color: 'var(--danger)' }}

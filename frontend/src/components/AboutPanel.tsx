@@ -39,7 +39,7 @@ const LIMITATIONS = [
 export function AboutPanel() {
   return (
     <section className="w-full max-w-3xl mx-auto mt-16 animate-in">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px rounded-[--radius-card] overflow-hidden border border-subtle">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px rounded-card overflow-hidden border border-subtle">
         {METRICS.map(({ label, value, note }) => (
           <div
             key={label}

@@ -128,7 +128,7 @@ export default function App() {
           {error && (
             <div
               role="alert"
-              className="mt-8 max-w-2xl mx-auto flex items-start gap-3 p-4 rounded-[--radius-card] border animate-in"
+              className="mt-8 max-w-2xl mx-auto flex items-start gap-3 p-4 rounded-card border animate-in"
               style={{
                 borderColor: 'var(--border-subtle)',
                 background: 'var(--surface-raised)',

@@ -23,7 +23,7 @@ export function ResultSkeleton() {
         {Array.from({ length: PLACEHOLDER_COUNT }, (_, index) => (
           <div
             key={index}
-            className="skeleton aspect-square rounded-[--radius-card]"
+            className="skeleton aspect-square rounded-card"
             /* Stagger so the grid ripples rather than pulsing as one
                block, which reads as a page that is working. */
             style={{ animationDelay: `${index * 70}ms` }}
