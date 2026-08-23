@@ -55,24 +55,47 @@ class OutOfMemoryStepError(RuntimeError):
     """
 
 
-def is_out_of_memory(error: BaseException) -> bool:
-    """Return whether an exception is a CUDA out-of-memory failure.
+# Substrings that identify an allocation failure, device or host.
+#
+# Torch and cuDNN report these inconsistently — as
+# torch.cuda.OutOfMemoryError, as AcceleratorError, or as a bare
+# RuntimeError — so matching on the message is the only reliable common
+# denominator across versions.
+#
+# Host failures are included deliberately. This project's documented
+# constraint is 6GB of VRAM, but on a 16GB laptop shared with a desktop
+# the binding constraint is often system RAM: a run died at epoch 7 with
+# CUDNN_STATUS_INTERNAL_ERROR_HOST_ALLOCATION_FAILED, which is cuDNN
+# failing to allocate *host* memory, with 4.5GB free. Both are transient
+# pressure from a neighbouring process and both deserve a retry.
+_ALLOCATION_FAILURE_MARKERS: tuple[str, ...] = (
+    "out of memory",
+    "host_allocation_failed",
+    "cudnn_status_alloc_failed",
+    "cudnn_status_not_initialized",
+    "not enough memory",
+    "cannot allocate memory",
+    "cuda_error_out_of_memory",
+)
 
-    Torch reports OOM inconsistently across versions — as
-    ``torch.cuda.OutOfMemoryError``, as ``torch.AcceleratorError``, or as
-    a plain ``RuntimeError`` whose message contains "out of memory". The
-    message check is the only reliable common denominator.
+
+def is_out_of_memory(error: BaseException) -> bool:
+    """Return whether an exception is a memory-allocation failure.
+
+    Covers device and host allocation failures alike — see
+    :data:`_ALLOCATION_FAILURE_MARKERS` for why both are treated the
+    same.
 
     Args:
         error: The exception to classify.
 
     Returns:
-        True if this represents a CUDA allocation failure.
+        True if this represents an allocation failure worth retrying.
     """
-    if isinstance(error, torch.cuda.OutOfMemoryError):
+    if isinstance(error, torch.cuda.OutOfMemoryError | MemoryError):
         return True
     message = str(error).lower()
-    return "out of memory" in message or "cuda error: out of memory" in message
+    return any(marker in message for marker in _ALLOCATION_FAILURE_MARKERS)
 
 
 def release_cuda_memory() -> None:
@@ -152,8 +175,11 @@ def run_step_with_oom_retry[T](
                 time.sleep(backoff_seconds)
 
     raise OutOfMemoryStepError(
-        f"{context} ran out of CUDA memory on all {max_attempts} attempts. "
-        f"The batch does not fit. Lower dataset.batch_size in "
-        f"configs/data.yaml, or raise gradient_accumulation_steps in "
-        f"configs/training.yaml to keep the effective batch size."
+        f"{context} failed to allocate memory on all {max_attempts} "
+        f"attempts. Lower dataset.batch_size in configs/data.yaml (raise "
+        f"gradient_accumulation_steps in configs/training.yaml to keep "
+        f"the effective batch size). If the message mentions HOST "
+        f"allocation the shortage is system RAM, not VRAM — lower "
+        f"dataset.num_workers and dataset.prefetch_factor instead, since "
+        f"pinned batches are page-locked and cannot be swapped."
     ) from last_error
