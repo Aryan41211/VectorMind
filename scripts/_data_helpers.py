@@ -66,7 +66,7 @@ def load_flickr30k_from_hf(cache_dir: str) -> tuple[list[str], list[str]]:
             "Found %d cached images and captions.json — loading from cache",
             len(existing_images),
         )
-        with open(captions_file, "r", encoding="utf-8") as f:
+        with open(captions_file, encoding="utf-8") as f:
             captions_data = json.load(f)
 
         for entry in captions_data:

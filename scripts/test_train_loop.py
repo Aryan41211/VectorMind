@@ -29,6 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _data_helpers import load_flickr30k_from_hf
+
 from vectormind.data.dataloader import create_dataloaders
 from vectormind.data.splitter import create_splits
 from vectormind.data.tokenizer import CaptionTokenizer
@@ -222,7 +223,12 @@ def main() -> None:
         # Verify weights match
         weights_match = all(
             torch.allclose(p1, p2)
-            for p1, p2 in zip(model.parameters(), model2.parameters())
+            # strict: a parameter-count mismatch between the saved and
+            # reloaded model is exactly what this check exists to catch,
+            # and zip would otherwise silently compare the shorter prefix.
+            for p1, p2 in zip(
+                model.parameters(), model2.parameters(), strict=True
+            )
         )
         if not weights_match:
             logger.error("  Checkpoint weights do not match!")

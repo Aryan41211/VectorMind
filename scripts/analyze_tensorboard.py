@@ -26,7 +26,9 @@ def analyze_tensorboard_logs(log_dir: str = "logs/train") -> dict:
         Dictionary with extracted metrics.
     """
     try:
-        from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
+        from tensorboard.backend.event_processing.event_accumulator import (
+            EventAccumulator,
+        )
     except ImportError:
         print("ERROR: tensorboard not installed. Run: pip install tensorboard")
         return {}

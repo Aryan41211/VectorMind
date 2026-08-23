@@ -41,9 +41,7 @@ import torch
 from vectormind.evaluation.memorization import (
     compute_embedding_diagnostics,
     compute_image_level_recall,
-    compute_similarity_analysis,
     compute_text_level_recall,
-    compute_top_k_examples,
 )
 
 logger = logging.getLogger(__name__)

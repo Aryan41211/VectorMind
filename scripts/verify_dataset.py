@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _data_helpers import load_flickr30k_from_hf
+
 from vectormind.utils.config import load_config, require_keys
 from vectormind.utils.logging_config import setup_logging
 

@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _data_helpers import load_flickr30k_from_hf
+
 from vectormind.data.dataloader import create_dataloaders
 from vectormind.data.splitter import create_splits
 from vectormind.data.tokenizer import CaptionTokenizer
@@ -115,7 +116,7 @@ def main() -> None:
 
         # Decode and log first 3 captions.
         decoded = tokenizer.decode(input_ids[:3])
-        for i, (orig, dec) in enumerate(zip(caption_texts[:3], decoded)):
+        for i, (orig, dec) in enumerate(zip(caption_texts[:3], decoded, strict=False)):
             logger.info(
                 "  Batch %d, sample %d: ORIGINAL=%r | DECODED=%r",
                 batch_idx,

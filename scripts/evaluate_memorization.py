@@ -132,6 +132,7 @@ def main() -> None:
     # Build a non-shuffled DataLoader over ALL subset pairs (no drop_last)
     # to ensure we get all 500 pairs in deterministic order.
     from torch.utils.data import DataLoader
+
     from vectormind.data.dataset import Flickr30kDataset
 
     eval_dataset = Flickr30kDataset(

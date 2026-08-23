@@ -23,7 +23,7 @@ from backend.middleware import (
 )
 
 
-def build_app(*middleware_specs) -> FastAPI:
+def build_app(*middleware_specs: tuple[type, dict[str, object]]) -> FastAPI:
     """Minimal app carrying only the middleware under test."""
     app = FastAPI()
     for cls, kwargs in middleware_specs:

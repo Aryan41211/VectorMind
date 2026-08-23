@@ -29,7 +29,10 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import torch
 
 logger = logging.getLogger(__name__)
 
@@ -99,13 +102,15 @@ class TrainingLogger:
         for name, value in metrics.items():
             self.writer.add_scalar(f"epoch/{name}", value, epoch)
 
-    def log_histogram(self, step: int, name: str, values: Any) -> None:
+    def log_histogram(
+        self, step: int, name: str, values: torch.Tensor
+    ) -> None:
         """Log a histogram of values (e.g. embedding norms).
 
         Args:
             step: Global training step.
             name: Name for the histogram.
-            values: Tensor or array of values to histogram.
+            values: Tensor of values to histogram.
         """
         self.writer.add_histogram(name, values, step)
 

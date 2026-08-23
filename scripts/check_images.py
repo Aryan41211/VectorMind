@@ -1,5 +1,8 @@
-from PIL import Image
+"""Spot-check that Flickr30k image files exist and decode."""
+
 import os
+
+from PIL import Image
 
 images_dir = "data/raw/flickr30k/images"
 corrupted = []

@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _data_helpers import load_flickr30k_from_hf
+
 from vectormind.data.overfit_subset import (
     DEFAULT_SEED,
     DEFAULT_SUBSET_SIZE,

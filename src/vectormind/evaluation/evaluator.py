@@ -23,7 +23,7 @@ No dependency on training/ or data/ (FOLDER_STRUCTURE.md).
 from __future__ import annotations
 
 import logging
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from typing import Any
 
 import torch

@@ -89,7 +89,16 @@ ignore = [
     "D100", "D101", "D102", "D103", "D104", "D107",
     "ANN001", "ANN201", "ANN202", "ANN204", "ANN205",
 ]
-"scripts/**" = ["D103"]
+# scripts/ is one-off tooling and entry points, not library code. Their
+# behaviour is documented at module level and by --help; requiring a
+# docstring on every internal __init__ and a return annotation on every
+# main() is ceremony, and CLAUDE.md §3's rules are aimed at
+# src/vectormind. E402 is unavoidable in entry points: they must extend
+# sys.path before importing the package.
+"scripts/**" = [
+    "D100", "D101", "D102", "D103", "D107",
+    "ANN201", "ANN202", "E402",
+]
 # Depends(...) / File(...) in a FastAPI signature IS the dependency
 # declaration — B008 does not apply. The two Any returns are HuggingFace
 # and torchvision objects that ship no usable type.

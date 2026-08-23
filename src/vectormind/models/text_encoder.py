@@ -233,10 +233,10 @@ class TextEncoder(nn.Module):
         )
 
     def _init_weights(self) -> None:
-        """Initialize weights using normal distribution for embeddings
-        and Xavier uniform for linear layers.
+        """Initialize embedding and linear-layer weights.
 
-        This is the standard initialization for Transformer encoders
+        Normal distribution for embeddings, Xavier uniform for linear
+        layers. This is the standard initialization for Transformer encoders
         and ensures stable forward passes from the start of training.
         """
         for module in self.modules():

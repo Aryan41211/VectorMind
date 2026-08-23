@@ -1,8 +1,10 @@
 """Quick verification script for the search pipeline."""
 import sys
+
 sys.path.insert(0, 'src')
 
 from fastapi.testclient import TestClient
+
 from backend.app import create_app
 
 # Create app in test mode (no model loading)
