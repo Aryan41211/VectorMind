@@ -1,10 +1,12 @@
-# VectorMind CI — Test & Type-check
+# VectorMind CI — Test, type-check, lint
 #
 # Runs on every push and pull request:
-#   - Python: pytest (all backend + model tests)
-#   - TypeScript: tsc --noEmit (frontend type-check)
+#   - Python: pytest, mypy, ruff
+#   - TypeScript: tsc --noEmit, oxlint, production build
 #
-# This enforces CLAUDE.md §4 ("never break existing tests").
+# Enforces CLAUDE.md §4 ("never break existing tests") and the §3 rules
+# on type hints and docstrings, which were written down but never
+# actually checked by anything until now.
 
 name: Test
 
@@ -14,30 +16,46 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  python-tests:
-    name: Python Tests
+  python:
+    name: Python (pytest, mypy, ruff)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
           cache: pip
+          cache-dependency-path: requirements.txt
 
       - name: Install dependencies
         run: |
           pip install --upgrade pip
+          # CPU-only torch: the GPU wheels are ~2.5GB and CI has no GPU.
+          pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
           pip install -r requirements.txt
-          pip install faiss-cpu
+          # Editable install puts `vectormind` on sys.path. Without it,
+          # backend/ imports resolve only by accident of the working
+          # directory — the same gap that broke the Docker image.
+          pip install --no-deps -e .
 
-      - name: Run pytest
-        run: python -m pytest tests/ -x -q --tb=short
+      - name: Lint (ruff)
+        run: ruff check .
 
-  typescript-check:
-    name: TypeScript Check
+      - name: Type-check (mypy)
+        run: mypy src/vectormind backend
+
+      - name: Test (pytest)
+        run: pytest tests/ -q --tb=short
+
+  typescript:
+    name: TypeScript (tsc, oxlint, build)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -57,3 +75,12 @@ jobs:
 
       - name: Type-check
         run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build
