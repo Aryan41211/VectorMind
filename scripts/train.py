@@ -33,11 +33,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _data_helpers import load_flickr30k_from_hf
+
 from vectormind.data.dataloader import create_dataloaders
 from vectormind.data.splitter import create_splits
 from vectormind.data.tokenizer import CaptionTokenizer
 from vectormind.data.transforms import get_eval_transforms, get_train_transforms
-from vectormind.evaluation.embedding_health import compute_embedding_health
 from vectormind.evaluation.evaluator import evaluate_split
 from vectormind.models.vectormind_model import (
     DEFAULT_MAX_LOGIT_SCALE,
@@ -46,6 +46,7 @@ from vectormind.models.vectormind_model import (
 from vectormind.training.checkpoint import load_checkpoint, save_checkpoint
 from vectormind.training.logger import TrainingLogger
 from vectormind.training.memory_queue import MemoryQueue
+from vectormind.training.oom import run_step_with_oom_retry
 from vectormind.training.train_loop import (
     create_optimizer,
     create_scaler,
@@ -346,15 +347,23 @@ def main() -> None:
         epoch_grad_norms: list[float] = []
 
         for batch_idx, batch in enumerate(train_loader):
-            # Forward + backward
-            metrics = train_one_step(
-                model=model,
-                batch=batch,
-                optimizer=optimizer,
-                scaler=scaler,
-                memory_queue=memory_queue,
-                accumulation_steps=accum_steps,
-                device=device,
+            # Forward + backward, retried if a transient allocation
+            # fails. This GPU also drives the display, and a run reached
+            # epoch 5 of 20 before another process took the headroom and
+            # killed it (src/vectormind/training/oom.py). The retry sits
+            # before the optimizer step, so replaying it is safe:
+            # gradients are overwritten, not accumulated twice.
+            metrics = run_step_with_oom_retry(
+                lambda batch=batch: train_one_step(
+                    model=model,
+                    batch=batch,
+                    optimizer=optimizer,
+                    scaler=scaler,
+                    memory_queue=memory_queue,
+                    accumulation_steps=accum_steps,
+                    device=device,
+                ),
+                context=f"epoch {epoch + 1} step {batch_idx + 1}",
             )
 
             # Gradient norm (BEFORE optimizer step to capture actual gradients)
