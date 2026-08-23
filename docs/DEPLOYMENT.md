@@ -3,21 +3,33 @@
 How to run VectorMind outside a development shell, and what has actually
 been verified versus what has only been written.
 
-**Verification status (2026-08-23):** the Dockerfiles, compose file, and
-nginx config in `deployment/` are written and statically checked — the
-backend image installs the package and asserts `import backend.app`
-succeeds as a build step, the frontend image runs `tsc`, `oxlint`, and
-`nginx -t` as build steps, so neither can produce a broken image
-silently. **Neither image has been built on this machine**, because the
-Docker daemon was not running during the audit. Build them before
-treating this page as proven.
+**Verification status (2026-08-24): both images built and the full
+stack run end to end on this machine.** What was actually observed:
+
+| Check | Result |
+|---|---|
+| Backend image builds | ✅ 2.17GB, with `import backend.app` as a build gate |
+| Frontend image builds | ✅ 93.1MB, with `tsc`, `oxlint` and `nginx -t` as build gates |
+| Backend reaches healthy | ✅ `/ready` 200 — model, both indices and both index maps loaded |
+| Index served correctly | ✅ `num_indexed_images: 3179`, not the pre-fix 15,895 |
+| SPA served through nginx | ✅ `GET /` → 200 |
+| API proxied through nginx | ✅ `/health`, `/ready`, `/search/text` all 200 same-origin |
+| Search returns distinct images | ✅ 10 unique filenames of 10 results, across five queries |
+| Warm latency | ✅ 8–19ms through the proxy |
+| Cold first query | 2.07s — the tokenizer and first forward pass |
+| Security headers | ✅ all four present, exactly once |
+| Request correlation | ✅ `X-Request-ID` on every response |
+| Rate limiting | ✅ 429 after the configured 30/minute |
+
+Still not verified: CI has never been observed green on GitHub, and
+there is no public deployment.
 
 ---
 
 ## What runs where
 
 ```
-                    :80
+                  :8080
                      │
         ┌────────────▼────────────┐
         │  frontend (nginx)       │
@@ -37,9 +49,9 @@ treating this page as proven.
         checkpoints/ · backend/indices/ · data/raw/flickr30k/images/
 ```
 
-Everything is reached through port 80. The browser never talks to the
-backend directly, so the deployed app is same-origin and CORS is not part
-of the deployment at all.
+Everything is reached through the one published port. The browser never
+talks to the backend directly, so the deployed app is same-origin and
+CORS is not part of the deployment at all.
 
 ---
 
@@ -68,7 +80,14 @@ cannot tell that an index came from a different checkpoint.
 docker compose -f deployment/docker-compose.yml up --build
 ```
 
-Then open <http://localhost>.
+Then open <http://localhost:8080>.
+
+Port 80 is frequently already taken on a development machine, so the
+frontend publishes on 8080 by default. Override it if that clashes too:
+
+```bash
+FRONTEND_PORT=8081 docker compose -f deployment/docker-compose.yml up --build
+```
 
 The backend healthcheck probes `/ready`, and the frontend waits on it, so
 `up` does not report healthy until the model and both indices are loaded.
@@ -137,7 +156,7 @@ Honest list of what this deployment is not.
 1. **No TLS.** Nothing here terminates HTTPS, and the security headers deliberately omit HSTS, which belongs on whatever does. Put this behind a TLS terminator before it faces the internet.
 2. **Single machine, single worker.** The rate limiter holds per-process state, so horizontal scaling silently multiplies the effective limit. Kubernetes and managed endpoints are explicitly out of scope — see [FUTURE_IDEAS.md](FUTURE_IDEAS.md).
 3. **No metrics or tracing.** Structured logs with request ids are all the observability there is. Adequate for a demo, not for anything on call.
-4. **CPU inference.** The image installs CPU torch. Measured p95 was 25ms with a 3.4s cold start, which is fine at this corpus size; GPU serving would need the CUDA base image and a runtime with device access.
+4. **CPU inference.** The image installs CPU torch, and only the packages serving actually imports (`requirements-serving.txt`). Measured through the proxy: 8-19ms warm, 2.07s on the first query while the tokenizer and first forward pass warm up. Fine at this corpus size; GPU serving would need the CUDA base image and a runtime with device access.
 5. **No authentication.** Every endpoint is public. There is nothing to protect but the GPU, which is what the rate limit is for.
 
 ---
