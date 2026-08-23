@@ -1,23 +1,28 @@
 {
   "best_checkpoint": {
     "best_epoch": 7,
-    "best_recall@10": 0.2026,
-    "best_recall@5": 0.1403,
-    "best_recall@1": 0.0422,
+    "best_val_recall@10": 0.2023,
+    "best_val_recall@5": 0.1400,
+    "best_val_recall@1": 0.0422,
+    "best_test_recall@10": 0.1963,
+    "best_test_recall@5": 0.1343,
+    "best_test_recall@1": 0.0462,
     "best_image_variance": 0.000746,
     "best_text_variance": 0.000471,
     "best_temperature": 55.24,
     "total_epochs": 8,
-    "recall@10_improvement": 0.0314
+    "recall@10_improvement": 0.0314,
+    "val_test_gap_r10": -0.0060
   },
   "verification": {
-    "verified_date": "2026-08-06",
-    "evaluation_script": "scripts/evaluate_checkpoint.py",
+    "verified_date": "2026-08-07",
+    "evaluation_script": "scripts/evaluate_test_set.py",
     "metrics_match": true,
     "temperature_discrepancy": "Reported 53.51, actual 55.24",
+    "test_eval_bug_fixed": "2026-08-07: destructuring bug caused --split test to always evaluate on val split",
     "pairwise_distances": {
-      "image_mean_pairwise_dist": 0.6024,
-      "text_mean_pairwise_dist": 0.4744
+      "image_mean_pairwise_dist": 0.6028,
+      "text_mean_pairwise_dist": 0.4740
     }
   },
   "comparison": {
@@ -44,7 +49,8 @@
     "Memory queue is working correctly (queue_size=4096)",
     "Temperature is learning (increasing over time)",
     "Embedding variance is healthy (no collapse)",
-    "Recall@10 improved from 17.12% to 20.26% with memory queue",
-    "Gradient norm logging bug fixed (was always 0.0)"
+    "Recall@10 improved from 17.12% to 20.23% with memory queue",
+    "Gradient norm logging bug fixed (was always 0.0)",
+    "Test eval destructuring bug fixed (was always evaluating val split)"
   ]
 }

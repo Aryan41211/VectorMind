@@ -1,0 +1,544 @@
+{
+  "checkpoint": "checkpoints/train/best_model.pt",
+  "epoch": 7,
+  "step": 7944,
+  "split": "val",
+  "split_size": {
+    "images": 3178,
+    "captions": 15890
+  },
+  "image_to_text": {
+    "recall@1": 0.04216488357457521,
+    "recall@5": 0.14002517306482065,
+    "recall@10": 0.2023285084959094
+  },
+  "text_to_image": {
+    "recall@1": 0.027942100539803505,
+    "recall@5": 0.0934550017118454,
+    "recall@10": 0.15210823714733124
+  },
+  "embedding_diagnostics": {
+    "image_dim_variance": 0.0007455352460965514,
+    "text_dim_variance": 0.0004713324015028775,
+    "image_mean_pairwise_dist": 0.6054252982139587,
+    "text_mean_pairwise_dist": 0.4765464663505554,
+    "image_min_pairwise_dist": 0.08537384867668152,
+    "text_min_pairwise_dist": 0.0,
+    "image_uniformity": -0.7213143110275269,
+    "text_uniformity": -0.457462340593338,
+    "alignment": 0.12532605230808258
+  },
+  "failure_analysis": {
+    "total_images": 3178,
+    "total_failures": 2535,
+    "failure_rate": 0.7976714915040907,
+    "success_rate": 0.20232850849590933,
+    "failure_rank_distribution": [
+      2535,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "random_baseline": {
+    "recall@1": 0.01,
+    "recall@5": 0.05,
+    "recall@10": 0.1
+  },
+  "retrieval_examples": {
+    "successes": [
+      {
+        "image_index": 7,
+        "image_path": "data\\raw\\flickr30k\\images\\012699.jpg",
+        "correct_caption_range": [
+          35,
+          40
+        ],
+        "query_caption": "Two people wearing backpacks cross a rickety chain bridge  which is above a flowing river .",
+        "top_k_indices": [
+          12439,
+          8557,
+          5692,
+          14832,
+          2145,
+          14045,
+          11849,
+          37,
+          12605,
+          7588
+        ],
+        "top_k_scores": [
+          0.9676195383071899,
+          0.9641257524490356,
+          0.9610087871551514,
+          0.9593973159790039,
+          0.9585323333740234,
+          0.9585289359092712,
+          0.9576629400253296,
+          0.9575056433677673,
+          0.9566121697425842,
+          0.956447184085846
+        ],
+        "top_k_captions": [
+          "Someone in red stands dangerously on some railroad tracks .",
+          "A kid with a backpack walking on the railroad tracks .",
+          "Person observing a river with a bridge going over it .",
+          "A man standing on a railroad track looking through his binoculars at a river .",
+          "A man with an orange vest and pants pouring stones on railroad tracks .",
+          "Two dolphins jump out of the blue water with palm trees behind them .",
+          "A small buy waters a plant with a watering can .",
+          "Two people cross a bridge over a river in a forest .",
+          "A person dressed in a tan jacket jumps a quad over a harvested cornfield in front of a small out building .",
+          "A man in red shorts standing on rocks by a stream"
+        ],
+        "correct_in_top_k": [
+          37
+        ],
+        "recall_at_k": true
+      },
+      {
+        "image_index": 12,
+        "image_path": "data\\raw\\flickr30k\\images\\029869.jpg",
+        "correct_caption_range": [
+          60,
+          65
+        ],
+        "query_caption": "A young boy wearing red patterned shorts and a orange and blue shirt is playing the sand with a blue shovel at the beach .",
+        "top_k_indices": [
+          61,
+          15310,
+          9651,
+          15311,
+          9650,
+          3370,
+          3373,
+          4695,
+          15312,
+          15776
+        ],
+        "top_k_scores": [
+          0.9853230714797974,
+          0.9847139120101929,
+          0.9832565784454346,
+          0.9822492599487305,
+          0.9813674092292786,
+          0.9813299775123596,
+          0.9811403751373291,
+          0.9804598093032837,
+          0.9794559478759766,
+          0.9781689643859863
+        ],
+        "top_k_captions": [
+          "A young boy wearing a blue and orange shirt plays in the sand with a toy shovel .",
+          "A toddler is sitting in the sand wearing a blue denim jacket and flowered pants .",
+          "A boy in a red shirt is squatting in front of a circle of stones with a pot in the middle .",
+          "A unhappy toddler in a blue jacket sitting on the hot sand .",
+          "A little boy wearing a red shirt is squatted down next to some rocks spread out in a circle on a white cloth with a pot in the middle .",
+          "A little girl with a hat sits between a woman 's feet in the sand in front of a pair of colorful tents .",
+          "A little girl buried in the sand .",
+          "The little boy in red is getting drenched with water .",
+          "A baby wearing a blue jacket is sitting in sand .",
+          "A young girl in blue shirt and denim shorts  pulling on a rope  standing in a pit of mud ."
+        ],
+        "correct_in_top_k": [
+          61
+        ],
+        "recall_at_k": true
+      },
+      {
+        "image_index": 15,
+        "image_path": "data\\raw\\flickr30k\\images\\007785.jpg",
+        "correct_caption_range": [
+          75,
+          80
+        ],
+        "query_caption": "There man on top of an snow covered mountain with a lake behind him .",
+        "top_k_indices": [
+          76,
+          75,
+          14250,
+          11474,
+          11473,
+          78,
+          9344,
+          11472,
+          11397,
+          6718
+        ],
+        "top_k_scores": [
+          0.9774348139762878,
+          0.9762885570526123,
+          0.9762617349624634,
+          0.9746461510658264,
+          0.9746447801589966,
+          0.972721517086029,
+          0.9726245403289795,
+          0.9721405506134033,
+          0.9720954895019531,
+          0.9714747071266174
+        ],
+        "top_k_captions": [
+          "A man climbs over snow covered rocks by a shore .",
+          "There man on top of an snow covered mountain with a lake behind him .",
+          "A mountaineer about to descend down a mountain with a blue helmet on .",
+          "The snowboarder gazes into the distance at some mountains .",
+          "A man with a snowboard sits atop a mountain looking at the view .",
+          "A person hikes down a snowy mountain .",
+          "A hiker ascends a snowy hill .",
+          "A snowboarder sits on a mountain staring at a white foggy scenery .",
+          "A person snowboarding in the late afternoon sun .",
+          "A snowboarder making a big jump doing a trick on a high mountain ."
+        ],
+        "correct_in_top_k": [
+          76,
+          75,
+          78
+        ],
+        "recall_at_k": true
+      },
+      {
+        "image_index": 29,
+        "image_path": "data\\raw\\flickr30k\\images\\017733.jpg",
+        "correct_caption_range": [
+          145,
+          150
+        ],
+        "query_caption": "A line of hikers trek across the rocky  sandy soil toward the summit on a hazy day .",
+        "top_k_indices": [
+          263,
+          15449,
+          695,
+          2082,
+          12606,
+          145,
+          6199,
+          1270,
+          2333,
+          1230
+        ],
+        "top_k_scores": [
+          0.9709257483482361,
+          0.9683675765991211,
+          0.9683131575584412,
+          0.9678565263748169,
+          0.9676424860954285,
+          0.9667690396308899,
+          0.9665233492851257,
+          0.9665023684501648,
+          0.9650413990020752,
+          0.9646404385566711
+        ],
+        "top_k_captions": [
+          "People in folding chairs take in the view from a cliff .",
+          "People going for a long walk to the mountains .",
+          "Several people run down a highway with mountains in the background .",
+          "People hitch a ride in a wagon being towed by a donkey on a dirt road .",
+          "An ATV is airborne over a field in front of a white structure .",
+          "A line of hikers trek across the rocky  sandy soil toward the summit on a hazy day .",
+          "Blue tents in the country next to a hill",
+          "People on ATVs and dirt bikes are traveling along a worn path in a field surrounded by trees .",
+          "People climb up and down a long outdoor flight of stairs going up to a mountain .",
+          "A large number of cyclists wearing helmets cross a bridge on a gray and cloudy day ."
+        ],
+        "correct_in_top_k": [
+          145
+        ],
+        "recall_at_k": true
+      },
+      {
+        "image_index": 34,
+        "image_path": "data\\raw\\flickr30k\\images\\002032.jpg",
+        "correct_caption_range": [
+          170,
+          175
+        ],
+        "query_caption": "A man in blue shirt pausing to have his picture taken finishing his barbecue meal .",
+        "top_k_indices": [
+          12065,
+          2223,
+          10495,
+          218,
+          1814,
+          174,
+          1091,
+          7855,
+          14353,
+          2191
+        ],
+        "top_k_scores": [
+          0.9881299734115601,
+          0.983864426612854,
+          0.9834551215171814,
+          0.9831067323684692,
+          0.982314944267273,
+          0.9817456603050232,
+          0.9817086458206177,
+          0.9816296100616455,
+          0.981474757194519,
+          0.9801766276359558
+        ],
+        "top_k_captions": [
+          "A newborn is crying as healthcare workers check the baby 's reflexes .",
+          "A little girl and boy play tea with pretend dishes and dolls at a little table .",
+          "A baby sleeping on man who is sitting in front of a table covered with food with other people .",
+          "A woman with a blue shawl is holding a plate of food for another woman .",
+          "Woman cutting a piece of cake for the kids .",
+          "A man in a blue t-shirt eats a meal .",
+          "A man wearing a yellow striped shirt laughs while seated next to another man who is wearing a light blue shirt and clasping his hands together .",
+          "three boys visit their grandmother often at senior citizen home to play their favorite game scrabble .",
+          "An older man and woman are playing monopoly with children .",
+          "A older man cutting a cake for two girls sitting at a table ."
+        ],
+        "correct_in_top_k": [
+          174
+        ],
+        "recall_at_k": true
+      }
+    ],
+    "failures": [
+      {
+        "image_index": 0,
+        "image_path": "data\\raw\\flickr30k\\images\\030920.jpg",
+        "correct_caption_range": [
+          0,
+          5
+        ],
+        "query_caption": "Two men in uniforms and wheelchairs are reaching up for a white ball on a basketball court .",
+        "top_k_indices": [
+          4740,
+          12960,
+          4743,
+          9676,
+          10416,
+          11109,
+          4741,
+          12963,
+          13688,
+          8693
+        ],
+        "top_k_scores": [
+          0.9813878536224365,
+          0.9785215258598328,
+          0.9767862558364868,
+          0.9752612113952637,
+          0.9751158952713013,
+          0.9748511910438538,
+          0.9736923575401306,
+          0.9732136726379395,
+          0.9728230237960815,
+          0.9727559685707092
+        ],
+        "top_k_captions": [
+          "Red cross workers and emergency personnel stand next to a wrecked black automobile .",
+          "A man is in a red race car while another man is at the back of it .",
+          "The police and paramedics in Mexico helping with an auto accident .",
+          "A gentleman driving a blue car with the number 27 on it in race gear .",
+          "Two men in white shirts with matching logos inspect the engine of a vintage red convertible .",
+          "Several models posing on top of a race car .",
+          "First responders including rescue workers and police officers are inspecting a car .",
+          "A man inside a red race car gives a thumbs up sign .",
+          "A driver is sitting in a Team Penske race car .",
+          "a mural with vivid colors and people of various ages is displayed ."
+        ],
+        "correct_in_top_k": [],
+        "recall_at_k": false
+      },
+      {
+        "image_index": 1,
+        "image_path": "data\\raw\\flickr30k\\images\\000424.jpg",
+        "correct_caption_range": [
+          5,
+          10
+        ],
+        "query_caption": "A woman wearing a green tank top is working on a horse 's shoe .",
+        "top_k_indices": [
+          11115,
+          15259,
+          11464,
+          15661,
+          13123,
+          4888,
+          7137,
+          11157,
+          13357,
+          15772
+        ],
+        "top_k_scores": [
+          0.980960488319397,
+          0.9797557592391968,
+          0.9797245860099792,
+          0.9791805744171143,
+          0.9790900945663452,
+          0.978210985660553,
+          0.9781967401504517,
+          0.9762632250785828,
+          0.9753426909446716,
+          0.9751443862915039
+        ],
+        "top_k_captions": [
+          "A young boy eats noodles with large utensils .",
+          "A child looking at desserts with awe .",
+          "A man is crafting a wooden piece using a tool and his feet .",
+          "A young boy in a beige shirt is cutting fish with a knife .",
+          "A baby sleeping on its back .",
+          "A baby is sleeping next to a toy reindeer .",
+          "A person is about to kiss a sleeping baby 's hand .",
+          "A man has fallen asleep with his mouth open .",
+          "A woman with a black shirt is playing with puppies while her child watches .",
+          "A small child with berries all over its mouth ."
+        ],
+        "correct_in_top_k": [],
+        "recall_at_k": false
+      },
+      {
+        "image_index": 2,
+        "image_path": "data\\raw\\flickr30k\\images\\001762.jpg",
+        "correct_caption_range": [
+          10,
+          15
+        ],
+        "query_caption": "A bald dark-skinned man in a purple tank top and jeans works with another man next to a blue bucket .",
+        "top_k_indices": [
+          11287,
+          1869,
+          1868,
+          11285,
+          7069,
+          9242,
+          11916,
+          9244,
+          7292,
+          8120
+        ],
+        "top_k_scores": [
+          0.9718452095985413,
+          0.9712523221969604,
+          0.9661765694618225,
+          0.9655100107192993,
+          0.9643744230270386,
+          0.9641003608703613,
+          0.9639292359352112,
+          0.9633714556694031,
+          0.9631324410438538,
+          0.9630220532417297
+        ],
+        "top_k_captions": [
+          "Two children sit inside a blue and yellow tunnel .",
+          "A man and two children are sleeping on the floor .",
+          "A man and two small children laying on a tiled floor .",
+          "Small children play inside a small yellow and blue tube .",
+          "Two boys slide down a metal slide .",
+          "Two blond-haired children are asleep on some kind of vessel .",
+          "A military dentist and his camouflage-clad assistant do dental work on a patient .",
+          "Two children in bed sleeping .",
+          "Four children hover over a recipe for soup in a cooking competition .",
+          "A man in a blue plastic chair peels a vegetable into a bowl set on another blue plastic chair ."
+        ],
+        "correct_in_top_k": [],
+        "recall_at_k": false
+      },
+      {
+        "image_index": 3,
+        "image_path": "data\\raw\\flickr30k\\images\\018092.jpg",
+        "correct_caption_range": [
+          15,
+          20
+        ],
+        "query_caption": "This shows a group of people standing in a crowded street but with several people including 4 women and a black male standing by a table that has some papers and a couple of coffee cups on it .",
+        "top_k_indices": [
+          2427,
+          15059,
+          12677,
+          6015,
+          13993,
+          4449,
+          15273,
+          8628,
+          6010,
+          6816
+        ],
+        "top_k_scores": [
+          0.9864484071731567,
+          0.9857233762741089,
+          0.9849919676780701,
+          0.9846101403236389,
+          0.9842162728309631,
+          0.9841771125793457,
+          0.9834904074668884,
+          0.9832004308700562,
+          0.9824626445770264,
+          0.9821719527244568
+        ],
+        "top_k_captions": [
+          "A crowd of people is looking at something outside of a Gap store .",
+          "A group of travelers browse and enjoy a local market .",
+          "A crowd of people of different ages at a food stand .",
+          "A crowded place with people who are taking pictures and listening to someone speak .",
+          "Crowd gathers to listen to a band",
+          "Several people are talking in a crowded street .",
+          "Many people are gathered in a crowded building .",
+          "A group of older people playing in a band on the street .",
+          "The crowds of people fill the streets in town as they converse with each other .",
+          "A band of men and women are playing music in the street ."
+        ],
+        "correct_in_top_k": [],
+        "recall_at_k": false
+      },
+      {
+        "image_index": 4,
+        "image_path": "data\\raw\\flickr30k\\images\\010245.jpg",
+        "correct_caption_range": [
+          20,
+          25
+        ],
+        "query_caption": "Five  casually dressed people sit around a table going over papers .",
+        "top_k_indices": [
+          9715,
+          524,
+          521,
+          5309,
+          13499,
+          11771,
+          11630,
+          11770,
+          9683,
+          7435
+        ],
+        "top_k_scores": [
+          0.9921588897705078,
+          0.9892243146896362,
+          0.9881196022033691,
+          0.9874439835548401,
+          0.9871055483818054,
+          0.9869017004966736,
+          0.9849057197570801,
+          0.9842089414596558,
+          0.9836960434913635,
+          0.9831098318099976
+        ],
+        "top_k_captions": [
+          "A group of three students is shown sitting in some sort of lecture hall and they all see bored .",
+          "Nine people are sitting on a sofa smiling .",
+          "Several people sitting on a white couch smiling for a picture .",
+          "Women and men in scrubs using a laptop .",
+          "A spinning class is posing for the camera .",
+          "A group of people talking and one man is looking at his laptop .",
+          "Several people standing and sitting in a classroom or meeting room .",
+          "A group of six people are in a meeting conversing with one another .",
+          "Four people are sitting around a table talking .",
+          "People standing around laughing at a woman sitting on the ground covered in cake ."
+        ],
+        "correct_in_top_k": [],
+        "recall_at_k": false
+      }
+    ],
+    "total_images_evaluated": 3178,
+    "k": 10
+  }
+}
