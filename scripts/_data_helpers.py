@@ -45,17 +45,9 @@ def load_flickr30k_from_hf(cache_dir: str) -> tuple[list[str], list[str]]:
         its image path. Each image appears 5 times (once per caption).
 
     Raises:
-        ImportError: If ``datasets`` is not installed.
+        ImportError: If ``datasets`` is not installed (only when cache
+            is missing and download is needed).
     """
-    try:
-        from datasets import load_dataset
-    except ImportError:
-        logger.error(
-            "The 'datasets' package is required for downloading Flickr30k. "
-            "Install it with: pip install datasets"
-        )
-        raise
-
     images_dir = Path(cache_dir) / "images"
     images_dir.mkdir(parents=True, exist_ok=True)
 
@@ -89,6 +81,16 @@ def load_flickr30k_from_hf(cache_dir: str) -> tuple[list[str], list[str]]:
             len(existing_images),
         )
         return image_paths, captions
+
+    # Download from HuggingFace (only reached if cache is missing)
+    try:
+        from datasets import load_dataset
+    except ImportError:
+        logger.error(
+            "The 'datasets' package is required for downloading Flickr30k. "
+            "Install it with: pip install datasets"
+        )
+        raise
 
     # Download from HuggingFace
     logger.info(
