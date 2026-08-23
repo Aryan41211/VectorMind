@@ -40,8 +40,14 @@ serving layer).
 ## 3. Import Rules
 
 - Standard library imports, then third-party, then local
-  (`src.vectormind.*`) — each group separated by a blank line. Ruff's
-  isort-equivalent rule enforces this automatically once wired into CI.
+  (`vectormind.*`) — each group separated by a blank line. Ruff's `I001`
+  enforces this, and CI runs it.
+- **Always `vectormind.*`, never `src.vectormind.*`.** The `src.` form
+  resolves only when the process happens to start in the repository
+  root, and it silently breaks anything that does not — `backend/` used
+  it and the Docker image could not start, because modules under `src/`
+  import each other as `vectormind.*` and nothing put that on the path.
+  `pip install -e .` is what makes the short form work everywhere.
 - No wildcard imports (`from module import *`) anywhere.
 - No circular imports between `src/vectormind/` subpackages — this is
   why ARCHITECTURE.md §2 requires components to interact through

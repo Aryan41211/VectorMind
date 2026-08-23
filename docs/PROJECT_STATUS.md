@@ -63,7 +63,7 @@ Tracked in `docs/KNOWN_ISSUES.md` — 10 open entries. The four that
 matter most:
 1. Embedding space is severely anisotropic; reports call it healthy.
 2. The image FAISS index holds 5 duplicate vectors per image (15,895 vectors, 3,180 unique).
-3. `backend/` imports `src.vectormind.*` while `src/` imports `vectormind.*` — the backend Docker image cannot start.
+3. ~~`backend/` imports `src.vectormind.*`~~ — **fixed.** Imports normalized and the package is installable; the image still needs building to confirm.
 4. ~90 of 132 commits are empty commits with fabricated messages (CLAUDE.md §7 violation).
 
 ## Documentation

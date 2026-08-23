@@ -28,8 +28,9 @@ data/processed/
 *.ckpt
 
 # Derived embedding arrays — regenerate with `python -m backend.index_builder`.
-# The .faiss indices and sample_metadata.json ARE committed so the demo runs
-# from a fresh clone; see docs/KNOWN_ISSUES.md for the size tradeoff.
+# The .faiss indices and their index maps (image_samples.json,
+# caption_samples.json) ARE committed so the demo runs from a fresh
+# clone; see docs/KNOWN_ISSUES.md for the size tradeoff.
 backend/indices/*.npy
 
 # --- Node / frontend ---
