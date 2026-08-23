@@ -66,6 +66,50 @@ similarities are compressed. The retrieval numbers are real; the
 
 ---
 
+## 1b. Every "× random baseline" figure is wrong — and understates the result
+
+**Severity:** high — it is the project's headline claim, quoted in
+`ROADMAP.md`, `PROJECT_STATUS.md`, `TRAINING_LOG.md`, the Phase 5
+reports, and the frontend's About panel.
+
+The claim is *"Test Recall@10 = 19.63% (2.0× random baseline)"*, which
+implies a chance rate near 10%.
+
+Chance for image→text Recall@10 on the test split is the probability
+that a random 10 of the 15,895 captions contains one of the 5 belonging
+to the query image:
+
+```
+1 - C(15890, 10) / C(15895, 10)  =  0.31%
+```
+
+| Metric | Measured | Claimed chance | Real chance | Claimed | **Real** |
+|---|---|---|---|---|---|
+| R@1 (I→T) | 4.62% | 1% | 0.031% | 4.6× | **147×** |
+| R@5 (I→T) | 13.43% | 5% | 0.157% | 2.7× | **85×** |
+| R@10 (I→T) | 19.63% | 10% | 0.314% | 2.0× | **62×** |
+| R@10 (T→I) | 15.09% | 10% | 0.315% | 1.5× | **48×** |
+
+**Where the wrong numbers came from:** the Phase 3.5 sanity check
+overfits a **100-image** subset, where R@1 chance genuinely is 1% and
+R@10 chance genuinely is 10%. `ROADMAP.md` records those correctly at
+lines 169–170. Those same two figures were then reused for the full
+3,179-image / 15,895-caption test split, where they are roughly 30×
+too large.
+
+This is the one error in this repository that runs in the project's
+favour: a from-scratch dual encoder on 31k images at **62× chance** is a
+substantially better result than "2× chance", and it was undersold for
+weeks.
+
+**Fix:** `scripts/generate_reports.py` computes the baseline from the
+actual candidate-pool size and relevant-item count, and writes it beside
+every recall figure. Note it uses the exact complement rather than the
+`k/n` shortcut, which overstates chance whenever an image has more than
+one valid caption.
+
+---
+
 ## 2. The image FAISS index contains 5 duplicate vectors per image
 
 **Severity:** high — user-visible in the demo.
