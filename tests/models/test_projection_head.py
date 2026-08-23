@@ -7,7 +7,6 @@ import torch
 
 from vectormind.models.projection_head import ProjectionHead
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

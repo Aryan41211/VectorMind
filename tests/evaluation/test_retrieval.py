@@ -14,7 +14,6 @@ from vectormind.evaluation.retrieval import (
     compute_uniformity,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -116,7 +115,7 @@ class TestComputeBidirectionalRecall:
         """Random embeddings should give valid recall values."""
         image_embeds, text_embeds = random_embeddings
         result = compute_bidirectional_recall(image_embeds, text_embeds)
-        for key, value in result.items():
+        for value in result.values():
             assert 0.0 <= value <= 1.0
 
     def test_recall_k_non_decreasing(

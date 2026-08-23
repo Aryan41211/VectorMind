@@ -10,11 +10,10 @@ import torch.nn as nn
 
 from vectormind.models.projection_head import ProjectionHead
 from vectormind.models.vectormind_model import (
-    DEFAULT_MAX_LOGIT_SCALE,
     _INITIAL_LOG_TEMPERATURE,
+    DEFAULT_MAX_LOGIT_SCALE,
     VectorMindModel,
 )
-
 
 # ---------------------------------------------------------------------------
 # Config fixtures — mirrors configs/model.yaml structure
@@ -120,7 +119,7 @@ class TestVectorMindModelInit:
         assert isinstance(model.log_temperature, nn.Parameter)
 
     def test_temperature_property(self, model: VectorMindModel) -> None:
-        """temperature property returns exponentiated log_temperature."""
+        """Temperature property returns exponentiated log_temperature."""
         expected_temp = torch.exp(model.log_temperature)
         assert torch.allclose(model.temperature, expected_temp)
 

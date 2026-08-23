@@ -1,5 +1,4 @@
-"""
-Tests for backend/routers/text_search.py — Text search endpoint.
+"""Tests for backend/routers/text_search.py — Text search endpoint.
 
 Covers:
 - Text search endpoint
@@ -10,16 +9,13 @@ Covers:
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
-
 import faiss
 import numpy as np
 import pytest
 import torch
 from fastapi.testclient import TestClient
 
-from backend.app import AppState, create_app
-from backend.app import app_state
+from backend.app import app_state, create_app
 
 
 class MockModel:

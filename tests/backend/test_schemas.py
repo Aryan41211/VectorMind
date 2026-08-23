@@ -1,5 +1,4 @@
-"""
-Tests for backend/schemas.py — Pydantic request/response models.
+"""Tests for backend/schemas.py — Pydantic request/response models.
 
 Covers:
 - Request validation
@@ -18,8 +17,8 @@ from backend.schemas import (
     HealthResponse,
     ImageSearchRequest,
     ModelConfig,
-    SearchResult,
     SearchResponse,
+    SearchResult,
     ServerConfig,
     TextSearchRequest,
 )

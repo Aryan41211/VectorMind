@@ -1,2 +1,1 @@
-# backend/__init__.py
-# VectorMind serving layer — FastAPI application + FAISS index
+"""VectorMind serving layer: FastAPI application, routers, FAISS index."""

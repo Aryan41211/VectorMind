@@ -7,7 +7,6 @@ import torch
 
 from vectormind.training.memory_queue import MemoryQueue
 
-
 # ---------------------------------------------------------------------------
 # Initialization tests
 # ---------------------------------------------------------------------------

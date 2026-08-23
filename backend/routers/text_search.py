@@ -1,5 +1,4 @@
-"""
-VectorMind Text Search Router — /search/text endpoint
+"""VectorMind text search router, serving POST /search/text.
 
 Handles text queries and returns images ranked by similarity.
 Uses the text encoder to generate query embeddings and FAISS
@@ -24,7 +23,12 @@ import torch
 from fastapi import APIRouter, HTTPException
 
 from backend.app import app_state
-from backend.schemas import ErrorResponse, SearchResponse, SearchResult, TextSearchRequest
+from backend.schemas import (
+    ErrorResponse,
+    SearchResponse,
+    SearchResult,
+    TextSearchRequest,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -42,8 +46,7 @@ router = APIRouter(prefix="/search", tags=["search"])
     description="Find images matching a text description using semantic similarity.",
 )
 def search_by_text(request: TextSearchRequest) -> SearchResponse:
-    """
-    Search images by text query.
+    """Search images by text query.
 
     Encodes the text query using the text encoder, then searches the
     FAISS image index for the most similar images.
@@ -110,7 +113,7 @@ def search_by_text(request: TextSearchRequest) -> SearchResponse:
 
         # Build results
         results = []
-        for rank, (idx, score) in enumerate(zip(indices[0], distances[0]), start=1):
+        for rank, (idx, score) in enumerate(zip(indices[0], distances[0], strict=True), start=1):
             if idx == -1:  # FAISS returns -1 for failed searches
                 continue
 
@@ -162,8 +165,8 @@ def search_by_text(request: TextSearchRequest) -> SearchResponse:
         logger.error(f"Text search failed: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Search failed: {str(e)}",
-        )
+            detail=f"Search failed: {e!s}",
+        ) from e
 
 
 @lru_cache(maxsize=1)

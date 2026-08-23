@@ -1,5 +1,4 @@
-"""
-Integration tests for backend API — Full workflow testing.
+"""Integration tests for backend API — Full workflow testing.
 
 Covers:
 - End-to-end search workflows
@@ -20,8 +19,7 @@ import torch
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from backend.app import create_app
-from backend.app import app_state
+from backend.app import app_state, create_app
 
 
 class MockModel:

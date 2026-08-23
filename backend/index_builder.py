@@ -1,5 +1,4 @@
-"""
-VectorMind FAISS Index Builder — Offline Embedding Indexing
+r"""Offline FAISS index construction from a trained VectorMind checkpoint.
 
 Builds FAISS indices from trained model embeddings for efficient
 similarity search at serving time. Creates separate indices for
@@ -18,7 +17,7 @@ import argparse
 import json
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -74,8 +73,7 @@ def build_faiss_index(
     embeddings: np.ndarray,
     index_type: str = "IndexFlatIP",
 ) -> faiss.Index:
-    """
-    Build a FAISS index from embeddings.
+    """Build a FAISS index from embeddings.
 
     Args:
         embeddings: Numpy array of shape (N, D) with L2-normalized embeddings.
@@ -108,8 +106,7 @@ def load_model(
     config: dict[str, Any],
     device: torch.device | None = None,
 ) -> VectorMindModel:
-    """
-    Load a trained model from checkpoint.
+    """Load a trained model from checkpoint.
 
     Args:
         checkpoint_path: Path to the model checkpoint.
@@ -142,8 +139,7 @@ def generate_embeddings(
     device: torch.device,
     captions_per_image: int = 5,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Generate image and text embeddings for all batches.
+    """Generate image and text embeddings for all batches.
 
     Args:
         model: Trained VectorMindModel.
@@ -161,7 +157,6 @@ def generate_embeddings(
         images = batch["image"].to(device)
         input_ids = batch["input_ids"].to(device)
         attention_mask = batch["attention_mask"].to(device)
-        batch_size = images.shape[0]
 
         # Generate image embeddings
         image_emb = model.encode_image(images)  # [B, D]
@@ -229,7 +224,9 @@ def deduplicate_image_embeddings(
     keep_rows: list[int] = []
     records: list[dict[str, Any]] = []
 
-    for row, (path, caption) in enumerate(zip(image_paths, captions)):
+    for row, (path, caption) in enumerate(
+        zip(image_paths, captions, strict=True)
+    ):
         key = str(path)
         if key not in seen:
             seen[key] = len(records)
@@ -288,7 +285,7 @@ def build_caption_metadata(
             "image_path": str(path),
             "filename": Path(str(path)).name,
         }
-        for i, (path, caption) in enumerate(zip(image_paths, captions))
+        for i, (path, caption) in enumerate(zip(image_paths, captions, strict=True))
     ]
 
 
@@ -306,8 +303,7 @@ def save_indices(
     caption_samples: list[dict[str, Any]],
     save_embeddings: bool = False,
 ) -> None:
-    """
-    Save FAISS indices and their index maps to disk.
+    """Save FAISS indices and their index maps to disk.
 
     The two indices have different lengths — one vector per unique image
     versus one per caption — so they get separate index maps. A single
@@ -384,8 +380,7 @@ def build_indices(
     device: torch.device | None = None,
     save_embeddings: bool = False,
 ) -> IndexBuildResult:
-    """
-    Main entry point: build FAISS indices for both search directions.
+    """Main entry point: build FAISS indices for both search directions.
 
     Args:
         checkpoint_path: Path to trained model checkpoint.
@@ -411,6 +406,7 @@ def build_indices(
         sys.path.insert(0, str(scripts_dir))
 
     from _data_helpers import load_flickr30k_from_hf  # type: ignore[import-not-found]
+
     from vectormind.data.dataloader import _collate_fn
     from vectormind.data.splitter import create_splits
     from vectormind.data.tokenizer import CaptionTokenizer
@@ -451,7 +447,7 @@ def build_indices(
     else:
         pairs = test_pairs
 
-    path_tuple, caption_tuple = zip(*pairs)
+    path_tuple, caption_tuple = zip(*pairs, strict=True)
     split_paths: list[Path] = [Path(p) for p in path_tuple]
     split_caps: list[str] = list(caption_tuple)
 
@@ -505,7 +501,6 @@ def build_indices(
     caption_samples = build_caption_metadata(sample_paths, split_caps)
 
     # Build FAISS indices
-    start_time = time.time()
     image_build_start = time.time()
     image_index = build_faiss_index(image_embeddings.copy(), "IndexFlatIP")
     image_build_time = time.time() - image_build_start
@@ -513,7 +508,6 @@ def build_indices(
     text_build_start = time.time()
     text_index = build_faiss_index(text_embeddings.copy(), "IndexFlatIP")
     text_build_time = time.time() - text_build_start
-    build_time = time.time() - start_time
 
     # Create metadata
     creation_time = time.strftime("%Y-%m-%d %H:%M:%S")

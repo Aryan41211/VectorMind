@@ -1,5 +1,4 @@
-"""
-VectorMind Pydantic Schemas — API Request/Response Models
+"""Pydantic request and response schemas for the VectorMind search API.
 
 Defines the request and response schemas for the search API endpoints.
 Ensures type safety and automatic OpenAPI documentation generation.
@@ -10,7 +9,6 @@ from __future__ import annotations
 from typing import Any
 
 from pydantic import BaseModel, Field
-
 
 # --- Request Schemas ---
 

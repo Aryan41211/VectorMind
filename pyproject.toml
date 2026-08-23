@@ -85,8 +85,15 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # Tests document themselves through their names; full docstring coverage
 # on every assertion helper is ceremony, not clarity.
-"tests/**" = ["D100", "D101", "D102", "D103", "ANN201", "ANN001"]
+"tests/**" = [
+    "D100", "D101", "D102", "D103", "D104", "D107",
+    "ANN001", "ANN201", "ANN202", "ANN204", "ANN205",
+]
 "scripts/**" = ["D103"]
+# Depends(...) / File(...) in a FastAPI signature IS the dependency
+# declaration — B008 does not apply. The two Any returns are HuggingFace
+# and torchvision objects that ship no usable type.
+"backend/routers/*.py" = ["B008", "ANN401"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

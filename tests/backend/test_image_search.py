@@ -1,5 +1,4 @@
-"""
-Tests for backend/routers/image_search.py — Image search endpoint.
+"""Tests for backend/routers/image_search.py — Image search endpoint.
 
 Covers:
 - Image search endpoint
@@ -11,7 +10,6 @@ Covers:
 from __future__ import annotations
 
 import io
-from unittest.mock import MagicMock, patch
 
 import faiss
 import numpy as np
@@ -20,8 +18,7 @@ import torch
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from backend.app import AppState, create_app
-from backend.app import app_state
+from backend.app import app_state, create_app
 
 
 class MockModel:

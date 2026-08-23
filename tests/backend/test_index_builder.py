@@ -1,5 +1,4 @@
-"""
-Tests for backend/index_builder.py — FAISS index building utilities.
+"""Tests for backend/index_builder.py — FAISS index building utilities.
 
 Covers:
 - FAISS index construction
@@ -13,7 +12,6 @@ from __future__ import annotations
 import json
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import faiss
 import numpy as np
@@ -51,6 +49,10 @@ class TestBuildFaissIndex:
         """Embeddings are L2-normalized before indexing."""
         embeddings = np.random.randn(100, 256).astype(np.float32)
         original_norms = np.linalg.norm(embeddings, axis=1).copy()
+        # Random Gaussian rows are not unit-norm, so this confirms the
+        # test is actually exercising normalization rather than being
+        # handed already-normalized input.
+        assert not np.allclose(original_norms, 1.0)
         build_faiss_index(embeddings, "IndexFlatIP")
         # After normalization, all vectors should have unit norm
         norms = np.linalg.norm(embeddings, axis=1)

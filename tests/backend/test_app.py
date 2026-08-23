@@ -1,5 +1,4 @@
-"""
-Tests for backend/app.py — FastAPI application setup and health checks.
+"""Tests for backend/app.py — FastAPI application setup and health checks.
 
 Covers:
 - Application creation
@@ -11,7 +10,6 @@ Covers:
 
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
 
 from backend.app import create_app

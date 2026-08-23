@@ -10,7 +10,6 @@ from vectormind.training.checkpoint import load_checkpoint, save_checkpoint
 from vectormind.training.memory_queue import MemoryQueue
 from vectormind.training.train_loop import create_scaler
 
-
 # ---------------------------------------------------------------------------
 # Config fixtures
 # ---------------------------------------------------------------------------
@@ -155,7 +154,9 @@ class TestCheckpointRoundtrip:
             queue2,
         )
 
-        for p1, p2 in zip(model.parameters(), model2.parameters()):
+        for p1, p2 in zip(
+            model.parameters(), model2.parameters(), strict=True
+        ):
             assert torch.allclose(p1, p2)
 
     def test_queue_state_restored(

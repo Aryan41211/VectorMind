@@ -13,7 +13,6 @@ import torch
 
 from vectormind.training.losses import symmetric_infonce
 
-
 # ---------------------------------------------------------------------------
 # Hand-computed test (CLAUDE.md §4 requirement)
 # ---------------------------------------------------------------------------

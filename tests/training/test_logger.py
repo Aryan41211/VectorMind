@@ -30,7 +30,7 @@ class TestTrainingLogger:
         logger.close()
 
     def test_flush(self, tmp_path: object) -> None:
-        """flush does not crash."""
+        """Flush does not crash."""
         log_dir = tmp_path / "logs"  # type: ignore[union-attr]
         logger = TrainingLogger(log_dir)
         logger.log_metrics(step=0, metrics={"loss": 1.0})
@@ -38,7 +38,7 @@ class TestTrainingLogger:
         logger.close()
 
     def test_close(self, tmp_path: object) -> None:
-        """close does not crash."""
+        """Close does not crash."""
         log_dir = tmp_path / "logs"  # type: ignore[union-attr]
         logger = TrainingLogger(log_dir)
         logger.close()

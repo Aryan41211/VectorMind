@@ -1,5 +1,4 @@
-"""
-VectorMind FastAPI Application — Serving Layer
+"""VectorMind FastAPI application: startup loading, health, routing.
 
 Main FastAPI application with startup model loading, health checks,
 and router registration. Loads model and FAISS index once at startup,
@@ -16,7 +15,7 @@ import logging
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -25,7 +24,7 @@ import torch
 import uvicorn
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.index_builder import load_model
@@ -86,8 +85,7 @@ def create_app(
     test_mode: bool = False,
     serving_config: dict[str, Any] | None = None,
 ) -> FastAPI:
-    """
-    Create and configure the FastAPI application.
+    """Create and configure the FastAPI application.
 
     Args:
         model_config: Model configuration dictionary. If None, loads from config.
@@ -185,7 +183,7 @@ def create_app(
         }
 
     # Include routers
-    from backend.routers import text_search, image_search
+    from backend.routers import image_search, text_search
     app.include_router(text_search.router)
     app.include_router(image_search.router)
 
@@ -225,8 +223,7 @@ def _load_model_and_index(
     model_config: dict[str, Any] | None = None,
     serving_config: dict[str, Any] | None = None,
 ) -> None:
-    """
-    Load the trained model and FAISS index into application state.
+    """Load the trained model and FAISS index into application state.
 
     Missing artifacts are logged and skipped rather than raised: the app
     still starts, /health reports what is loaded, and the search

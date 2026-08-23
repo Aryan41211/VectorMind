@@ -1,5 +1,4 @@
-"""
-VectorMind Image Search Router — /search/image endpoint
+"""VectorMind image search router, serving POST /search/image.
 
 Handles image queries and returns captions ranked by similarity.
 Uses the image encoder to generate query embeddings and FAISS
@@ -78,8 +77,7 @@ def search_by_image(
     file: UploadFile = File(..., description="Image file to search with"),
     top_k: int = 10,
 ) -> SearchResponse:
-    """
-    Search captions by image query.
+    """Search captions by image query.
 
     Encodes the uploaded image using the image encoder, then searches the
     FAISS text index for the most similar captions.
@@ -135,7 +133,7 @@ def search_by_image(
 
         # Build results
         results = []
-        for rank, (idx, score) in enumerate(zip(indices[0], distances[0]), start=1):
+        for rank, (idx, score) in enumerate(zip(indices[0], distances[0], strict=True), start=1):
             if idx == -1:  # FAISS returns -1 for failed searches
                 continue
 
@@ -182,13 +180,12 @@ def search_by_image(
         logger.error(f"Image search failed: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Search failed: {str(e)}",
-        )
+            detail=f"Search failed: {e!s}",
+        ) from e
 
 
 def _validate_image_sync(file: UploadFile) -> Image.Image:
-    """
-    Validate and load an uploaded image file (synchronous).
+    """Validate and load an uploaded image file (synchronous).
 
     Args:
         file: Uploaded file.
@@ -225,5 +222,5 @@ def _validate_image_sync(file: UploadFile) -> Image.Image:
     except Exception as e:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid image file: {str(e)}",
-        )
+            detail=f"Invalid image file: {e!s}",
+        ) from e
