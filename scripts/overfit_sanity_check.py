@@ -43,6 +43,7 @@ from vectormind.data.dataloader import create_dataloaders
 from vectormind.data.overfit_subset import load_subset_metadata
 from vectormind.data.tokenizer import CaptionTokenizer
 from vectormind.data.transforms import get_eval_transforms
+from vectormind.evaluation.memorization import compute_image_level_recall
 from vectormind.models.vectormind_model import VectorMindModel
 from vectormind.training.checkpoint import save_checkpoint
 from vectormind.training.logger import TrainingLogger
@@ -57,58 +58,14 @@ from vectormind.utils.logging_config import setup_logging
 
 logger = logging.getLogger(__name__)
 
+# Recall@K has one implementation, in the package. Aliased here under
+# the name this script has always used (CLAUDE.md §3: no duplicate logic).
+compute_recall_at_k = compute_image_level_recall
+
+
 # Checkpoint directory for overfit experiments
 CHECKPOINT_DIR = Path("checkpoints/overfit")
 LOG_DIR = Path("logs/overfit")
-
-
-def compute_recall_at_k(
-    image_embeds: torch.Tensor,
-    text_embeds: torch.Tensor,
-    captions_per_image: int = 5,
-    k: int = 1,
-) -> float:
-    """Compute image-level Recall@K for image-to-text retrieval.
-
-    For each image, check whether ANY of its captions appears in the
-    top-K results when ranking all captions by cosine similarity.
-    This is the correct metric because all 5 captions describe the
-    same image — retrieving any of them is a success.
-
-    Args:
-        image_embeds: L2-normalized image embeddings [N_images, D].
-        text_embeds: L2-normalized text embeddings [N_pairs, D].
-            N_pairs = N_images * captions_per_image.
-        captions_per_image: Number of captions per image (default 5).
-        k: Number of top results to consider.
-
-    Returns:
-        Image-level Recall@K as a float between 0 and 1.
-    """
-    N_images = image_embeds.shape[0]
-
-    # Similarity matrix: [N_images, N_pairs]
-    similarity = image_embeds @ text_embeds.T
-
-    # For each image, the matching caption indices are:
-    # [i*captions_per_image, i*captions_per_image+1, ..., i*captions_per_image+4]
-    correct_indices = []
-    for i in range(N_images):
-        start = i * captions_per_image
-        end = start + captions_per_image
-        correct_indices.append(set(range(start, end)))
-
-    # Top-K retrieval
-    _, top_k_indices = similarity.topk(k, dim=1)
-
-    # Check if any correct index is in the top-K
-    correct_count = 0
-    for i in range(N_images):
-        top_k_set = set(top_k_indices[i].tolist())
-        if top_k_set & correct_indices[i]:
-            correct_count += 1
-
-    return correct_count / N_images
 
 
 def compute_embedding_variance(

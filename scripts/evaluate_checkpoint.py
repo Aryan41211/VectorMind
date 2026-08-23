@@ -24,45 +24,13 @@ from vectormind.data.dataloader import create_dataloaders
 from vectormind.data.splitter import create_splits
 from vectormind.data.tokenizer import CaptionTokenizer
 from vectormind.data.transforms import get_eval_transforms, get_train_transforms
+from vectormind.evaluation.memorization import compute_image_level_recall
 from vectormind.models.vectormind_model import VectorMindModel
 from vectormind.utils.config import load_config
 
-
-def compute_recall_at_k(
-    image_embeds: torch.Tensor,
-    text_embeds: torch.Tensor,
-    captions_per_image: int = 5,
-    k: int = 1,
-) -> float:
-    """Compute image-level Recall@K for image-to-text retrieval.
-    
-    Args:
-        image_embeds: L2-normalized image embeddings [N_images, D].
-        text_embeds: L2-normalized text embeddings [N_pairs, D].
-        captions_per_image: Number of captions per image.
-        k: Number of top results to consider.
-        
-    Returns:
-        Image-level Recall@K as a float between 0 and 1.
-    """
-    N_images = image_embeds.shape[0]
-    similarity = image_embeds @ text_embeds.T
-    
-    correct_indices = []
-    for i in range(N_images):
-        start = i * captions_per_image
-        end = start + captions_per_image
-        correct_indices.append(set(range(start, end)))
-    
-    _, top_k_indices = similarity.topk(k, dim=1)
-    
-    correct_count = 0
-    for i in range(N_images):
-        top_k_set = set(top_k_indices[i].tolist())
-        if top_k_set & correct_indices[i]:
-            correct_count += 1
-    
-    return correct_count / N_images
+# Recall@K has one implementation, in the package. Aliased here under
+# the name this script has always used (CLAUDE.md §3: no duplicate logic).
+compute_recall_at_k = compute_image_level_recall
 
 
 def evaluate_checkpoint(checkpoint_path: str) -> dict:

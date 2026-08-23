@@ -34,6 +34,7 @@ from vectormind.data.dataloader import create_dataloaders
 from vectormind.data.splitter import create_splits
 from vectormind.data.tokenizer import CaptionTokenizer
 from vectormind.data.transforms import get_eval_transforms, get_train_transforms
+from vectormind.evaluation.evaluator import evaluate_split
 from vectormind.models.vectormind_model import VectorMindModel
 from vectormind.training.checkpoint import save_checkpoint
 from vectormind.training.logger import TrainingLogger
@@ -85,77 +86,38 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def compute_recall_at_k(
-    image_embeds: torch.Tensor,
-    text_embeds: torch.Tensor,
-    captions_per_image: int = 5,
-    k: int = 1,
-) -> float:
-    """Compute image-level Recall@K for image-to-text retrieval."""
-    N_images = image_embeds.shape[0]
-    similarity = image_embeds @ text_embeds.T
-    
-    correct_indices = []
-    for i in range(N_images):
-        start = i * captions_per_image
-        end = start + captions_per_image
-        correct_indices.append(set(range(start, end)))
-    
-    _, top_k_indices = similarity.topk(k, dim=1)
-    
-    correct_count = 0
-    for i in range(N_images):
-        top_k_set = set(top_k_indices[i].tolist())
-        if top_k_set & correct_indices[i]:
-            correct_count += 1
-    
-    return correct_count / N_images
-
-
-@torch.no_grad()
 def evaluate(
     model: VectorMindModel,
     dataloader: torch.utils.data.DataLoader,
     device: torch.device,
     captions_per_image: int = 5,
 ) -> dict[str, float]:
-    """Evaluate the model on a dataset split."""
-    model.eval()
-    all_image_embeds = []
-    all_text_embeds = []
-    
-    for batch in dataloader:
-        images = batch["image"].to(device, non_blocking=True)
-        input_ids = batch["input_ids"].to(device, non_blocking=True)
-        attention_mask = batch["attention_mask"].to(device, non_blocking=True)
-        
-        img_emb = model.encode_image(images)
-        txt_emb = model.encode_text(input_ids, attention_mask)
-        all_image_embeds.append(img_emb)
-        all_text_embeds.append(txt_emb)
-    
-    image_embeds = torch.cat(all_image_embeds, dim=0)
-    text_embeds = torch.cat(all_text_embeds, dim=0)
-    
-    N_total = image_embeds.shape[0]
-    N_unique = N_total // captions_per_image
-    image_embeds_unique = image_embeds.view(N_unique, captions_per_image, -1).mean(dim=1)
-    
-    r1 = compute_recall_at_k(image_embeds_unique, text_embeds, captions_per_image, k=1)
-    r5 = compute_recall_at_k(image_embeds_unique, text_embeds, captions_per_image, k=5)
-    r10 = compute_recall_at_k(image_embeds_unique, text_embeds, captions_per_image, k=10)
-    
-    # Embedding diagnostics
-    img_dim_var = image_embeds_unique.var(dim=0).mean().item()
-    txt_dim_var = text_embeds.var(dim=0).mean().item()
-    
-    return {
-        "recall@1": r1,
-        "recall@5": r5,
-        "recall@10": r10,
-        "image_dim_variance": img_dim_var,
-        "text_dim_variance": txt_dim_var,
-    }
+    """Evaluate the model on a dataset split.
+
+    Thin wrapper over the shared implementation in
+    ``vectormind.evaluation.evaluator``. This script used to carry its
+    own copy of the recall and diagnostics code; four scripts each
+    having one meant a metric fix in any of them silently left the
+    others reporting different numbers for the same checkpoint.
+
+    Args:
+        model: The trained VectorMindModel.
+        dataloader: DataLoader over the split to evaluate.
+        device: Device to evaluate on.
+        captions_per_image: Captions per image for Recall computation.
+
+    Returns:
+        Flat metric mapping: ``recall@1/5/10``, ``t2i_recall@1/5/10``,
+        embedding diagnostics, and health fields including
+        ``separation`` and ``collapsed``.
+
+    Raises:
+        ValueError: If the split size is not divisible by
+            ``captions_per_image``.
+    """
+    return evaluate_split(
+        model, dataloader, device, captions_per_image
+    ).to_flat_dict()
 
 
 def main() -> None:
