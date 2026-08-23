@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import logging
 import time
+from functools import lru_cache
+from typing import Any
 
 import faiss
 import numpy as np
@@ -71,14 +73,22 @@ def search_by_text(request: TextSearchRequest) -> SearchResponse:
     start_time = time.time()
 
     try:
-        # Tokenize the query
+        # Tokenize the query exactly as training did.
+        #
+        # This previously used padding=True (pad to the longest item in
+        # the call, i.e. the query's own length) while training used
+        # padding="max_length" with a fixed 77 tokens. That fed the text
+        # encoder a sequence-length distribution it never saw during
+        # training. Both settings now come from configs/serving.yaml,
+        # which is pinned to configs/data.yaml.
+        tok_cfg = get_tokenizer_config()
         tokenizer = _get_tokenizer()
         encoded = tokenizer(
             request.query,
             return_tensors="pt",
-            padding=True,
+            padding=tok_cfg["padding_strategy"],
             truncation=True,
-            max_length=77,
+            max_length=tok_cfg["max_length"],
         )
 
         # Move to device — extract input_ids and attention_mask separately
@@ -104,14 +114,21 @@ def search_by_text(request: TextSearchRequest) -> SearchResponse:
             if idx == -1:  # FAISS returns -1 for failed searches
                 continue
 
-            # Look up real metadata from sample_metadata
+            # This searched the IMAGE index, so idx is an image-index
+            # position and must be resolved against image_samples.
+            # Resolving it against a caption-indexed list is what
+            # returned mismatched filenames before the indices were
+            # split (docs/KNOWN_ISSUES.md §2).
             filename = None
             image_url = None
             caption = None
-            if app_state.sample_metadata and 0 <= idx < len(app_state.sample_metadata):
-                entry = app_state.sample_metadata[idx]
+            samples = app_state.image_samples
+            if samples and 0 <= idx < len(samples):
+                entry = samples[idx]
                 filename = entry.get("filename")
-                caption = entry.get("caption")
+                # Show one caption as a label for the retrieved image.
+                entry_captions = entry.get("captions") or []
+                caption = entry_captions[0] if entry_captions else None
                 if filename:
                     image_url = f"/images/{filename}"
 
@@ -149,11 +166,39 @@ def search_by_text(request: TextSearchRequest) -> SearchResponse:
         )
 
 
-def _get_tokenizer():
-    """Get the tokenizer for text encoding."""
-    from transformers import BertTokenizer
+@lru_cache(maxsize=1)
+def get_tokenizer_config() -> dict[str, Any]:
+    """Return the tokenizer section of configs/serving.yaml.
 
-    # Cache tokenizer to avoid reloading
-    if not hasattr(_get_tokenizer, "_tokenizer"):
-        _get_tokenizer._tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
-    return _get_tokenizer._tokenizer
+    Returns:
+        Mapping with ``name``, ``max_length`` and ``padding_strategy``.
+
+    Raises:
+        FileNotFoundError: If configs/serving.yaml is missing.
+    """
+    from backend.app import load_serving_config
+
+    return dict(load_serving_config()["tokenizer"])
+
+
+@lru_cache(maxsize=1)
+def _get_tokenizer() -> Any:
+    """Load the query tokenizer once and cache it.
+
+    Uses AutoTokenizer with the name from config rather than a
+    hardcoded BertTokenizer, so the serving tokenizer cannot silently
+    diverge from the one configs/data.yaml trained with.
+
+    Returns:
+        A HuggingFace tokenizer instance.
+
+    Raises:
+        OSError: If the tokenizer is neither cached locally nor
+            downloadable. Pre-warm the cache in the Docker image rather
+            than relying on network access at first request.
+    """
+    from transformers import AutoTokenizer
+
+    name = get_tokenizer_config()["name"]
+    logger.info("Loading query tokenizer: %s", name)
+    return AutoTokenizer.from_pretrained(name)
