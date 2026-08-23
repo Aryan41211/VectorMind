@@ -306,7 +306,7 @@ class TestResponseHeaders:
 
         response = client.get("/health")
         assert "x-process-time" in response.headers
-        process_time = float(response.headers["x-process-time"])
+        process_time = float(response.headers["x-process-time"].removesuffix("ms"))
         assert process_time >= 0
 
     def test_cors_headers(self, mock_app_state):

@@ -49,6 +49,19 @@ paths:
   # Built React app; served as an SPA when present.
   frontend_dist: frontend/dist
 
+# --- Request limits ---
+#
+# The rate limit is a guard against one client saturating a single 6GB
+# laptop GPU, not a security control: it is enforced per process, so a
+# multi-worker deployment would give each worker its own budget. Anything
+# beyond one machine needs shared state or an upstream limiter.
+limits:
+  rate_limit_requests: 30
+  rate_limit_window_seconds: 60
+  # Largest accepted request body. Flickr30k photographs are far under
+  # this; it exists to refuse accidents before they are buffered.
+  max_upload_bytes: 10485760   # 10 MiB
+
 # --- Query handling ---
 search:
   # Upper bound on top_k a client may request, so one request cannot ask

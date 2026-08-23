@@ -128,7 +128,7 @@ class TestTimingMiddleware:
         app = create_app(test_mode=True)
         client = TestClient(app)
         response = client.get("/health")
-        process_time = float(response.headers["x-process-time"])
+        process_time = float(response.headers["x-process-time"].removesuffix("ms"))
         assert process_time >= 0
 
 

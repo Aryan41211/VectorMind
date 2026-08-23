@@ -230,16 +230,23 @@ class TestImageValidation:
         assert response.status_code == 400
 
     def test_oversized_image_rejected(self, mock_app_state):
-        """Image exceeding max size is rejected."""
+        """An oversized upload is refused with 413, before it is buffered.
+
+        This used to reach the route and come back as 400. The size guard
+        now runs in middleware and checks Content-Length first, so the
+        body is never read into memory — and 413 is the status that
+        actually means "payload too large", which lets the frontend
+        explain the failure instead of showing a generic bad-request.
+        """
         app = create_app(test_mode=True)
         client = TestClient(app)
-        # Create a large image (simulate 11MB)
         large_data = b"x" * (11 * 1024 * 1024)
         response = client.post(
             "/search/image",
             files={"file": ("large.jpg", large_data, "image/jpeg")},
         )
-        assert response.status_code == 400
+        assert response.status_code == 413
+        assert response.json()["error"] == "payload_too_large"
 
 
 class TestImageSearchResultFormat:

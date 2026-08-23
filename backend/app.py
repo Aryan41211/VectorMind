@@ -12,8 +12,7 @@ Usage:
 from __future__ import annotations
 
 import logging
-import time
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -22,12 +21,18 @@ from typing import Any
 import faiss
 import torch
 import uvicorn
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.index_builder import load_model
+from backend.middleware import (
+    MaxBodySizeMiddleware,
+    RateLimitMiddleware,
+    RequestContextMiddleware,
+    SecurityHeadersMiddleware,
+)
 from backend.schemas import HealthResponse, ServerConfig
 from vectormind.utils.config import load_config, require_keys
 
@@ -56,7 +61,9 @@ def load_serving_config(
         KeyError: If a required top-level section is missing.
     """
     config: dict[str, Any] = load_config(str(path))
-    require_keys(config, ["server", "cors", "paths", "search", "tokenizer"])
+    require_keys(
+        config, ["server", "cors", "paths", "search", "tokenizer", "limits"]
+    )
     return config
 
 
@@ -142,18 +149,21 @@ def create_app(
         allow_headers=cors_cfg["allow_headers"],
     )
 
-    # Request timing middleware
-    @app.middleware("http")
-    async def add_timing_header(
-        request: Request,
-        call_next: Callable[[Request], Awaitable[Response]],
-    ) -> Response:
-        """Add a processing-time header to every response."""
-        start_time = time.time()
-        response = await call_next(request)
-        process_time = time.time() - start_time
-        response.headers["X-Process-Time"] = f"{process_time:.4f}"
-        return response
+    # Middleware runs outermost-last, so these are registered in reverse
+    # order of execution: request context wraps everything (it must see
+    # rejections too), then security headers, the size guard, and finally
+    # the rate limiter closest to the handler.
+    limits = serving_config["limits"]
+    app.add_middleware(
+        RateLimitMiddleware,
+        max_requests=int(limits["rate_limit_requests"]),
+        window_seconds=float(limits["rate_limit_window_seconds"]),
+    )
+    app.add_middleware(
+        MaxBodySizeMiddleware, max_bytes=int(limits["max_upload_bytes"])
+    )
+    app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(RequestContextMiddleware)
 
     # Health check endpoint
     @app.get("/health", response_model=HealthResponse, tags=["health"])
@@ -168,6 +178,35 @@ def create_app(
                 if app_state.image_index
                 else 0
             ),
+        )
+
+    # Readiness, distinct from liveness.
+    #
+    # /health answers "is this process alive" and returns 200 as soon as
+    # the app is up. /ready answers "can this process serve traffic", and
+    # returns 503 until the model and index are both loaded. An
+    # orchestrator that routes on /health sends searches to a container
+    # that will 503 every one of them for the ~30s the checkpoint takes
+    # to load; that is what this separation prevents.
+    @app.get("/ready", tags=["health"])
+    async def readiness_check() -> JSONResponse:
+        """Readiness probe: 200 only when searches can actually be served."""
+        ready = (
+            app_state.loaded
+            and app_state.model is not None
+            and app_state.image_index is not None
+            and app_state.text_index is not None
+        )
+        return JSONResponse(
+            status_code=200 if ready else 503,
+            content={
+                "ready": ready,
+                "model_loaded": app_state.model is not None,
+                "image_index_loaded": app_state.image_index is not None,
+                "text_index_loaded": app_state.text_index is not None,
+                "index_maps_loaded": app_state.image_samples is not None
+                and app_state.caption_samples is not None,
+            },
         )
 
     # API info endpoint (moved from / to avoid conflict with SPA)
