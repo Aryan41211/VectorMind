@@ -27,8 +27,8 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from src.vectormind.data.dataset import Flickr30kDataset
-from src.vectormind.models.vectormind_model import VectorMindModel
+from vectormind.data.dataset import Flickr30kDataset
+from vectormind.models.vectormind_model import VectorMindModel
 
 logger = logging.getLogger(__name__)
 
@@ -180,6 +180,117 @@ def generate_embeddings(
     return image_embeddings, text_embeddings
 
 
+def deduplicate_image_embeddings(
+    image_embeddings: np.ndarray,
+    image_paths: list[str | Path],
+    captions: list[str],
+) -> tuple[np.ndarray, list[dict[str, Any]]]:
+    """Collapse per-caption image embeddings to one row per unique image.
+
+    The dataset yields one (image, caption) pair per row, so Flickr30k's
+    five captions per image produce five identical image embeddings.
+    Indexing all of them made ``/search/text`` return the same picture up
+    to five times inside a single top-10 — the index held 15,895 vectors
+    for 3,179 images.
+
+    The first occurrence of each image is kept; subsequent rows are
+    dropped rather than averaged, because they are byte-identical
+    (the same image through the same deterministic eval transform).
+
+    Args:
+        image_embeddings: Per-pair image embeddings, shape ``[N, D]``.
+        image_paths: Image path for each row, length ``N``.
+        captions: Caption for each row, length ``N``.
+
+    Returns:
+        Tuple of:
+        - Deduplicated embeddings, shape ``[N_unique, D]``, in
+          first-appearance order.
+        - One record per unique image: ``index``, ``image_path``,
+          ``filename``, and every ``captions`` entry for that image.
+
+    Raises:
+        ValueError: If the three inputs disagree in length.
+
+    Assumptions:
+        Rows belonging to one image are contiguous, as the splitter
+        produces them. Correctness does not depend on it — a dict
+        keyed by path handles any ordering — but the resulting index
+        order is only stable when it holds.
+    """
+    if not (len(image_embeddings) == len(image_paths) == len(captions)):
+        raise ValueError(
+            f"Length mismatch: {len(image_embeddings)} embeddings, "
+            f"{len(image_paths)} paths, {len(captions)} captions."
+        )
+
+    seen: dict[str, int] = {}
+    keep_rows: list[int] = []
+    records: list[dict[str, Any]] = []
+
+    for row, (path, caption) in enumerate(zip(image_paths, captions)):
+        key = str(path)
+        if key not in seen:
+            seen[key] = len(records)
+            keep_rows.append(row)
+            records.append(
+                {
+                    "index": len(records),
+                    "image_path": key,
+                    "filename": Path(key).name,
+                    "captions": [caption],
+                }
+            )
+        else:
+            records[seen[key]]["captions"].append(caption)
+
+    unique = image_embeddings[keep_rows]
+    logger.info(
+        "Deduplicated image embeddings: %d rows -> %d unique images",
+        len(image_embeddings),
+        len(unique),
+    )
+    return unique, records
+
+
+def build_caption_metadata(
+    image_paths: list[str | Path],
+    captions: list[str],
+) -> list[dict[str, Any]]:
+    """Build per-caption records aligned with the text index.
+
+    The text index keeps one vector per caption — that is what
+    ``/search/image`` retrieves — so it needs its own index map,
+    separate from the deduplicated image one.
+
+    Args:
+        image_paths: Image path for each caption, length ``N``.
+        captions: Caption text, length ``N``.
+
+    Returns:
+        One record per caption: ``index``, ``caption``, ``image_path``,
+        ``filename``.
+
+    Raises:
+        ValueError: If the two inputs disagree in length.
+    """
+    if len(image_paths) != len(captions):
+        raise ValueError(
+            f"Length mismatch: {len(image_paths)} paths, "
+            f"{len(captions)} captions."
+        )
+
+    return [
+        {
+            "index": i,
+            "caption": caption,
+            "image_path": str(path),
+            "filename": Path(str(path)).name,
+        }
+        for i, (path, caption) in enumerate(zip(image_paths, captions))
+    ]
+
+
 def save_indices(
     output_dir: Path,
     image_index: faiss.Index,
@@ -190,54 +301,77 @@ def save_indices(
     text_metadata: IndexMetadata,
     captions_per_image: int,
     total_images: int,
-    sample_metadata: list[dict[str, Any]] | None = None,
+    image_samples: list[dict[str, Any]],
+    caption_samples: list[dict[str, Any]],
+    save_embeddings: bool = False,
 ) -> None:
     """
-    Save FAISS indices and metadata to disk.
+    Save FAISS indices and their index maps to disk.
+
+    The two indices have different lengths — one vector per unique image
+    versus one per caption — so they get separate index maps. A single
+    shared map was what let /search/text look up an image-index position
+    in a caption-indexed list.
 
     Args:
         output_dir: Directory to save indices.
-        image_index: FAISS index for image embeddings.
-        text_index: FAISS index for text embeddings.
-        image_embeddings: Image embedding matrix.
-        text_embeddings: Text embedding matrix.
+        image_index: FAISS index over unique image embeddings.
+        text_index: FAISS index over caption embeddings.
+        image_embeddings: Deduplicated image embedding matrix.
+        text_embeddings: Caption embedding matrix.
         image_metadata: Metadata for image index.
         text_metadata: Metadata for text index.
         captions_per_image: Number of captions per image.
-        total_images: Total number of images.
-        sample_metadata: Per-vector metadata mapping index to image/caption.
+        total_images: Number of unique images indexed.
+        image_samples: One record per image index position.
+        caption_samples: One record per text index position.
+        save_embeddings: Also write the raw .npy arrays. Off by default —
+            nothing at runtime reads them and they duplicate the FAISS
+            payload. Enable for offline analysis.
+
+    Raises:
+        ValueError: If either index map length disagrees with its index.
     """
+    if len(image_samples) != image_index.ntotal:
+        raise ValueError(
+            f"image_samples has {len(image_samples)} records but the image "
+            f"index holds {image_index.ntotal} vectors."
+        )
+    if len(caption_samples) != text_index.ntotal:
+        raise ValueError(
+            f"caption_samples has {len(caption_samples)} records but the "
+            f"text index holds {text_index.ntotal} vectors."
+        )
+
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Save indices
     faiss.write_index(image_index, str(output_dir / "image_index.faiss"))
     faiss.write_index(text_index, str(output_dir / "text_index.faiss"))
     logger.info(f"Saved FAISS indices to {output_dir}")
 
-    # Save embeddings (for reconstruction / diagnostics)
-    np.save(output_dir / "image_embeddings.npy", image_embeddings)
-    np.save(output_dir / "text_embeddings.npy", text_embeddings)
-    logger.info(f"Saved embeddings to {output_dir}")
+    if save_embeddings:
+        np.save(output_dir / "image_embeddings.npy", image_embeddings)
+        np.save(output_dir / "text_embeddings.npy", text_embeddings)
+        logger.info(f"Saved raw embedding arrays to {output_dir}")
 
-    # Save metadata
     metadata = {
         "image_index": image_metadata.to_dict(),
         "text_index": text_metadata.to_dict(),
         "captions_per_image": captions_per_image,
         "total_images": total_images,
+        "total_captions": len(caption_samples),
     }
-    with open(output_dir / "index_metadata.json", "w") as f:
+    with open(output_dir / "index_metadata.json", "w", encoding="utf-8") as f:
         json.dump(metadata, f, indent=2)
     logger.info(f"Saved metadata to {output_dir / 'index_metadata.json'}")
 
-    # Save sample metadata (per-vector image paths and captions)
-    if sample_metadata is not None:
-        with open(output_dir / "sample_metadata.json", "w", encoding="utf-8") as f:
-            json.dump(sample_metadata, f, indent=2, ensure_ascii=False)
-        logger.info(
-            f"Saved sample metadata ({len(sample_metadata)} entries) to "
-            f"{output_dir / 'sample_metadata.json'}"
-        )
+    for name, records in (
+        ("image_samples.json", image_samples),
+        ("caption_samples.json", caption_samples),
+    ):
+        with open(output_dir / name, "w", encoding="utf-8") as f:
+            json.dump(records, f, indent=2, ensure_ascii=False)
+        logger.info(f"Saved {len(records)} records to {output_dir / name}")
 
 
 def build_indices(
@@ -247,6 +381,7 @@ def build_indices(
     output_dir: str | Path,
     dataset_split: str = "test",
     device: torch.device | None = None,
+    save_embeddings: bool = False,
 ) -> IndexBuildResult:
     """
     Main entry point: build FAISS indices for both search directions.
@@ -258,9 +393,13 @@ def build_indices(
         output_dir: Directory to save indices.
         dataset_split: Dataset split to index (train/val/test).
         device: Device for inference.
+        save_embeddings: Also write raw .npy arrays alongside the
+            indices. Off by default; nothing at runtime reads them.
 
     Returns:
-        IndexBuildResult with indices and metadata.
+        IndexBuildResult with indices and metadata. The image index
+        holds one vector per unique image, the text index one per
+        caption, so their lengths differ.
     """
     import sys
     from pathlib import Path as PathLib
@@ -271,11 +410,11 @@ def build_indices(
         sys.path.insert(0, str(scripts_dir))
 
     from _data_helpers import load_flickr30k_from_hf
-    from src.vectormind.data.dataloader import _collate_fn
-    from src.vectormind.data.splitter import create_splits
-    from src.vectormind.data.tokenizer import CaptionTokenizer
-    from src.vectormind.data.transforms import get_eval_transforms
-    from src.vectormind.utils.config import load_config
+    from vectormind.data.dataloader import _collate_fn
+    from vectormind.data.splitter import create_splits
+    from vectormind.data.tokenizer import CaptionTokenizer
+    from vectormind.data.transforms import get_eval_transforms
+    from vectormind.utils.config import load_config
 
     if device is None:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -344,7 +483,7 @@ def build_indices(
         collate_fn=_collate_fn,
     )
 
-    captions_per_image = 5  # Flickr30k has 5 captions per image
+    captions_per_image = data_config["dataset"].get("captions_per_image", 5)
 
     # Generate embeddings
     start_time = time.time()
@@ -354,10 +493,24 @@ def build_indices(
     embedding_time = time.time() - start_time
     logger.info(f"Embedding generation took {embedding_time:.2f}s")
 
+    # One row per unique image for the image index, one row per caption
+    # for the text index. Indexing the per-pair image embeddings put five
+    # identical vectors in the image index and made /search/text return
+    # the same picture repeatedly (docs/KNOWN_ISSUES.md §2).
+    image_embeddings, image_samples = deduplicate_image_embeddings(
+        image_embeddings, split_paths, split_caps
+    )
+    caption_samples = build_caption_metadata(split_paths, split_caps)
+
     # Build FAISS indices
     start_time = time.time()
+    image_build_start = time.time()
     image_index = build_faiss_index(image_embeddings.copy(), "IndexFlatIP")
+    image_build_time = time.time() - image_build_start
+
+    text_build_start = time.time()
     text_index = build_faiss_index(text_embeddings.copy(), "IndexFlatIP")
+    text_build_time = time.time() - text_build_start
     build_time = time.time() - start_time
 
     # Create metadata
@@ -366,8 +519,8 @@ def build_indices(
         index_type="IndexFlatIP",
         dimension=image_embeddings.shape[1],
         num_vectors=image_embeddings.shape[0],
-        build_time_seconds=build_time,
-        checkpoint_path=str(checkpoint_path),
+        build_time_seconds=image_build_time,
+        checkpoint_path=checkpoint_path.as_posix(),
         dataset_split=dataset_split,
         creation_timestamp=creation_time,
     )
@@ -375,23 +528,11 @@ def build_indices(
         index_type="IndexFlatIP",
         dimension=text_embeddings.shape[1],
         num_vectors=text_embeddings.shape[0],
-        build_time_seconds=build_time,
-        checkpoint_path=str(checkpoint_path),
+        build_time_seconds=text_build_time,
+        checkpoint_path=checkpoint_path.as_posix(),
         dataset_split=dataset_split,
         creation_timestamp=creation_time,
     )
-
-    # Save to disk
-    # Build per-vector sample metadata: maps FAISS index → image/caption info
-    sample_metadata = []
-    for i, (img_path, cap) in enumerate(zip(split_paths, split_caps)):
-        path_obj = Path(img_path)
-        sample_metadata.append({
-            "index": i,
-            "image_path": str(img_path),
-            "filename": path_obj.name,
-            "caption": cap,
-        })
 
     save_indices(
         output_dir,
@@ -402,8 +543,10 @@ def build_indices(
         image_metadata,
         text_metadata,
         captions_per_image,
-        len(dataset),
-        sample_metadata,
+        len(image_samples),
+        image_samples,
+        caption_samples,
+        save_embeddings=save_embeddings,
     )
 
     return IndexBuildResult(
@@ -460,6 +603,11 @@ def main() -> None:
         default=None,
         help="Device (cuda/cpu), auto-detected if not specified",
     )
+    parser.add_argument(
+        "--save-embeddings",
+        action="store_true",
+        help="Also write raw .npy embedding arrays (offline analysis only).",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO)
@@ -475,6 +623,7 @@ def main() -> None:
         output_dir=args.output,
         dataset_split=args.split,
         device=device,
+        save_embeddings=args.save_embeddings,
     )
 
 

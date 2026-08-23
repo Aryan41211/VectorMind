@@ -21,7 +21,9 @@ import pytest
 
 from backend.index_builder import (
     IndexMetadata,
+    build_caption_metadata,
     build_faiss_index,
+    deduplicate_image_embeddings,
     save_indices,
 )
 
@@ -145,6 +147,32 @@ class TestIndexMetadata:
         assert json_str is not None
 
 
+def _image_records(n: int) -> list[dict]:
+    """One index map record per image-index position."""
+    return [
+        {
+            "index": i,
+            "image_path": f"images/{i:06d}.jpg",
+            "filename": f"{i:06d}.jpg",
+            "captions": [f"caption {i}"],
+        }
+        for i in range(n)
+    ]
+
+
+def _caption_records(n: int) -> list[dict]:
+    """One index map record per text-index position."""
+    return [
+        {
+            "index": i,
+            "caption": f"caption {i}",
+            "image_path": f"images/{i:06d}.jpg",
+            "filename": f"{i:06d}.jpg",
+        }
+        for i in range(n)
+    ]
+
+
 class TestSaveIndices:
     """Tests for the save_indices function."""
 
@@ -182,6 +210,9 @@ class TestSaveIndices:
                 ),
                 captions_per_image=5,
                 total_images=100,
+                image_samples=_image_records(100),
+                caption_samples=_caption_records(100),
+                save_embeddings=True,
             )
 
             assert (output_dir / "image_index.faiss").exists()
@@ -189,6 +220,8 @@ class TestSaveIndices:
             assert (output_dir / "image_embeddings.npy").exists()
             assert (output_dir / "text_embeddings.npy").exists()
             assert (output_dir / "index_metadata.json").exists()
+            assert (output_dir / "image_samples.json").exists()
+            assert (output_dir / "caption_samples.json").exists()
 
     def test_metadata_json_is_valid(self):
         """Saved metadata JSON contains expected fields."""
@@ -222,6 +255,8 @@ class TestSaveIndices:
                 ),
                 captions_per_image=5,
                 total_images=10,
+                image_samples=_image_records(10),
+                caption_samples=_caption_records(10),
             )
 
             with open(output_dir / "index_metadata.json") as f:
@@ -263,6 +298,8 @@ class TestSaveIndices:
                 ),
                 captions_per_image=5,
                 total_images=100,
+                image_samples=_image_records(100),
+                caption_samples=_caption_records(100),
             )
 
             loaded_index = faiss.read_index(
@@ -324,3 +361,155 @@ class TestIndexSearchIntegration:
 
         assert distances.shape == (num_queries, k)
         assert indices.shape == (num_queries, k)
+
+
+class TestDeduplicateImageEmbeddings:
+    """Regression guard for docs/KNOWN_ISSUES.md §2.
+
+    Flickr30k yields five (image, caption) rows per image, so the raw
+    image embeddings contain five identical vectors per picture. Indexing
+    all of them put 15,895 vectors in an index covering 3,179 images, and
+    /search/text returned the same picture up to five times in one top-10.
+    """
+
+    @staticmethod
+    def _five_captions_per_image(n_images: int, dim: int = 8):
+        embeddings = np.repeat(
+            np.arange(n_images, dtype=np.float32).reshape(n_images, 1),
+            5,
+            axis=0,
+        ).repeat(dim, axis=1)
+        paths = [f"images/{i:06d}.jpg" for i in range(n_images) for _ in range(5)]
+        captions = [f"image {i} caption {c}" for i in range(n_images) for c in range(5)]
+        return embeddings, paths, captions
+
+    def test_collapses_five_rows_per_image(self):
+        emb, paths, caps = self._five_captions_per_image(20)
+        unique, records = deduplicate_image_embeddings(emb, paths, caps)
+        assert emb.shape[0] == 100
+        assert unique.shape[0] == 20
+        assert len(records) == 20
+
+    def test_preserves_embedding_dimension(self):
+        emb, paths, caps = self._five_captions_per_image(20, dim=256)
+        unique, _ = deduplicate_image_embeddings(emb, paths, caps)
+        assert unique.shape[1] == 256
+
+    def test_keeps_first_occurrence_in_order(self):
+        emb, paths, caps = self._five_captions_per_image(4)
+        unique, records = deduplicate_image_embeddings(emb, paths, caps)
+        # Row i of the synthetic input encodes image id i.
+        assert [row[0] for row in unique] == [0.0, 1.0, 2.0, 3.0]
+        assert [r["filename"] for r in records] == [
+            "000000.jpg",
+            "000001.jpg",
+            "000002.jpg",
+            "000003.jpg",
+        ]
+
+    def test_gathers_every_caption_per_image(self):
+        emb, paths, caps = self._five_captions_per_image(3)
+        _, records = deduplicate_image_embeddings(emb, paths, caps)
+        for i, record in enumerate(records):
+            assert len(record["captions"]) == 5
+            assert record["captions"][0] == f"image {i} caption 0"
+
+    def test_index_field_matches_position(self):
+        emb, paths, caps = self._five_captions_per_image(10)
+        _, records = deduplicate_image_embeddings(emb, paths, caps)
+        assert [r["index"] for r in records] == list(range(10))
+
+    def test_handles_non_contiguous_rows(self):
+        """Correctness must not depend on rows for one image being adjacent."""
+        emb = np.array([[1.0], [2.0], [1.0], [3.0], [2.0]], dtype=np.float32)
+        paths = ["a.jpg", "b.jpg", "a.jpg", "c.jpg", "b.jpg"]
+        caps = ["a1", "b1", "a2", "c1", "b2"]
+        unique, records = deduplicate_image_embeddings(emb, paths, caps)
+        assert unique.shape[0] == 3
+        assert [r["filename"] for r in records] == ["a.jpg", "b.jpg", "c.jpg"]
+        assert records[0]["captions"] == ["a1", "a2"]
+        assert records[1]["captions"] == ["b1", "b2"]
+
+    def test_already_unique_input_is_unchanged(self):
+        emb = np.arange(6, dtype=np.float32).reshape(3, 2)
+        paths = ["a.jpg", "b.jpg", "c.jpg"]
+        unique, records = deduplicate_image_embeddings(emb, paths, ["a", "b", "c"])
+        assert np.array_equal(unique, emb)
+        assert len(records) == 3
+
+    def test_rejects_length_mismatch(self):
+        with pytest.raises(ValueError, match="Length mismatch"):
+            deduplicate_image_embeddings(
+                np.zeros((3, 2), dtype=np.float32), ["a.jpg"], ["a"]
+            )
+
+
+class TestBuildCaptionMetadata:
+    def test_one_record_per_caption(self):
+        paths = [f"images/{i // 5:06d}.jpg" for i in range(15)]
+        caps = [f"caption {i}" for i in range(15)]
+        records = build_caption_metadata(paths, caps)
+        assert len(records) == 15
+        assert [r["index"] for r in records] == list(range(15))
+
+    def test_carries_filename_and_caption(self):
+        records = build_caption_metadata(["images/000007.jpg"], ["a dog runs"])
+        assert records[0]["filename"] == "000007.jpg"
+        assert records[0]["caption"] == "a dog runs"
+
+    def test_rejects_length_mismatch(self):
+        with pytest.raises(ValueError, match="Length mismatch"):
+            build_caption_metadata(["a.jpg", "b.jpg"], ["only one"])
+
+
+class TestSaveIndicesValidatesIndexMaps:
+    """save_indices must refuse maps that do not line up with their index."""
+
+    @staticmethod
+    def _index(n: int, dim: int = 8):
+        return build_faiss_index(
+            np.random.randn(n, dim).astype(np.float32), "IndexFlatIP"
+        )
+
+    def _save(self, tmpdir, n_image_records, n_caption_records):
+        meta = IndexMetadata(
+            index_type="IndexFlatIP",
+            dimension=8,
+            num_vectors=10,
+            build_time_seconds=0.01,
+            checkpoint_path="test.pt",
+            dataset_split="test",
+        )
+        save_indices(
+            output_dir=Path(tmpdir),
+            image_index=self._index(10),
+            text_index=self._index(50),
+            image_embeddings=np.random.randn(10, 8).astype(np.float32),
+            text_embeddings=np.random.randn(50, 8).astype(np.float32),
+            image_metadata=meta,
+            text_metadata=meta,
+            captions_per_image=5,
+            total_images=10,
+            image_samples=_image_records(n_image_records),
+            caption_samples=_caption_records(n_caption_records),
+        )
+
+    def test_accepts_matching_lengths(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._save(tmpdir, 10, 50)
+            assert (Path(tmpdir) / "image_samples.json").exists()
+
+    def test_rejects_image_map_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with pytest.raises(ValueError, match="image_samples has 9 records"):
+                self._save(tmpdir, 9, 50)
+
+    def test_rejects_caption_map_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with pytest.raises(ValueError, match="caption_samples has 49 records"):
+                self._save(tmpdir, 10, 49)
+
+    def test_skips_npy_by_default(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self._save(tmpdir, 10, 50)
+            assert not (Path(tmpdir) / "image_embeddings.npy").exists()
