@@ -1,0 +1,67 @@
+# configs/serving.yaml
+#
+# Phase 6 (ROADMAP.md): serving-layer configuration for the FastAPI app.
+# Every path, origin, and limit the backend uses lives here — no
+# hardcoded values in backend/ source (CLAUDE.md §6).
+#
+# Consumed by backend/app.py and backend/routers/*.
+
+server:
+  host: 0.0.0.0
+  port: 8000
+  workers: 1
+  reload: false
+
+# --- CORS ---
+# The previous configuration paired allow_origins ["*"] with
+# allow_credentials true. Browsers reject that combination outright: the
+# wildcard is not permitted when credentials are allowed, so the policy
+# was both invalid and broader than a demo needs.
+#
+# The API sends no cookies or auth headers, so credentials stay off and
+# an explicit origin list is enough. Add the deployed frontend origin
+# here when the demo goes live.
+cors:
+  allow_credentials: false
+  allow_origins:
+    - http://localhost:3000      # Vite dev server (frontend/vite.config.ts)
+    - http://localhost:8000      # backend serving frontend/dist
+    - http://127.0.0.1:3000
+    - http://127.0.0.1:8000
+  allow_methods: [GET, POST, OPTIONS]
+  allow_headers: [Content-Type]
+
+# --- Artifacts loaded at startup ---
+paths:
+  checkpoint: checkpoints/train/best_model.pt
+  index_dir: backend/indices
+  image_index: image_index.faiss
+  text_index: text_index.faiss
+  index_metadata: index_metadata.json
+  # Two index maps, because the two indices have different lengths:
+  # one vector per unique image, one per caption. A single shared map
+  # is what let /search/text read an image-index position out of a
+  # caption-indexed list (docs/KNOWN_ISSUES.md §2).
+  image_samples: image_samples.json
+  caption_samples: caption_samples.json
+  # Flickr30k images, mounted at /images so results can be displayed.
+  images_dir: data/raw/flickr30k/images
+  # Built React app; served as an SPA when present.
+  frontend_dist: frontend/dist
+
+# --- Query handling ---
+search:
+  # Upper bound on top_k a client may request, so one request cannot ask
+  # the API to serialize the entire index.
+  max_top_k: 50
+  default_top_k: 10
+
+# --- Text query tokenization ---
+# MUST match configs/data.yaml dataset.tokenizer_name and
+# max_text_length. Training padded every caption to max_length; a router
+# that pads dynamically feeds the encoder a length distribution it never
+# saw, so padding_strategy is pinned here rather than left to a default.
+tokenizer:
+  name: bert-base-uncased
+  max_length: 77
+  padding_strategy: max_length
