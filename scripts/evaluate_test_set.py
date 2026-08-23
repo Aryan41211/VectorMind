@@ -173,7 +173,7 @@ def main() -> None:
     eval_config["dataset"]["batch_size"] = args.batch_size
     eval_config["dataset"]["num_workers"] = args.num_workers
 
-    _, eval_loader, _ = create_dataloaders(
+    train_loader, val_loader, test_loader = create_dataloaders(
         config=eval_config,
         train_pairs=train_pairs,
         val_pairs=val_pairs,
@@ -182,6 +182,23 @@ def main() -> None:
         eval_transform=eval_transform,
         tokenizer=tokenizer,
     )
+
+    eval_loader = val_loader if args.split == "val" else test_loader
+
+    # Diagnostic: print first/last 5 image filenames from eval split
+    seen_for_log: list[str] = []
+    for p, _ in eval_pairs:
+        p_str = str(p)
+        if p_str not in seen_for_log:
+            seen_for_log.append(p_str)
+    logger.info(
+        "  EVAL SPLIT DIAGNOSTIC: using '%s' split (%d pairs, %d unique images)",
+        args.split,
+        len(eval_pairs),
+        len(seen_for_log),
+    )
+    logger.info("  First 5 images: %s", [Path(s).name for s in seen_for_log[:5]])
+    logger.info("  Last 5 images:  %s", [Path(s).name for s in seen_for_log[-5:]])
 
     logger.info("Step 5: Loading model from checkpoint...")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -229,9 +246,18 @@ def main() -> None:
     examples = None
     if args.save_examples:
         logger.info("Step 10: Generating retrieval examples...")
+        # Build per-unique-image paths (one entry per image, not per caption)
+        seen_images: list[str] = []
+        for p, _ in eval_pairs:
+            p_str = str(p)
+            if p_str not in seen_images:
+                seen_images.append(p_str)
+        eval_all_captions = [c for _, c in eval_pairs]
         examples = compute_retrieval_examples(
             image_embeds_unique,
             text_embeds,
+            image_paths=seen_images,
+            captions=eval_all_captions,
             captions_per_image=captions_per_image,
             k=10,
             num_successes=5,
