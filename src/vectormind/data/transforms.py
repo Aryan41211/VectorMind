@@ -83,7 +83,7 @@ def get_eval_transforms(config: dict[str, Any]) -> v2.Compose:
         KeyError: If any required key is missing from ``config``.
 
     Assumptions:
-        No randomness — deterministic中心裁剪 ensures reproducible
+        No randomness — a deterministic center crop ensures reproducible
         evaluation across runs.
 
     Limitations:
