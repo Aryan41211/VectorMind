@@ -1,0 +1,38 @@
+# VectorMind CI — Docker Build
+#
+# Builds both Docker images on merge to main to catch build failures
+# before they reach deployment. Does NOT push to a registry — that
+# requires manual tagging (portfolio project, not CI/CD to prod).
+
+name: Build
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-backend:
+    name: Build Backend Image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: |
+          docker build \
+            -f deployment/backend.Dockerfile \
+            -t vectormind-backend:${{ github.sha }} \
+            .
+
+  build-frontend:
+    name: Build Frontend Image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build frontend image
+        run: |
+          docker build \
+            -f deployment/frontend.Dockerfile \
+            -t vectormind-frontend:${{ github.sha }} \
+            .
