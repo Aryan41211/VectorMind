@@ -31,10 +31,21 @@ dataset:
   random_seed: 42
 
   # DataLoader settings (constrained by 6GB VRAM — ARCHITECTURE.md §6)
-  # Measured max safe batch size: 256 (Phase 0.2 profiling, RTX 4050 6GB, AMP on)
-  batch_size: 256
-  num_workers: 2
+  #
+  # Phase 0.2 profiling measured 256 as the max batch that fits under AMP
+  # (4.99GB peak). Training uses 128 instead: the profiler measured a
+  # forward/backward pass alone, while a real epoch also holds the
+  # validation pass and the 4096-entry memory queue. 128 leaves that
+  # headroom and measured ~4.6GB peak in practice.
+  batch_size: 128
+
+  # persistent_workers must stay false on Windows — the shared-memory
+  # mapping it relies on fails there partway into training. prefetch_factor
+  # of 4 recovers most of the throughput that costs.
+  num_workers: 4
   pin_memory: true
+  persistent_workers: false
+  prefetch_factor: 4
   drop_last: true
 
 # Image normalization (ImageNet-standard — reasonable for from-scratch)
