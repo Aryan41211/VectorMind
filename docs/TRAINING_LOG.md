@@ -84,7 +84,7 @@ Proceed to Phase 4 full training.
 **Decision:** Restored best_model.pt to Epoch 7 (original best). Training beyond Epoch 7 is NOT beneficial.
 
 ### Key Observations
-1. **Memory queue fix improved Recall@10 by 3.1 percentage points** (17.12% → 20.23%)
+1. ~~**Memory queue fix improved Recall@10 by 3.1 percentage points** (17.12% → 20.23%)~~ — **retracted, see Experiment 5.** The controlled re-run shows the queue *halves* R@10 from the same checkpoint.
 2. **Temperature increased significantly** (18.6 → 55.2) — model learning to sharpen similarity
 3. **Embedding collapse after Epoch 7** — temperature grew too large
 4. **Epoch 7 is the true convergence point** — no improvement beyond this
@@ -104,14 +104,32 @@ Proceed to Phase 4 full training.
 ## Phase 4 — Hyperparameter Experiments
 
 ### Experiment 1: Memory Queue Impact
-**Status:** COMPLETED
+**Status:** COMPLETED — **RETRACTED 2026-08-24, see Experiment 5**
 **Hypothesis:** Enabling memory queue will improve Recall@10 by providing
 more negative samples for contrastive learning.
-**Results:**
+**Results as originally recorded:**
 - Baseline (queue disabled): Recall@10 = 17.12%
 - With queue (size=4096): Recall@10 = 20.23%
 - **Improvement:** +3.1 percentage points (+18.2% relative)
-- **Conclusion:** Hypothesis CONFIRMED — memory queue significantly improves performance
+- **Conclusion at the time:** Hypothesis CONFIRMED
+
+**Why this conclusion does not hold.** Three problems, none visible at
+the time:
+
+1. **One epoch, measured before the damage showed.** 20.23% is epoch 7,
+   the first epoch after activation. Epochs 9-15 fell to 13.62%. That
+   decline was logged separately as "embedding collapse from temperature
+   overgrowth" and treated as an unrelated failure. It was not unrelated
+   — it was this experiment's own effect arriving.
+2. **Never a controlled A/B.** The two arms did not share a starting
+   point: `--no-queue` substituted a size-1 stub queue, and
+   `load_checkpoint` rejects a size-1 queue against a 4096-entry
+   checkpoint, so the baseline arm could only ever run from scratch.
+   The comparison was epoch 6 of one run against epoch 7 of another.
+3. **No embedding-health metric existed.** Recall@10 was the only signal,
+   and it is exactly the signal that lags a collapse.
+
+All three are fixed. Experiment 5 is the controlled re-run.
 
 ### Experiment 2: Learning Rate Sweep
 **Status:** COMPLETED
@@ -170,7 +188,7 @@ more negative samples for contrastive learning.
 4. **Test eval bug (FIXED 2026-08-07):** Always evaluated on val split due to destructuring error
 
 ### Lessons Learned
-1. **Memory queue is critical:** Enabling queue improved Recall@10 by 18.2%
+1. ~~**Memory queue is critical:** Enabling queue improved Recall@10 by 18.2%~~ — **retracted.** The queue is the cause of the collapse this log attributed to temperature overgrowth. See Experiment 5.
 2. **Lower LR hurts performance:** 5e-4 LR caused Recall@10 to drop to 10.54%
 3. **Temperature learning is important:** Model learned to sharpen similarity distribution
 4. **Embedding variance monitoring is essential:** Caught that variance remained healthy
@@ -183,3 +201,107 @@ more negative samples for contrastive learning.
 ---
 
 *Last updated: 2026-08-05*
+
+---
+
+## Phase 4b — Clamped Re-run (2026-08-23/24)
+
+**Run ID:** clamped_20260823
+**Why:** the Phase 4 checkpoint shipped with a matched-vs-unmatched
+separation of 0.094 against 0.964 for the Phase 3.5 overfit — a
+collapsed embedding space that the reports of the time called HEALTHY
+(docs/KNOWN_ISSUES.md §1). Changes under test: the logit scale is
+clamped at CLIP's 100, `log_temperature` is excluded from weight decay,
+and embedding health is logged beside Recall@K every epoch.
+
+### Training progress (queue inactive throughout)
+
+| Epoch | Loss | Val R@1 | Val R@5 | Val R@10 | Separation | mean cos | ‖mean‖ | Logit scale |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 4.51 | 0.41% | 1.66% | 2.99% | 0.102 | 0.792 | 0.890 | 14.3 |
+| 2 | 3.99 | — | — | 5.03% | 0.166 | 0.682 | 0.826 | ~15 |
+| 3 | 3.61 | — | — | 9.60% | 0.244 | 0.538 | 0.734 | ~15 |
+| 4 | 3.25 | — | — | 11.26% | 0.263 | 0.511 | 0.715 | ~16 |
+| 6 | 2.72 | 3.43% | 11.26% | 17.46% | 0.329 | 0.388 | 0.623 | 17.4 |
+| 7 | 2.51 | 3.81% | 13.09% | **19.63%** | 0.322 | 0.409 | 0.639 | 18.6 |
+
+Every metric improves monotonically, and the logit scale stays near its
+initialization instead of running to 500+. Compare the Phase 4 table
+above, where R@10 oscillated while the scale climbed past 300.
+
+### Interruptions
+
+The run survived three stops, none of them modelling failures. They are
+recorded because a 6GB laptop GPU that also drives a display is the
+project's real operating environment, and pretending training is
+uninterrupted would misrepresent it.
+
+| Epoch | Cause | Resolution |
+|---|---|---|
+| 5 | `CUDA error: out of memory` at ~4.6GB of 6GB — a neighbouring desktop process took the headroom | `src/vectormind/training/oom.py`: release the allocator cache and retry the step |
+| 7 | `CUDNN_STATUS_INTERNAL_ERROR_HOST_ALLOCATION_FAILED` — **system** RAM, not VRAM, with 4.5GB free | Detection broadened to host failures; `num_workers`/`prefetch_factor` 4→2, cutting pinned buffers from 1.15GB to 0.29GB |
+| 7 | Deliberate stop after the queue A/B below | — |
+
+---
+
+### Experiment 3: Logit-scale clamp
+
+**Hypothesis:** clamping the learnable logit scale at 100 prevents the
+Phase 4 collapse.
+**Result:** CONFIRMED. Across 7 epochs the scale rose 14.3 → 18.6 and
+never approached the ceiling; separation rose 0.102 → 0.322 rather than
+falling to 0.094. The clamp never actually engaged — bounding the
+parameter changed the trajectory the optimizer took toward it.
+**Caveat:** this is confounded with Experiment 5 (the queue was inactive
+for these epochs). The clamp is retained on the CLIP precedent and
+because it costs nothing; the queue removal is doing more of the work.
+
+### Experiment 4: Memory-queue warmup
+
+**Hypothesis:** the queue fails early because its entries are stale
+relative to a fast-moving encoder, so holding it inactive until the
+encoder stabilizes should let it help.
+**Result:** REJECTED.
+- Queue active from step 1: val R@10 stuck at 0.35% (chance) after 2 epochs, separation 0.000.
+- Warmed up for 6 epochs, then activated: collapse arrived in full at the first epoch after activation (below).
+
+Warmup delays the damage rather than preventing it. Staleness is not a
+startup transient — without a momentum encoder the queue always holds
+embeddings from an encoder that has since moved.
+
+### Experiment 5: Memory queue, controlled A/B
+
+**Hypothesis:** re-test Experiment 1 properly — same starting
+checkpoint, one variable, embedding health measured alongside recall.
+**Setup:** both arms resume from `epoch_006.pt`; the only difference is
+whether the queue serves negatives. Made possible by fixing `--no-queue`,
+which previously substituted a size-1 stub that `load_checkpoint`
+rejected against a real checkpoint.
+
+| Epoch 7 from `epoch_006.pt` | Queue active | Queue inactive |
+|---|---|---|
+| Train loss | 3.86 | **2.51** |
+| Val R@1 | 1.73% | **3.81%** |
+| Val R@10 | 10.51% | **19.63%** |
+| Separation | 0.062 | **0.322** |
+| Mean image–image cosine | 0.872 | **0.409** |
+| Logit scale | 67.6 | **18.6** |
+
+**Result:** Experiment 1's conclusion is REVERSED. The queue costs 87%
+of R@10 and 81% of separation from an identical starting state.
+
+**Mechanism.** The queue is what drives the logit scale up, which Phase 4
+logged as a separate "temperature overgrowth" problem. Minimising loss
+against 4096 mismatched stale negatives is easier by sharpening the
+similarity distribution than by improving the representation, and an
+unbounded scale is the cheapest way to sharpen. Collapse follows.
+
+**Decision:** train with in-batch negatives only. A momentum encoder is
+the correct way to make a queue work at this scale and is recorded in
+docs/FUTURE_IDEAS.md.
+
+### Bugs found during this run
+
+1. **A resumed run overwrote a better checkpoint.** `best_val_recall10` reset to 0.0 on resume, so the first epoch always won the comparison — a 17.46% checkpoint was replaced by a 10.51% one. `save_checkpoint` now records the score that earned it.
+2. **`--no-queue` could not resume.** The size-1 stub was rejected by `load_checkpoint`, so the baseline arm could only start from scratch. This is why Experiment 1 was never a clean A/B.
+3. **`expandable_segments` is unsupported on Windows** — it was being passed for nothing.
