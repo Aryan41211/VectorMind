@@ -253,26 +253,32 @@ def main() -> None:
     # at 4096-against-128 (see MemoryQueue's class docstring).
     use_queue = not args.no_queue
     queue_warmup_epochs = int(mq_cfg.get("warmup_epochs", 0))
+
+    # --no-queue deactivates the queue rather than replacing it with a
+    # size-1 stub. The stub could not be resumed from any real
+    # checkpoint: load_checkpoint compares queue_size and rejected a
+    # 4096-entry checkpoint against a 1-entry queue, so the baseline
+    # experiment could only ever start from scratch. Keeping the real
+    # queue and leaving it inactive costs 4MB, makes --no-queue usable
+    # mid-run, and means "no queue" describes the loss rather than the
+    # object.
+    memory_queue = MemoryQueue(
+        queue_size=mq_cfg["queue_size"],
+        embed_dim=model_config["embedding"]["shared_dim"],
+        device=device,
+        active=use_queue and queue_warmup_epochs <= 0,
+    )
     if use_queue:
-        memory_queue = MemoryQueue(
-            queue_size=mq_cfg["queue_size"],
-            embed_dim=model_config["embedding"]["shared_dim"],
-            device=device,
-            active=queue_warmup_epochs <= 0,
-        )
         logger.info(
             "  Memory queue: ENABLED (size=%d, warmup=%d epochs)",
             mq_cfg["queue_size"],
             queue_warmup_epochs,
         )
     else:
-        # Dummy queue with size=1 — enqueue is a no-op, get returns empty
-        memory_queue = MemoryQueue(
-            queue_size=1,
-            embed_dim=model_config["embedding"]["shared_dim"],
-            device=device,
+        logger.info(
+            "  Memory queue: DISABLED (size=%d allocated but never served)",
+            mq_cfg["queue_size"],
         )
-        logger.info("  Memory queue: DISABLED (baseline experiment)")
 
     logger.info(
         "  Optimizer: AdamW (lr=%.1e, wd=%.4f), Scheduler: cosine (T_max=%d, eta_min=%.1e)",
