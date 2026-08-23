@@ -20,9 +20,9 @@ contradiction rather than silently picking one.
 | What went wrong along the way? | [DEBUGGING_STORY.md](DEBUGGING_STORY.md) |
 
 `KNOWN_ISSUES.md` is deliberately in that list. The headline result —
-19.63% test Recall@10, 62× chance — is real, but the embedding space
-behind it and the search index in front of it both have documented
-defects. Read it before quoting a number.
+23.91% test Recall@10, 76× chance — is real, but the embedding space
+behind it still grades ANISOTROPIC rather than healthy. Read it before
+quoting a number.
 
 ## Results and experiments
 

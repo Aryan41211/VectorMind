@@ -7,16 +7,17 @@
  * 31k images, not a production CLIP — otherwise the honest conclusion
  * from a mediocre result is "this is broken".
  *
- * Numbers here are the shipped model's measured figures. They are stated
- * against the correct random-chance baseline, which the project's own
- * documentation got wrong by roughly 30x for weeks: chance for R@10 over
- * 15,895 captions is 0.31%, not the 10% carried over from the 100-image
- * Phase 3.5 sanity check.
+ * Numbers here are the shipped model's measured figures, regenerable
+ * with `python scripts/generate_reports.py`. They are stated against the
+ * correct random-chance baseline, which the project's own documentation
+ * got wrong by roughly 30x for weeks: chance for R@10 over 15,895
+ * captions is 0.31%, not the 10% carried over from the 100-image Phase
+ * 3.5 sanity check.
  */
 
 const METRICS = [
-  { label: 'Test R@10', value: '19.6%', note: '62× chance' },
-  { label: 'Test R@1', value: '4.6%', note: '147× chance' },
+  { label: 'Test R@10', value: '23.9%', note: '76× chance' },
+  { label: 'Test R@1', value: '6.0%', note: '192× chance' },
   { label: 'Parameters', value: '24M', note: 'from scratch' },
   { label: 'Corpus', value: '3,179', note: 'Flickr30k photos' },
 ];

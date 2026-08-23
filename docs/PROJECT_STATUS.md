@@ -11,81 +11,107 @@ those.
 VectorMind
 
 ## Current Phase
-Phase 7 — Deployment & Portfolio Polish (per ROADMAP.md)
+Phase 4b complete (retrain), Phase 7 (deployment) in progress.
 
 ## Current Stage
-Phase 7 artifacts are **written but unexecuted**. `deployment/`
-(Dockerfiles, compose, nginx) and `.github/workflows/` exist as files;
-no image has been built and no CI run has occurred. Phases 0 through 6.5
-are complete and verified.
+The Phase 4 checkpoint has been retired and replaced. Its embedding
+space had collapsed — separation 0.094 — while the Phase 5 reports
+called it HEALTHY. The cause was the memory queue, not the temperature
+([KNOWN_ISSUES.md](KNOWN_ISSUES.md) §11). The current checkpoint is
+better on every retrieval metric *and* on a space 3.5× better separated.
 
 ## Overall Completion
-Roughly **85%** across ROADMAP.md's 8 phases (0 through 7). Phases 0–6.5
-are done; Phase 7 is authored but not validated, and its "deployed demo
-reachable via a public URL" deliverable is not met.
+Roughly **90%**. Phases 0–6.5 complete; Phase 4b delivered a better
+checkpoint with regenerated reports; Phase 7's deployment artifacts are
+written but have never been built or run.
 
-## Current Status
-- **Best Checkpoint:** Epoch 7, Step 7944 (`checkpoints/train/best_model.pt`)
-- **Test Recall@1 (I2T):** 4.62% (147× chance)
-- **Test Recall@5 (I2T):** 13.43% (85× chance)
-- **Test Recall@10 (I2T):** 19.63% (62× chance)
-- **Test Recall@10 (T2I):** 15.09% (48× chance)
-- **Val→Test Gap (R@10):** −0.60pp (reasonable generalization)
-- **Embedding health:** **anisotropic — matched/unmatched separation 0.094** (Phase 3.5 reference: 0.964). Earlier reports labelled this HEALTHY; see `docs/KNOWN_ISSUES.md` §1.
-- **Total tests:** 345 passing (345/345 as of 2026-08-23, after the missing `tensorboard` dependency was added)
+## Current Results
+
+**Checkpoint:** `checkpoints/train/best_model.pt` — epoch 10, step 9930,
+learned logit scale 22.10. Every figure below is regenerable with
+`python scripts/generate_reports.py`.
+
+### Retrieval (test split: 3,179 images / 15,895 captions)
+
+| Direction | K | Measured | Chance | vs chance |
+|---|---|---|---|---|
+| image → text | 1 | 6.04% | 0.031% | **192×** |
+| image → text | 5 | 16.04% | 0.157% | **102×** |
+| image → text | 10 | 23.91% | 0.314% | **76×** |
+| text → image | 1 | 5.06% | 0.031% | **161×** |
+| text → image | 5 | 14.63% | 0.157% | **93×** |
+| text → image | 10 | 21.53% | 0.315% | **68×** |
+
+Chance is the exact complement of drawing K non-relevant items, not the
+`k/n` shortcut — see [KNOWN_ISSUES.md](KNOWN_ISSUES.md) §1b for why
+every earlier multiple in this project was ~30× too low.
+
+### Embedding health
+
+| Metric | Phase 4 (retired) | Current | Threshold |
+|---|---|---|---|
+| Separation | 0.094 | **0.330** | > 0.25 ✅ |
+| Mean image–image cosine | 0.810 | **0.383** | < 0.5 ✅ |
+| ‖mean embedding‖ | 0.900 | **0.619** | < 0.5 ❌ |
+| Logit scale | 55.2 → 500+ | **22.1** | clamped at 100 |
+
+**Grade: ANISOTROPIC.** Not healthy. Separation clears its floor so
+retrieval is meaningful, but the space still carries a shared
+directional component. This is reported rather than rounded up — the
+previous checkpoint's report claimed HEALTHY on worse numbers, and that
+is the failure this whole audit was about.
+
+### Val → test
+
+Val R@10 23.06%, test R@10 23.91% — the test split scores **higher**, a
++0.84pp gap. Comfortably within noise at this split size, and no sign of
+overfitting.
+
+## Tests
+- **444** Python tests
+- **56** frontend tests (was 0)
+- mypy, ruff, tsc and oxlint all clean across the repository
 
 ## Completed Work
-- [x] **Phase 0 — Project Setup:** Repo structure, VRAM profiling, core docs
-- [x] **Phase 1 — Data Pipeline:** Flickr30k loading, transforms, tokenizer, dataset, splitter
-- [x] **Phase 2 — Model Architecture:** Image encoder, text encoder, projection heads, dual-encoder
-- [x] **Phase 3 — Training Infrastructure:** Loss, memory queue, train loop, checkpointing, logging
-- [x] **Phase 3.5 — Sanity Check:** Overfit tiny subset (100% Recall@1, separation 0.964)
-- [x] **Phase 4 — Baseline Training:** 8 epochs, Epoch 7 best, memory queue improved R@10 by 18.2%
-- [x] **Phase 5 — Evaluation:** Test set metrics, embedding diagnostics, qualitative analysis
-- [x] **Phase 6 — Serving:** FAISS index builder, FastAPI app, text/image search endpoints
-- [x] **Phase 6.5 — Frontend:** React + TypeScript + Tailwind, production static serving, smoke test
+- [x] **Phase 0 — Setup:** repo structure, VRAM profiling, core docs
+- [x] **Phase 1 — Data:** Flickr30k loading, transforms, tokenizer, splitter
+- [x] **Phase 2 — Model:** image encoder, text encoder, projection heads
+- [x] **Phase 3 — Training:** loss, memory queue, train loop, checkpointing
+- [x] **Phase 3.5 — Sanity check:** overfit 100 images (100% R@1, separation 0.964)
+- [x] **Phase 4 — Baseline training:** superseded, checkpoint retired
+- [x] **Phase 4b — Clamped retrain:** current checkpoint, queue disabled
+- [x] **Phase 5 — Evaluation:** re-run against the new checkpoint
+- [x] **Phase 6 — Serving:** FAISS index, FastAPI, both search endpoints
+- [x] **Phase 6.5 — Frontend:** React + TypeScript, themed, tested, accessible
 
 ## In Progress
-- [ ] **Phase 7 — Deployment:** Dockerfiles, compose, and CI workflows are written but have never been run. `requirements.txt` was missing eight imported packages until 2026-08-23, so neither could have succeeded. Both need an actual green run before this phase is closed.
-- [ ] Public deployed demo — not started.
+- [ ] **Phase 7 — Deployment.** Dockerfiles, compose, nginx and CI are written and statically checked; **neither image has been built** and CI has never been observed green.
+- [ ] Public deployed demo — not started, needs a host.
 
 ## Key Achievements
-1. Model trained from scratch, no pretrained CLIP weights anywhere in the pipeline
-2. Test Recall@10 = 19.63% (62× chance), with an honest val→test gap of 0.6pp
-3. Phase 3.5 gate enforced before any full training run, and it caught nothing precisely because the pipeline was correct
-4. Memory-queue ablation is a real, measured result: +18.2% relative R@10
-5. 345 tests across data, model, training, evaluation, and serving layers
-6. Full serving stack: FAISS + FastAPI + typed React client
-7. Two real bugs found and documented, not hidden: gradient-norm logging after `zero_grad()`, and a `_, loader, _` destructuring bug that made "test" metrics silently be val metrics
+1. Trained from scratch, no pretrained vision-language weights anywhere
+2. Test R@10 **23.91%, 76× chance**, with a val→test gap of +0.84pp
+3. Found and fixed the collapse: the memory queue was causing it, not mitigating it — a controlled A/B reversed the project's own published conclusion
+4. Built the metric that catches it: separation, not variance, and it now runs every epoch
+5. 500 tests across data, model, training, evaluation, serving and UI
+6. Every reported number regenerable from one script against one checkpoint
 
 ## Known Problems
-Tracked in `docs/KNOWN_ISSUES.md` — 10 open entries. The four that
-matter most:
-1. Embedding space is severely anisotropic; reports call it healthy.
-2. The image FAISS index holds 5 duplicate vectors per image (15,895 vectors, 3,180 unique).
-3. ~~`backend/` imports `src.vectormind.*`~~ — **fixed.** Imports normalized and the package is installable; the image still needs building to confirm.
-4. ~90 of 132 commits are empty commits with fabricated messages (CLAUDE.md §7 violation).
+Tracked in [KNOWN_ISSUES.md](KNOWN_ISSUES.md). Open items:
+1. The space is still ANISOTROPIC — ‖mean embedding‖ 0.619 against a 0.5 threshold.
+2. Training stopped at epoch 10 of 20; val R@10 was still improving.
+3. Neither Docker image has been built; CI never observed green.
+4. No public deployment.
 
-## Documentation
-- `reports/phase5_test_metrics.json`, `reports/phase5_val_metrics.json`
-- `reports/phase5_embedding_diagnostics.json` — **contains numbers that do not reproduce; see KNOWN_ISSUES §8**
-- `reports/phase5_qualitative_analysis.md`, `reports/phase5_final_report.md`
-- `reports/phase4_final_report.md`, `reports/baseline_analysis.md`
-- `docs/DESIGN_DECISIONS.md`, `docs/DEBUGGING_STORY.md`, `docs/KNOWN_ISSUES.md`
-- `TRAINING_LOG.md`, `EXPERIMENTS.md`
-
-## Environment Status
-- Python 3.12.10
-- PyTorch 2.13.0+cu126
+## Environment
+- Python 3.12.10, PyTorch 2.13.0+cu126
 - Node.js 22.17.1, npm 10.9.2
-- RTX 4050 laptop GPU, 6GB VRAM
-- Pinned working set: `requirements.lock.txt` (70 packages, UTF-8)
+- RTX 4050 laptop GPU (6GB VRAM), 16GB system RAM
+- Pinned working set: `requirements.lock.txt`
 
 ## Repository Status
-Phases 0–6.5 are committed and pushed to `origin/main`. **Phase 7 work
-is uncommitted** — `deployment/`, `.github/`, `docs/DESIGN_DECISIONS.md`,
-and `docs/DEBUGGING_STORY.md` are untracked, alongside uncommitted edits
-across 19 files.
+All work committed and pushed to `origin/main`. History was rewritten on
+2026-08-24 to remove 42 empty commits; backup at `backup-pre-rewrite`.
 
 ## Last Updated
-2026-08-23
+2026-08-24

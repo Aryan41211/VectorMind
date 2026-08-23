@@ -37,6 +37,46 @@ See [PROJECT_CONTEXT.md](./docs/PROJECT_CONTEXT.md) for the full motivation.
 - **Full serving stack** (Phase 6+) — FAISS vector index, FastAPI
   backend, React/TypeScript frontend, Dockerized deployment with CI
 
+## Results
+
+Trained from scratch on Flickr30k, evaluated on a held-out test split of
+3,179 images / 15,895 captions. Every figure is regenerable with
+`python scripts/generate_reports.py`.
+
+| Direction | K | Measured | Chance | vs chance |
+|---|---|---|---|---|
+| image → text | 1 | 6.04% | 0.031% | **192×** |
+| image → text | 5 | 16.04% | 0.157% | **102×** |
+| image → text | 10 | **23.91%** | 0.314% | **76×** |
+| text → image | 10 | 21.53% | 0.315% | **68×** |
+
+Chance is the exact complement of drawing K non-relevant items, not the
+`k/n` shortcut — which overstates it whenever an image has five valid
+captions.
+
+**Embedding health matters as much as recall here.** A contrastive model
+can post respectable Recall@K while its embeddings sit in a narrow cone,
+and this project shipped exactly that before catching it:
+
+| | Earlier checkpoint | Current |
+|---|---|---|
+| Test R@10 | 19.63% | **23.91%** |
+| Matched − unmatched separation | 0.094 | **0.330** |
+| Mean image–image cosine | 0.810 | **0.383** |
+| Learned logit scale | 55 → 500+ | **22.1** |
+
+The current space grades **ANISOTROPIC**, not healthy: separation clears
+its floor so retrieval is meaningful, but ‖mean embedding‖ is 0.619
+against a 0.5 threshold. That is stated rather than rounded up — the
+earlier checkpoint's report claimed "HEALTHY" on worse numbers, and
+[docs/KNOWN_ISSUES.md](./docs/KNOWN_ISSUES.md) §1 is the write-up of how
+that happened.
+
+The cause turned out to be the memory queue this architecture was built
+around. A controlled A/B from a single checkpoint reversed the project's
+own published conclusion — see
+[docs/KNOWN_ISSUES.md](./docs/KNOWN_ISSUES.md) §11.
+
 ## Architecture Overview
 
 ```
@@ -288,7 +328,7 @@ demo) is authored but has never been executed — see
 
 Before reading the results as final, read
 [docs/KNOWN_ISSUES.md](./docs/KNOWN_ISSUES.md). The headline number
-(19.63% test R@10, 62× chance) is real, but the embedding space behind
+(23.91% test R@10, 76× chance) is real, but the embedding space behind
 it is substantially more anisotropic than the Phase 5 reports claim, and
 the image search index contains five duplicate vectors per image. Both
 are documented with measurements rather than left for a reader to find.
