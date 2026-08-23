@@ -60,6 +60,19 @@ random_seed: 42
 checkpoint_dir: checkpoints/train
 log_dir: logs/train
 
-# --- Temperature (ARCHITECTURE.md §5) ---
-# Initialized from model config (log(1/0.07) per CLIP).
-# The model learns this — no manual scheduling.
+# --- Temperature / logit scale (ARCHITECTURE.md §5) ---
+# Initialized from model config (log(1/0.07) per CLIP) and learned —
+# no manual scheduling.
+temperature:
+  # Hard ceiling on the learnable logit scale, applied after every
+  # optimizer step. CLIP uses 100.
+  #
+  # This is not a tuning knob, it is a correctness guard. The scalar is
+  # unconstrained, and the optimizer can lower contrastive loss by
+  # inflating it instead of separating representations. Phase 4 ran
+  # without this clamp: the scale went 14.3 -> 55 -> 500+ while the
+  # embedding space collapsed into a narrow cone (mean off-diagonal
+  # cosine 0.81, matched-vs-unmatched separation 0.094). See
+  # docs/KNOWN_ISSUES.md §1 and EXPERIMENTS.md experiment 002.
+  max_logit_scale: 100.0
+  clamp_enabled: true
