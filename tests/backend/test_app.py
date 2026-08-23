@@ -82,13 +82,13 @@ class TestHealthCheck:
 
 
 class TestRootEndpoint:
-    """Tests for root endpoint."""
+    """Tests for root and API info endpoints."""
 
-    def test_root_returns_api_info(self):
-        """Root endpoint returns API information."""
+    def test_api_info_returns_api_info(self):
+        """API info endpoint returns API information."""
         app = create_app(test_mode=True)
         client = TestClient(app)
-        response = client.get("/")
+        response = client.get("/api/info")
         data = response.json()
         assert data["name"] == "VectorMind"
         assert data["version"] == "0.1.0"
@@ -97,7 +97,7 @@ class TestRootEndpoint:
         assert data["health"] == "/health"
 
     def test_root_returns_200(self):
-        """Root endpoint returns 200 OK."""
+        """Root endpoint returns 200 OK (SPA or JSON)."""
         app = create_app(test_mode=True)
         client = TestClient(app)
         response = client.get("/")
@@ -137,12 +137,12 @@ class TestTimingMiddleware:
 class TestErrorHandling:
     """Tests for error handling."""
 
-    def test_404_for_unknown_endpoint(self):
-        """Unknown endpoints return 404."""
+    def test_unknown_path_serves_spa(self):
+        """Unknown paths serve the SPA index.html (client-side routing)."""
         app = create_app(test_mode=True)
         client = TestClient(app)
         response = client.get("/nonexistent")
-        assert response.status_code == 404
+        assert response.status_code == 200
 
     def test_405_for_wrong_method(self):
         """Wrong HTTP method returns 405."""

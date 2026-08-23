@@ -199,7 +199,7 @@ class TestAPIContract:
 
         # Check all endpoints exist
         assert "/health" in schema["paths"]
-        assert "/" in schema["paths"]
+        assert "/api/info" in schema["paths"]
         assert "/search/text" in schema["paths"]
         assert "/search/image" in schema["paths"]
 

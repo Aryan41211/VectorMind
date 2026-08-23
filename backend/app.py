@@ -24,7 +24,7 @@ import torch
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.index_builder import load_model
@@ -122,10 +122,10 @@ def create_app(
             ),
         )
 
-    # Root endpoint
-    @app.get("/", tags=["root"])
-    async def root():
-        """Root endpoint with API information."""
+    # API info endpoint (moved from / to avoid conflict with SPA)
+    @app.get("/api/info", tags=["root"])
+    async def api_info():
+        """API information endpoint."""
         return {
             "name": "VectorMind",
             "version": "0.1.0",
@@ -146,6 +146,27 @@ def create_app(
         logger.info(f"Mounted static images from {images_dir}")
     else:
         logger.warning(f"Images directory not found: {images_dir}")
+
+    # Serve frontend SPA (production static build)
+    frontend_dist = Path("frontend/dist")
+    if frontend_dist.exists():
+        app.mount("/static", StaticFiles(directory=str(frontend_dist)), name="frontend_static")
+        logger.info(f"Mounted frontend static assets from {frontend_dist}")
+
+        @app.get("/", include_in_schema=False)
+        async def serve_spa():
+            """Serve the SPA index.html at root."""
+            return FileResponse(str(frontend_dist / "index.html"))
+
+        @app.get("/{full_path:path}", include_in_schema=False)
+        async def serve_spa_fallback(full_path: str):
+            """Catch-all: serve index.html for SPA client-side routing."""
+            file_path = frontend_dist / full_path
+            if file_path.is_file():
+                return FileResponse(str(file_path))
+            return FileResponse(str(frontend_dist / "index.html"))
+    else:
+        logger.info("frontend/dist not found — SPA not served (use Vite dev server)")
 
     return app
 
