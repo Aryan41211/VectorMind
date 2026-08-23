@@ -184,39 +184,76 @@ Full ownership/responsibility breakdown: [FOLDER_STRUCTURE.md](./docs/FOLDER_STR
 
 ## Frontend
 
-The React frontend lives in `frontend/` and is built with Vite + TypeScript + Tailwind CSS.
+React + TypeScript + Tailwind v4, built with Vite. 67KB gzipped, no
+component or icon library.
+
+The interface is deliberately quiet: a retrieval demo is mostly
+photographs, and photographs supply all the colour a page needs, so the
+chrome stays out of their way. Design tokens live in one block in
+`src/index.css` — components reference `--surface` and `--text-primary`
+rather than palette steps, so light and dark cannot drift apart.
+
+- **Theme** — light, dark, or follow the system, applied before first paint so dark-mode visitors get no white flash
+- **Loading** — skeletons shaped like the results, which hold layout instead of shifting the page when twelve images land
+- **Accessible** — dialogs trap and restore focus, `/` focuses search, everything is reachable by keyboard, and `prefers-reduced-motion` is honoured
+- **Honest** — every result shows its similarity score, and the idle screen states where the model fails, because a visitor who gets a mediocre result should be able to tell an out-of-domain query from a broken demo
 
 ### Development
 
 ```bash
 cd frontend
 npm install
-npm run dev
+npm run dev      # http://localhost:3000, proxies /search /health /images to :8000
 ```
 
-The dev server runs on `http://localhost:3000` (see `frontend/vite.config.ts`)
-and proxies `/search`, `/health`, and `/images` to the backend on port 8000.
-
-### Production Build
+### Checks
 
 ```bash
-cd frontend
-npm run build        # outputs to frontend/dist/
+npm test          # 56 tests (vitest + testing-library)
+npx tsc --noEmit  # type-check
+npm run lint      # oxlint
+npm run build     # production build → frontend/dist/
 ```
 
-The backend (`backend/app.py`) serves `frontend/dist/` as static files in production,
-so no separate web server is needed. Set `VITE_API_BASE_URL` in `frontend/.env.production`
-if the API is at a different origin.
-
-### Running the Full Stack
+### Running the full stack
 
 ```bash
-# Terminal 1 — backend + static serving
+# Terminal 1 — backend, also serves frontend/dist in production
 python -m uvicorn backend.app:app --host 0.0.0.0 --port 8000
 
-# Terminal 2 — frontend dev server (optional, for HMR)
+# Terminal 2 — dev server with HMR (optional)
 cd frontend && npm run dev
 ```
+
+Or in containers, which is the configuration meant for deployment —
+nginx serves the SPA and proxies the API, so the whole app is
+same-origin:
+
+```bash
+docker compose -f deployment/docker-compose.yml up --build
+```
+
+See [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md) for the topology, probes,
+and known gaps.
+
+## Production readiness
+
+What is in place, and what is deliberately not.
+
+| Area | Status |
+|---|---|
+| Request limits | Sliding-window rate limit, body-size guard before buffering |
+| Security headers | nosniff, DENY framing, referrer and permissions policy |
+| Observability | Correlation id on every response and log line, timed access log |
+| Probes | `/health` (liveness) and `/ready` (readiness, names the missing artifact) |
+| Failure handling | Timeouts and typed errors client-side; app starts degraded rather than crash-looping |
+| Config | Every path, origin, limit and tokenizer setting in `configs/serving.yaml` |
+| CI | pytest, mypy, ruff, tsc, oxlint, and both Docker builds |
+
+**Not in place:** TLS termination, multi-worker deployment (the rate
+limiter holds per-process state), metrics or tracing beyond structured
+logs, and authentication. Each is explained in
+[docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md#known-gaps).
 
 ## Development Roadmap
 
