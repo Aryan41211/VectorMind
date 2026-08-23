@@ -14,11 +14,16 @@ from typing import Any, Callable
 
 from PIL import Image
 from torch import Tensor
+from torch.utils.data import Dataset
+
+# One sample: three tensors plus the raw caption text carried through for
+# debugging and qualitative analysis.
+Sample = dict[str, Tensor | str]
 
 logger = logging.getLogger(__name__)
 
 
-class Flickr30kDataset:
+class Flickr30kDataset(Dataset[Sample]):
     """A paired image-caption dataset for contrastive learning.
 
     Each item returns one (image, caption) pair. Because Flickr30k
@@ -126,10 +131,10 @@ class Flickr30kDataset:
         caption = self.captions[idx]
 
         # Lazy image loading — memory-efficient for ~30k images.
-        image = Image.open(image_path).convert("RGB")
-
-        if self.transform is not None:
-            image = self.transform(image)
+        pil_image = Image.open(image_path).convert("RGB")
+        image: Tensor | Image.Image = (
+            self.transform(pil_image) if self.transform is not None else pil_image
+        )
 
         # Tokenize the caption.
         tokenized = self.tokenizer.encode(caption)

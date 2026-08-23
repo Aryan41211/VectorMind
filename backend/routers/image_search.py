@@ -16,6 +16,9 @@ from __future__ import annotations
 import io
 import logging
 import time
+from functools import lru_cache
+from pathlib import Path
+from typing import Any
 
 import faiss
 import numpy as np
@@ -30,25 +33,34 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/search", tags=["search"])
 
-# Image preprocessing transforms
-_transforms = None
+# Query images must go through the same pipeline as the indexed ones.
+DATA_CONFIG_PATH = Path("configs/data.yaml")
 
+@lru_cache(maxsize=1)
+def _get_transforms() -> Any:
+    """Return the eval image pipeline, built from configs/data.yaml.
 
-def _get_transforms():
-    """Get image preprocessing transforms."""
-    global _transforms
-    if _transforms is None:
-        from torchvision import transforms
-        _transforms = transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize(
-                mean=[0.485, 0.456, 0.406],
-                std=[0.229, 0.224, 0.225],
-            ),
-        ])
-    return _transforms
+    Uploaded images must be preprocessed exactly as the indexed ones
+    were, or the query embedding lands in a different part of the space
+    than everything it is compared against.
+
+    This previously re-declared Resize(256) / CenterCrop(224) /
+    ToTensor / Normalize with the ImageNet constants inline, so any
+    change to configs/data.yaml would have silently desynchronized
+    serving from training. It now calls the same get_eval_transforms()
+    the dataset and index builder use.
+
+    Returns:
+        A torchvision v2.Compose pipeline.
+
+    Raises:
+        FileNotFoundError: If configs/data.yaml is missing.
+        KeyError: If the transform keys are absent from it.
+    """
+    from vectormind.data.transforms import get_eval_transforms
+    from vectormind.utils.config import load_config
+
+    return get_eval_transforms(load_config(str(DATA_CONFIG_PATH)))
 
 
 @router.post(

@@ -87,6 +87,7 @@ def build_faiss_index(
     dimension = embeddings.shape[1]
     num_vectors = embeddings.shape[0]
 
+    index: faiss.Index
     if index_type == "IndexFlatIP":
         index = faiss.IndexFlatIP(dimension)
     elif index_type == "IndexFlatL2":
@@ -409,7 +410,7 @@ def build_indices(
     if str(scripts_dir) not in sys.path:
         sys.path.insert(0, str(scripts_dir))
 
-    from _data_helpers import load_flickr30k_from_hf
+    from _data_helpers import load_flickr30k_from_hf  # type: ignore[import-not-found]
     from vectormind.data.dataloader import _collate_fn
     from vectormind.data.splitter import create_splits
     from vectormind.data.tokenizer import CaptionTokenizer
@@ -450,9 +451,9 @@ def build_indices(
     else:
         pairs = test_pairs
 
-    split_paths, split_caps = zip(*pairs)
-    split_paths = list(split_paths)
-    split_caps = list(split_caps)
+    path_tuple, caption_tuple = zip(*pairs)
+    split_paths: list[Path] = [Path(p) for p in path_tuple]
+    split_caps: list[str] = list(caption_tuple)
 
     logger.info(f"Loaded {len(split_paths)} pairs for {dataset_split} split")
 
@@ -497,10 +498,11 @@ def build_indices(
     # for the text index. Indexing the per-pair image embeddings put five
     # identical vectors in the image index and made /search/text return
     # the same picture repeatedly (docs/KNOWN_ISSUES.md §2).
+    sample_paths: list[str | Path] = list(split_paths)
     image_embeddings, image_samples = deduplicate_image_embeddings(
-        image_embeddings, split_paths, split_caps
+        image_embeddings, sample_paths, split_caps
     )
-    caption_samples = build_caption_metadata(split_paths, split_caps)
+    caption_samples = build_caption_metadata(sample_paths, split_caps)
 
     # Build FAISS indices
     start_time = time.time()

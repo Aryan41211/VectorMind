@@ -151,7 +151,7 @@ def compute_alignment(
         min_n = min(N_images, N_texts)
         alignment = (image_embeds[:min_n] - text_embeds[:min_n]).norm(dim=1).pow(alpha).mean()
 
-    return alignment.item()
+    return float(alignment.item())
 
 
 def compute_comprehensive_embedding_diagnostics(
@@ -219,8 +219,8 @@ def compute_retrieval_examples(
     N_images = image_embeds.shape[0]
     similarity = image_embeds @ text_embeds.T
 
-    successes = []
-    failures = []
+    successes: list[dict[str, Any]] = []
+    failures: list[dict[str, Any]] = []
 
     for i in range(N_images):
         start = i * captions_per_image

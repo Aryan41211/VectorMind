@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -22,7 +23,7 @@ from typing import Any
 import faiss
 import torch
 import uvicorn
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -109,8 +110,8 @@ def create_app(
         serving_config = load_serving_config()
 
     @asynccontextmanager
-    async def lifespan(app: FastAPI):
-        """Application lifespan: load model and index at startup."""
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        """Load model and index at startup, release them at shutdown."""
         if not test_mode:
             _load_model_and_index(model_config, serving_config)
         yield
@@ -145,8 +146,11 @@ def create_app(
 
     # Request timing middleware
     @app.middleware("http")
-    async def add_timing_header(request: Request, call_next):
-        """Add processing time header to responses."""
+    async def add_timing_header(
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
+        """Add a processing-time header to every response."""
         start_time = time.time()
         response = await call_next(request)
         process_time = time.time() - start_time
@@ -170,7 +174,7 @@ def create_app(
 
     # API info endpoint (moved from / to avoid conflict with SPA)
     @app.get("/api/info", tags=["root"])
-    async def api_info():
+    async def api_info() -> dict[str, str]:
         """API information endpoint."""
         return {
             "name": "VectorMind",
@@ -200,12 +204,12 @@ def create_app(
         logger.info(f"Mounted frontend static assets from {frontend_dist}")
 
         @app.get("/", include_in_schema=False)
-        async def serve_spa():
+        async def serve_spa() -> FileResponse:
             """Serve the SPA index.html at root."""
             return FileResponse(str(frontend_dist / "index.html"))
 
         @app.get("/{full_path:path}", include_in_schema=False)
-        async def serve_spa_fallback(full_path: str):
+        async def serve_spa_fallback(full_path: str) -> FileResponse:
             """Catch-all: serve index.html for SPA client-side routing."""
             file_path = frontend_dist / full_path
             if file_path.is_file():
@@ -328,7 +332,7 @@ def _load_model_and_index(
 app = create_app()
 
 
-def main():
+def main() -> None:
     """CLI entry point for running the server."""
     import argparse
 

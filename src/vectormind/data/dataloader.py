@@ -9,13 +9,13 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 import torch
 from torch import Tensor
 from torch.utils.data import DataLoader
 
-from vectormind.data.dataset import Flickr30kDataset
+from vectormind.data.dataset import Flickr30kDataset, Sample
 
 logger = logging.getLogger(__name__)
 
@@ -39,10 +39,14 @@ def _collate_fn(
         - ``"attention_mask"``: ``[B, max_length]``
         - ``"caption_text"``: list of B strings
     """
-    images = torch.stack([item["image"] for item in batch], dim=0)
-    input_ids = torch.stack([item["input_ids"] for item in batch], dim=0)
-    attention_mask = torch.stack([item["attention_mask"] for item in batch], dim=0)
-    caption_texts = [item["caption_text"] for item in batch]
+    # Each item value is Tensor | str; the casts state which key is which,
+    # information the dict type alone cannot carry.
+    images = torch.stack([cast(Tensor, item["image"]) for item in batch], dim=0)
+    input_ids = torch.stack([cast(Tensor, item["input_ids"]) for item in batch], dim=0)
+    attention_mask = torch.stack(
+        [cast(Tensor, item["attention_mask"]) for item in batch], dim=0
+    )
+    caption_texts = [cast(str, item["caption_text"]) for item in batch]
 
     return {
         "image": images,
