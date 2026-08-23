@@ -191,39 +191,77 @@ a forward/backward pass in isolation; a live epoch also holds the
 validation pass and the 4096-entry queue. 128 measured ~4.6 GB peak in
 practice. Both values live in `configs/data.yaml`.
 
-### 6.1 The memory queue is not true MoCo, and needs a warmup
+### 6.1 The memory queue does not work here, and mitigation 3 above is wrong
+
+**This section supersedes the claim in item 3 of the list above.** The
+memory queue is described there as "the key mitigation for negative
+sample count". Measured against a controlled baseline, it is not a
+mitigation at all: it degrades every metric it was supposed to improve.
+The list is left unedited so the original reasoning stays readable, but
+it should be read as the hypothesis this section tested and rejected.
 
 **What is missing:** MoCo pairs its queue with a **momentum encoder** —
 a slowly-updated EMA copy of the encoder that produces the queued keys.
-That is the mechanism that keeps entries written 32 batches ago
-comparable to what the current encoder produces. VectorMind has no
-momentum encoder; the queue holds raw outputs of the live encoder.
+That is the mechanism keeping entries written 32 batches ago comparable
+to what the current encoder produces. VectorMind has no momentum
+encoder; the queue holds raw outputs of the live encoder. With
+`queue_size` 4096 against a batch of 128, those stale entries outnumber
+the in-batch negatives 32 to 1 and dominate the gradient.
 
-**Why that matters at this scale:** with `queue_size` 4096 against a
-batch of 128, queued negatives outnumber in-batch negatives 32 to 1. If
-they are stale, the gradient is dominated by noise.
+**Measured, one variable, same starting checkpoint (2026-08-23/24).**
+Both runs resume from `epoch_006.pt`; the only difference is whether the
+queue serves negatives:
 
-**Measured (2026-08-23):**
-
-| Schedule | Val R@10 after 2 epochs | Separation |
+| Epoch 7 from the same checkpoint | Queue active | Queue inactive |
 |---|---|---|
-| Queue active from step 1 | 0.35% (chance) | 0.000 |
-| In-batch negatives first | 2.99% → 5.03% | 0.102 → 0.166 |
+| Train loss | 3.86 | **2.51** |
+| Val R@10 | 10.51% | **19.63%** |
+| Val R@1 | 1.73% | **3.81%** |
+| Separation | 0.062 | **0.322** |
+| Mean image–image cosine | 0.872 | **0.409** |
+| Learned logit scale | 67.6 | **18.6** |
 
-**Decision:** the queue fills from step 1 but serves no negatives until
-`memory_queue.warmup_epochs` (default 6) has passed, so it activates
-already full of *recent* embeddings. Implemented as
-`MemoryQueue.active`.
+The queue-free arm is 87% better on R@10 and 5× better on separation,
+from an identical starting checkpoint. For context, the six epochs
+*before* the fork improved monotonically on both axes — R@10 2.99 →
+17.46%, separation 0.102 → 0.329 — and the queue-free arm simply
+continued that trend to 19.63%, while a single epoch of queue negatives
+cut R@10 by 40% and separation by 81%.
 
-This is the schedule that produced Phase 4's best checkpoint — reached
-by accident, because the first six epochs ran with a forgotten
-`--no-queue` flag. The improvement was recorded at the time as "the
-memory queue helps"; the fuller finding is "the memory queue helps once
-the encoder has stabilized." It is deliberate and configured now.
+**Warming up does not fix it.** An earlier attempt held the queue
+inactive for six epochs so it would activate already full of recent
+embeddings. That delayed the damage rather than preventing it: the
+collapse arrived in full at the first epoch after activation. The
+staleness is not a startup transient, it is structural — without a
+momentum encoder the queue is *always* holding embeddings from an
+encoder that has since moved.
 
-A momentum encoder would remove the need for the warmup and is the
-correct long-term fix; it costs a second copy of both towers in VRAM,
-which is why it is in `docs/FUTURE_IDEAS.md` rather than here.
+**The logit scale is the mechanism, not a separate problem.** Phase 4
+recorded "embedding collapse after epoch 7" and blamed "temperature
+overgrowth", treating it as an independent failure. It is not: the queue
+is what drives the scale up. Minimising loss against thousands of
+mismatched stale negatives is easier by sharpening the similarity
+distribution than by improving the representation, and the unbounded
+scale is the cheapest way to sharpen it. The clamp in §5.1 bounds the
+symptom; removing the queue removes the cause.
+
+**Decision:** train with in-batch negatives only. `memory_queue.enabled`
+is retained and defaults to off; `warmup_epochs` remains for anyone
+re-running the experiment.
+
+**On the original +18.2% claim.** `TRAINING_LOG.md` credited the queue
+with lifting R@10 from 17.12% to 20.23%. That was a single epoch
+measured immediately after activation, before the collapse showed in the
+metric, and epochs 9-15 then fell to 13.62%. It was also never a clean
+A/B: `--no-queue` swapped in a size-1 stub that `load_checkpoint`
+rejected against a real checkpoint, so the two arms could not start from
+a shared state. Both problems are fixed, and the corrected comparison is
+above.
+
+A momentum encoder is the correct way to make a queue work at this
+scale, and would cost a second copy of both towers in VRAM. It is in
+`docs/FUTURE_IDEAS.md`, not here, because it is a research direction
+rather than a deficiency in what ships.
 
 ---
 
