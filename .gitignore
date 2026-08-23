@@ -1,23 +1,52 @@
-﻿.venv/
+# --- Python ---
+.venv/
 venv/
-
 __pycache__/
 *.py[cod]
-
 *.egg-info/
+*.egg/
+dist/
+build/
+
+# --- Tool caches ---
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.deepeval/
+.coverage
+htmlcov/
+
+# --- ML artifacts (never committed — CLAUDE.md §7) ---
 logs/
 checkpoints/
 wandb/
+runs/
 data/raw/
 data/processed/
 *.pth
 *.pt
-*.egg-info/
-dist/
-build/
-*.egg/
+*.ckpt
 
+# Derived embedding arrays — regenerate with `python -m backend.index_builder`.
+# The .faiss indices and sample_metadata.json ARE committed so the demo runs
+# from a fresh clone; see docs/KNOWN_ISSUES.md for the size tradeoff.
+backend/indices/*.npy
+
+# --- Node / frontend ---
+node_modules/
+frontend/dist/
+
+# --- Local env ---
+.env
+.env.local
+frontend/.env
+frontend/.env.production
+
+# --- Editors / OS ---
 .vscode/
 .idea/
+.DS_Store
+Thumbs.db
 
+# --- Logs ---
 *.log
