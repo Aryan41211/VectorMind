@@ -46,6 +46,27 @@ class MemoryQueue:
         queue: Fixed tensor holding the queue contents.
         pointer: Current write position (next index to overwrite).
         num_filled: Number of valid entries currently in the queue.
+        active: Whether ``get_embeddings()`` serves its contents as loss
+            negatives. Enqueueing happens regardless.
+
+    On warmup — why ``active`` exists:
+        True MoCo pairs its queue with a *momentum encoder*, whose slow
+        EMA update keeps queued keys consistent with the current one.
+        This project has no momentum encoder (ARCHITECTURE.md §6), so
+        early in training the queue holds embeddings from an encoder
+        that has since moved substantially.
+
+        With queue_size 4096 against a batch of 128, those stale entries
+        outnumber the in-batch negatives 32 to 1 and dominate the
+        gradient. Measured: enabling the queue from step 1 left the model
+        at chance (val R@10 0.35%) after two epochs, while training with
+        in-batch negatives first reached 17.12% by epoch 6 and then
+        gained a further 3.1pp once the queue came on.
+
+        So the queue starts inactive, fills in the background, and
+        activates once the encoder has stabilized. Phase 4's best result
+        came from exactly this schedule, arrived at by accident — a
+        forgotten --no-queue flag. It is deliberate now.
     """
 
     def __init__(
@@ -53,6 +74,7 @@ class MemoryQueue:
         queue_size: int,
         embed_dim: int,
         device: torch.device | None = None,
+        active: bool = True,
     ) -> None:
         """Initialize the memory queue.
 
@@ -61,6 +83,8 @@ class MemoryQueue:
             embed_dim: Dimension of each embedding vector.
             device: Device for the queue tensor. If ``None``, defaults
                 to CPU.
+            active: Whether ``get_embeddings()`` serves negatives
+                immediately. Pass False to warm up — see :attr:`active`.
 
         Raises:
             ValueError: If ``queue_size`` or ``embed_dim`` is not positive.
@@ -86,6 +110,7 @@ class MemoryQueue:
         self.queue = torch.zeros(queue_size, embed_dim, device=self.device)
         self.pointer = 0
         self.num_filled = 0
+        self.active = active
 
         logger.info(
             "MemoryQueue initialized: queue_size=%d, embed_dim=%d, device=%s",
@@ -151,18 +176,41 @@ class MemoryQueue:
 
             self.num_filled = min(self.num_filled + B, self.queue_size)
 
+    def activate(self) -> None:
+        """Start serving queued embeddings as loss negatives.
+
+        See :attr:`active` for why the queue starts inactive.
+        """
+        if not self.active:
+            logger.info(
+                "MemoryQueue activated: %d/%d entries available as negatives",
+                self.num_filled,
+                self.queue_size,
+            )
+        self.active = True
+
+    def deactivate(self) -> None:
+        """Stop serving queued embeddings, while continuing to fill.
+
+        Enqueueing continues so the queue stays warm and is full of
+        recent embeddings the moment it is activated.
+        """
+        self.active = False
+
     def get_embeddings(self) -> torch.Tensor:
-        """Return all valid embeddings currently in the queue.
+        """Return the embeddings to use as extra loss negatives.
 
         Returns:
             Tensor of shape ``[K, embed_dim]`` where
-            ``K = min(num_filled, queue_size)``. The embeddings are
-            in FIFO order (oldest first).
+            ``K = min(num_filled, queue_size)``, in FIFO order
+            (oldest first). Returns an empty ``[0, embed_dim]`` tensor
+            while the queue is inactive, which the loss treats as
+            "in-batch negatives only".
 
         Assumptions:
             The returned tensor is detached (no gradient tracking).
         """
-        if self.num_filled == 0:
+        if not self.active or self.num_filled == 0:
             return torch.zeros(0, self.embed_dim, device=self.device)
 
         if self.num_filled < self.queue_size:

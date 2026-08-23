@@ -285,3 +285,70 @@ class TestMemoryQueueSizeCap:
         q.enqueue(torch.randn(100, 4))
         assert q.current_size == 8
         assert q.is_full
+
+
+class TestWarmup:
+    """The queue must fill while inactive, then serve a full queue.
+
+    Without a momentum encoder, activating the queue from step 1 swamps
+    the gradient with stale negatives — measured as val R@10 stuck at
+    chance (0.35%) after two epochs. See MemoryQueue's class docstring.
+    """
+
+    DIM = 16
+
+    def _queue(self, active: bool, size: int = 32) -> MemoryQueue:
+        return MemoryQueue(queue_size=size, embed_dim=self.DIM, active=active)
+
+    def test_defaults_to_active(self) -> None:
+        assert self._queue(active=True).active is True
+        assert MemoryQueue(queue_size=8, embed_dim=self.DIM).active is True
+
+    def test_inactive_queue_serves_no_negatives(self) -> None:
+        q = self._queue(active=False)
+        q.enqueue(torch.randn(8, self.DIM))
+        assert q.get_embeddings().shape == (0, self.DIM)
+
+    def test_inactive_queue_still_fills(self) -> None:
+        """The whole point of warmup: full the moment it switches on."""
+        q = self._queue(active=False)
+        q.enqueue(torch.randn(8, self.DIM))
+        assert q.current_size == 8
+        assert q.get_embeddings().shape[0] == 0
+
+    def test_activation_exposes_what_was_buffered(self) -> None:
+        q = self._queue(active=False)
+        q.enqueue(torch.randn(8, self.DIM))
+        q.enqueue(torch.randn(8, self.DIM))
+        assert q.get_embeddings().shape[0] == 0
+        q.activate()
+        assert q.active is True
+        assert q.get_embeddings().shape == (16, self.DIM)
+
+    def test_activation_is_idempotent(self) -> None:
+        q = self._queue(active=False)
+        q.enqueue(torch.randn(4, self.DIM))
+        q.activate()
+        q.activate()
+        assert q.get_embeddings().shape[0] == 4
+
+    def test_deactivate_hides_contents_without_dropping_them(self) -> None:
+        q = self._queue(active=True)
+        q.enqueue(torch.randn(4, self.DIM))
+        q.deactivate()
+        assert q.get_embeddings().shape[0] == 0
+        assert q.current_size == 4
+        q.activate()
+        assert q.get_embeddings().shape[0] == 4
+
+    def test_empty_active_queue_returns_empty(self) -> None:
+        q = self._queue(active=True)
+        assert q.get_embeddings().shape == (0, self.DIM)
+
+    def test_warmup_can_fill_the_queue_completely(self) -> None:
+        q = self._queue(active=False, size=32)
+        for _ in range(8):
+            q.enqueue(torch.randn(8, self.DIM))
+        q.activate()
+        assert q.is_full
+        assert q.get_embeddings().shape == (32, self.DIM)
