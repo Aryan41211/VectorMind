@@ -1,0 +1,56 @@
+# Keep the build context small and the images reproducible.
+#
+# Without this, `docker build` uploads the whole working tree — which
+# here includes 2.8GB of checkpoints, 1.3GB of Flickr30k images, and
+# node_modules — before the first instruction runs. Those are mounted as
+# volumes at runtime, never baked in.
+
+# --- Large runtime artifacts (mounted as volumes) ---
+checkpoints/
+data/
+logs/
+wandb/
+runs/
+reports/figures/
+
+# --- Virtualenvs and caches ---
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.deepeval/
+*.egg-info/
+
+# --- Node ---
+node_modules/
+frontend/node_modules/
+# The frontend image builds this itself from source; copying a local
+# build in would ship whatever was last built on someone's laptop.
+frontend/dist/
+
+# --- Git and CI ---
+.git/
+.github/
+.gitignore
+
+# --- Local environment ---
+.env
+.env.local
+frontend/.env
+frontend/.env.production
+
+# --- Editors ---
+.vscode/
+.idea/
+.DS_Store
+
+# --- Documentation ---
+# Excluded from the backend image, which does not read it. README.md and
+# LICENSE are copied explicitly by the Dockerfile because the package
+# metadata references them.
+docs/
+*.md
+!README.md

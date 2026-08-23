@@ -1,28 +1,55 @@
 # VectorMind — Docker Compose
 #
-# Starts the backend (FastAPI + model + FAISS) and frontend (nginx) together.
+# Two services: the FastAPI backend (model + FAISS) and an nginx
+# container serving the built SPA and proxying the API. Everything is
+# reached through the frontend on port 80, so the deployed app is
+# same-origin and CORS never enters the picture.
 #
-# Usage:
 #   docker compose -f deployment/docker-compose.yml up --build
 #
-# The backend mounts checkpoint, indices, and images as volumes
-# so they are NOT baked into the Docker image.
+# The checkpoint, indices, and Flickr30k images are mounted read-only
+# rather than baked in: the checkpoint is ~278MB and the image set 1.3GB,
+# and neither belongs in a rebuilt layer.
 
 services:
   backend:
     build:
       context: ..
       dockerfile: deployment/backend.Dockerfile
-    ports:
-      - "8000:8000"
+    # Not published to the host. The frontend reaches it over the compose
+    # network, so there is no reason to expose a second port publicly.
+    expose:
+      - "8000"
     volumes:
       - ../checkpoints:/app/checkpoints:ro
       - ../backend/indices:/app/backend/indices:ro
       - ../data/raw/flickr30k/images:/app/data/raw/flickr30k/images:ro
-      - ../frontend/dist:/app/frontend/dist:ro
     environment:
-      - PYTHONUNBUFFERED=1
+      PYTHONUNBUFFERED: "1"
+    healthcheck:
+      # Probes /ready, not /health: the container is only useful once the
+      # checkpoint and indices are loaded, and depends_on below waits on
+      # this. Routing traffic on liveness alone would send every early
+      # search into a 503.
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/ready').status == 200 else 1)",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      # Loading a ~278MB checkpoint takes tens of seconds; without this
+      # grace period the container is killed while starting normally.
+      start_period: 90s
     restart: unless-stopped
+    # A runaway request should not take the host down with it.
+    deploy:
+      resources:
+        limits:
+          memory: 4G
 
   frontend:
     build:
@@ -31,5 +58,16 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/", "||", "exit", "1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
