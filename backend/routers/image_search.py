@@ -127,12 +127,14 @@ def search_by_image(
             if idx == -1:  # FAISS returns -1 for failed searches
                 continue
 
-            # Look up real metadata from sample_metadata
+            # This searched the TEXT index, so idx is a caption-index
+            # position and resolves against caption_samples.
             filename = None
             image_url = None
             caption = None
-            if app_state.sample_metadata and 0 <= idx < len(app_state.sample_metadata):
-                entry = app_state.sample_metadata[idx]
+            samples = app_state.caption_samples
+            if samples and 0 <= idx < len(samples):
+                entry = samples[idx]
                 filename = entry.get("filename")
                 caption = entry.get("caption")
                 if filename:
