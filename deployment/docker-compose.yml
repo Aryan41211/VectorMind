@@ -1,0 +1,35 @@
+# VectorMind — Docker Compose
+#
+# Starts the backend (FastAPI + model + FAISS) and frontend (nginx) together.
+#
+# Usage:
+#   docker compose -f deployment/docker-compose.yml up --build
+#
+# The backend mounts checkpoint, indices, and images as volumes
+# so they are NOT baked into the Docker image.
+
+services:
+  backend:
+    build:
+      context: ..
+      dockerfile: deployment/backend.Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../checkpoints:/app/checkpoints:ro
+      - ../backend/indices:/app/backend/indices:ro
+      - ../data/raw/flickr30k/images:/app/data/raw/flickr30k/images:ro
+      - ../frontend/dist:/app/frontend/dist:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: deployment/frontend.Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
