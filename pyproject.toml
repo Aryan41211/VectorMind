@@ -1,5 +1,39 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vectormind"
+version = "0.1.0"
+description = "Multimodal semantic search: a CLIP-style dual encoder trained from scratch on Flickr30k"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "Aryan Kondekar" }]
+keywords = ["contrastive-learning", "multimodal", "clip", "retrieval", "faiss"]
+classifiers = [
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+# Runtime dependencies are pinned in requirements.txt / requirements.lock.txt
+# rather than duplicated here. The package exists so `pip install -e .` puts
+# `vectormind` on sys.path — without it, backend/ resolves its imports only
+# when the process happens to start in the repository root, which is why the
+# Docker image could not start.
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/Aryan41211/VectorMind"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["vectormind*"]
+
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
 testpaths = ["tests"]
 
 [tool.mypy]
@@ -7,3 +41,52 @@ python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
+# Without this, mypy resolves src/vectormind/... under both "vectormind.*"
+# and "src.vectormind.*" and aborts with "Source file found twice under
+# different module names" before it checks a single line.
+explicit_package_bases = true
+mypy_path = "src"
+
+# Third-party packages that ship no type information. Listing them keeps
+# real errors visible instead of buried under import-untyped noise.
+[[tool.mypy.overrides]]
+module = [
+    "torchvision.*",
+    "faiss.*",
+    "transformers.*",
+    "datasets.*",
+    "cv2.*",
+    "wandb.*",
+    "matplotlib.*",
+]
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+extend-exclude = [".venv", "frontend", "checkpoints", "logs", "data"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "I",    # import sorting
+    "UP",   # pyupgrade
+    "B",    # bugbear
+    "ANN",  # missing type annotations (CLAUDE.md §3)
+    "D",    # docstrings (CLAUDE.md §3)
+]
+ignore = [
+    "D203",  # conflicts with D211
+    "D213",  # conflicts with D212
+    "E501",  # line length is handled by the formatter
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests document themselves through their names; full docstring coverage
+# on every assertion helper is ceremony, not clarity.
+"tests/**" = ["D100", "D101", "D102", "D103", "ANN201", "ANN001"]
+"scripts/**" = ["D103"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
