@@ -37,7 +37,11 @@ from vectormind.data.dataloader import create_dataloaders
 from vectormind.data.splitter import create_splits
 from vectormind.data.tokenizer import CaptionTokenizer
 from vectormind.data.transforms import get_eval_transforms, get_train_transforms
-from vectormind.models.vectormind_model import VectorMindModel
+from vectormind.evaluation.embedding_health import compute_embedding_health
+from vectormind.models.vectormind_model import (
+    DEFAULT_MAX_LOGIT_SCALE,
+    VectorMindModel,
+)
 from vectormind.training.checkpoint import load_checkpoint, save_checkpoint
 from vectormind.training.logger import TrainingLogger
 from vectormind.training.memory_queue import MemoryQueue
@@ -52,8 +56,6 @@ from vectormind.utils.logging_config import setup_logging
 logger = logging.getLogger(__name__)
 
 # Directories
-CHECKPOINT_DIR = Path("checkpoints/train")
-LOG_DIR = Path("logs/train")
 
 
 def parse_args() -> argparse.Namespace:
@@ -88,8 +90,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--num-workers",
         type=int,
-        default=2,
-        help="Number of DataLoader workers (default: 2).",
+        default=None,
+        help="Override dataset.num_workers from configs/data.yaml.",
     )
     return parser.parse_args()
 
@@ -218,11 +220,24 @@ def evaluate(
 
     embed_diag = compute_embedding_diagnostics(image_embeds_unique, text_embeds)
 
+    # Separation is the metric that would have caught the Phase 4
+    # collapse. Variance alone did not — see docs/KNOWN_ISSUES.md §1.
+    # One caption per image keeps the pairing one-to-one, as
+    # compute_embedding_health() requires.
+    first_caption = text_embeds[::captions_per_image][: image_embeds_unique.shape[0]]
+    health = compute_embedding_health(image_embeds_unique, first_caption)
+
     return {
         "recall@1": r1,
         "recall@5": r5,
         "recall@10": r10,
         **embed_diag,
+        "separation": health.separation,
+        "matched_similarity": health.matched_similarity,
+        "unmatched_similarity": health.unmatched_similarity,
+        "image_mean_cosine": health.image_mean_cosine,
+        "image_mean_norm": health.image_mean_norm,
+        "collapsed": float(health.collapsed),
     }
 
 
@@ -259,18 +274,14 @@ def main() -> None:
     num_epochs = args.epochs or train_cfg["epochs"]
     lr = args.lr or optim_cfg["lr"]
 
-    # Performance-tuned DataLoader settings for RTX 4050 6GB
-    # batch_size=128 fits in ~4.6GB VRAM (measured: 2.31GB forward-only)
-    # num_workers=4 avoids Windows shared memory issues with persistent_workers
-    # persistent_workers=False to prevent shared memory mapping failures on Windows
-    # prefetch_factor=4 keeps more batches ready in the pipeline
+    # DataLoader settings come from configs/data.yaml (CLAUDE.md §6);
+    # the RTX 4050 tuning rationale is documented there. --num-workers
+    # is the one CLI override, so a machine with different core counts
+    # can adjust without editing config.
     data_config_optimized = dict(data_config)
     data_config_optimized["dataset"] = dict(data_config["dataset"])
-    data_config_optimized["dataset"]["batch_size"] = 128
-    data_config_optimized["dataset"]["num_workers"] = args.num_workers
-    data_config_optimized["dataset"]["pin_memory"] = True
-    data_config_optimized["dataset"]["persistent_workers"] = False
-    data_config_optimized["dataset"]["prefetch_factor"] = 4
+    if args.num_workers is not None:
+        data_config_optimized["dataset"]["num_workers"] = args.num_workers
 
     # ---- Step 2: Load and split dataset ----
     logger.info("Step 2: Loading Flickr30k dataset...")
@@ -383,9 +394,11 @@ def main() -> None:
 
     # ---- Step 7: Initialize logger ----
     logger.info("Step 7: Initializing TensorBoard logger...")
-    LOG_DIR.mkdir(parents=True, exist_ok=True)
-    CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
-    training_logger = TrainingLogger(log_dir=LOG_DIR)
+    checkpoint_dir = Path(train_cfg["checkpoint_dir"])
+    log_dir = Path(train_cfg["log_dir"])
+    log_dir.mkdir(parents=True, exist_ok=True)
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    training_logger = TrainingLogger(log_dir=log_dir)
 
     # ---- Step 8: Training loop ----
     log_every = 50  # Reduced from 10 to minimize logging overhead
@@ -411,6 +424,15 @@ def main() -> None:
     early_stop_patience = train_cfg.get("early_stopping", {}).get("patience", 5)
     early_stop_enabled = train_cfg.get("early_stopping", {}).get("enabled", True)
     min_delta = train_cfg.get("early_stopping", {}).get("min_delta", 0.001)
+
+    temp_cfg = train_cfg.get("temperature", {})
+    clamp_enabled = temp_cfg.get("clamp_enabled", True)
+    max_logit_scale = float(temp_cfg.get("max_logit_scale", DEFAULT_MAX_LOGIT_SCALE))
+    logger.info(
+        "Logit-scale clamp: %s (ceiling=%.1f)",
+        "ENABLED" if clamp_enabled else "DISABLED",
+        max_logit_scale,
+    )
 
     for epoch in range(start_epoch, num_epochs):
         epoch_start = time.time()
@@ -443,12 +465,18 @@ def main() -> None:
                 scaler.update()
                 optimizer.zero_grad()
 
-            # Enqueue text embeddings into memory queue
-            with torch.no_grad():
-                input_ids = batch["input_ids"].to(device, non_blocking=True)
-                attention_mask = batch["attention_mask"].to(device, non_blocking=True)
-                text_embeds = model.encode_text(input_ids, attention_mask)
-                memory_queue.enqueue(text_embeds)
+                # Clamp the learnable logit scale immediately after the
+                # update. Without this the optimizer lowers contrastive
+                # loss by inflating the scale rather than separating
+                # representations, and the embedding space collapses
+                # into a cone (docs/KNOWN_ISSUES.md §1).
+                if clamp_enabled:
+                    metrics["temperature"] = model.clamp_log_temperature(
+                        max_logit_scale
+                    )
+
+            # The memory queue is filled inside train_one_step() from the
+            # embeddings the loss already computed — no second forward pass.
 
             epoch_losses.append(metrics["loss"])
             epoch_grad_norms.append(grad_norm)
@@ -545,12 +573,25 @@ def main() -> None:
                 val_metrics["recall@10"],
                 val_metrics["image_dim_variance"],
             )
+            # Retrieval metrics can hold up while the representation
+            # degrades — Phase 4 proved that. Log health next to them so
+            # a collapse is visible in the same glance.
+            logger.info(
+                "  Health: separation=%.4f (matched=%.4f, unmatched=%.4f), "
+                "mean_cos=%.4f, ||mean||=%.4f%s",
+                val_metrics["separation"],
+                val_metrics["matched_similarity"],
+                val_metrics["unmatched_similarity"],
+                val_metrics["image_mean_cosine"],
+                val_metrics["image_mean_norm"],
+                "  <-- COLLAPSED" if val_metrics["collapsed"] else "",
+            )
 
             # Track best model based on Recall@10
             if val_metrics["recall@10"] > best_val_recall10 + min_delta:
                 best_val_recall10 = val_metrics["recall@10"]
                 best_val_recall = val_metrics["recall@1"]
-                best_ckpt_path = CHECKPOINT_DIR / "best_model.pt"
+                best_ckpt_path = checkpoint_dir / "best_model.pt"
                 save_checkpoint(
                     path=best_ckpt_path,
                     model=model,
@@ -611,7 +652,7 @@ def main() -> None:
 
         # Save periodic checkpoint
         if (epoch + 1) % save_every == 0:
-            ckpt_path = CHECKPOINT_DIR / f"epoch_{epoch + 1:03d}.pt"
+            ckpt_path = checkpoint_dir / f"epoch_{epoch + 1:03d}.pt"
             save_checkpoint(
                 path=ckpt_path,
                 model=model,
@@ -658,8 +699,8 @@ def main() -> None:
     logger.info("  Best val Recall@1:  %.4f", best_val_recall)
     logger.info("  Final loss: %.4f", avg_loss)
     logger.info("  Memory queue: %s", "enabled" if use_queue else "disabled")
-    logger.info("  Checkpoints saved to: %s", CHECKPOINT_DIR)
-    logger.info("  TensorBoard logs at: %s", LOG_DIR)
+    logger.info("  Checkpoints saved to: %s", checkpoint_dir)
+    logger.info("  TensorBoard logs at: %s", log_dir)
 
     # ---- First vs Last Epoch Comparison ----
     if first_epoch_metrics and last_epoch_metrics:
@@ -741,7 +782,7 @@ def main() -> None:
     logger.info("=" * 70)
 
     # Save final checkpoint
-    final_ckpt_path = CHECKPOINT_DIR / "final_model.pt"
+    final_ckpt_path = checkpoint_dir / "final_model.pt"
     save_checkpoint(
         path=final_ckpt_path,
         model=model,
