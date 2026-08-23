@@ -1,11 +1,16 @@
 # Phase 5 Qualitative Analysis — VectorMind
 
+> **Superseded (2026-08-24).** These figures describe the retired Phase 4
+> checkpoint, whose embedding space had collapsed (separation 0.094). The
+> "x chance" multiples here were corrected from the original ~30x-too-low
+> values; see [docs/KNOWN_ISSUES.md](../docs/KNOWN_ISSUES.md) §1b. Regenerate
+> against the current checkpoint with `python scripts/generate_reports.py`.
+
 ## Executive Summary
 
 This report provides qualitative analysis of the VectorMind model's retrieval
 performance on the Flickr30k **test set** (3,179 images, 15,895 captions).
-The model achieves 19.63% Recall@10 for image→text retrieval (2.0x random
-baseline), with 80.37% failure rate.
+The model achieves 19.63% Recall@10 for image→text retrieval (62x chance), with 80.37% failure rate.
 
 **Note:** This analysis was re-run after fixing a bug where the test evaluation
 was inadvertently evaluating on the validation set. The corrected test metrics
@@ -249,7 +254,7 @@ additional context.
 ## 7. Conclusion
 
 The VectorMind model achieves meaningful cross-modal retrieval (19.63%
-Recall@10, 2.0x random baseline) on the Flickr30k test set. The model
+Recall@10, 62x chance) on the Flickr30k test set. The model
 demonstrates strong scene understanding and object recognition but struggles
 with fine-grained actions and compositional semantics. The val-test gap
 is small (~0.6pp), indicating the model generalizes reasonably to unseen

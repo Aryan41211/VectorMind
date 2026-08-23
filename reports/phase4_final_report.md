@@ -1,11 +1,17 @@
 # Phase 4 Final Engineering Report — VectorMind
 
+> **Superseded (2026-08-24).** These figures describe the retired Phase 4
+> checkpoint, whose embedding space had collapsed (separation 0.094). The
+> "x chance" multiples here were corrected from the original ~30x-too-low
+> values; see [docs/KNOWN_ISSUES.md](../docs/KNOWN_ISSUES.md) §1b. Regenerate
+> against the current checkpoint with `python scripts/generate_reports.py`.
+
 ## Executive Summary
 
 Phase 4 (Full Training Run) has been successfully completed. The model
 was trained on the full Flickr30k dataset with a memory queue for
-negative sampling, achieving a validation Recall@10 of **20.23%** (2.0x
-random baseline). All acceptance criteria have been met, and the best
+negative sampling, achieving a validation Recall@10 of **20.23%** (64x
+chance). All acceptance criteria have been met, and the best
 checkpoint has been identified at Epoch 7, Step 7944.
 
 ---
@@ -383,8 +389,8 @@ Phase 4 has been successfully completed. The VectorMind model has
 learned meaningful cross-modal representations on the full Flickr30k
 dataset, achieving:
 
-- **Val Recall@10:** 20.23% (2.0x random baseline)
-- **Val Recall@1:** 4.22% (4.2x random baseline)
+- **Val Recall@10:** 20.23% (64x chance)
+- **Val Recall@1:** 4.22% (134x chance)
 - **No embedding collapse**
 - **Stable training**
 

@@ -1,10 +1,16 @@
 # Phase 5 Final Engineering Report — VectorMind
 
+> **Superseded (2026-08-24).** These figures describe the retired Phase 4
+> checkpoint, whose embedding space had collapsed (separation 0.094). The
+> "x chance" multiples here were corrected from the original ~30x-too-low
+> values; see [docs/KNOWN_ISSUES.md](../docs/KNOWN_ISSUES.md) §1b. Regenerate
+> against the current checkpoint with `python scripts/generate_reports.py`.
+
 ## Executive Summary
 
 Phase 5 (Evaluation) has been completed (with corrections). The VectorMind
 model was evaluated on the held-out **test set** (3,179 images), achieving
-Recall@10 of 19.63% for image→text retrieval (2.0x random baseline). The
+Recall@10 of 19.63% for image→text retrieval (62x chance). The
 val→test gap is ~0.6pp at R@10, indicating reasonable generalization. The
 model shows no embedding collapse.
 

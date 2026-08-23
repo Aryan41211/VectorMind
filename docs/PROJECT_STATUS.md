@@ -26,10 +26,10 @@ reachable via a public URL" deliverable is not met.
 
 ## Current Status
 - **Best Checkpoint:** Epoch 7, Step 7944 (`checkpoints/train/best_model.pt`)
-- **Test Recall@1 (I2T):** 4.62% (4.6× random baseline)
-- **Test Recall@5 (I2T):** 13.43% (2.7× random baseline)
-- **Test Recall@10 (I2T):** 19.63% (2.0× random baseline)
-- **Test Recall@10 (T2I):** 15.09% (1.5× random baseline)
+- **Test Recall@1 (I2T):** 4.62% (147× chance)
+- **Test Recall@5 (I2T):** 13.43% (85× chance)
+- **Test Recall@10 (I2T):** 19.63% (62× chance)
+- **Test Recall@10 (T2I):** 15.09% (48× chance)
 - **Val→Test Gap (R@10):** −0.60pp (reasonable generalization)
 - **Embedding health:** **anisotropic — matched/unmatched separation 0.094** (Phase 3.5 reference: 0.964). Earlier reports labelled this HEALTHY; see `docs/KNOWN_ISSUES.md` §1.
 - **Total tests:** 345 passing (345/345 as of 2026-08-23, after the missing `tensorboard` dependency was added)
@@ -51,7 +51,7 @@ reachable via a public URL" deliverable is not met.
 
 ## Key Achievements
 1. Model trained from scratch, no pretrained CLIP weights anywhere in the pipeline
-2. Test Recall@10 = 19.63% (2.0× random baseline), with an honest val→test gap of 0.6pp
+2. Test Recall@10 = 19.63% (62× chance), with an honest val→test gap of 0.6pp
 3. Phase 3.5 gate enforced before any full training run, and it caught nothing precisely because the pipeline was correct
 4. Memory-queue ablation is a real, measured result: +18.2% relative R@10
 5. 345 tests across data, model, training, evaluation, and serving layers

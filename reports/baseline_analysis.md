@@ -1,5 +1,11 @@
 # Baseline Analysis Report — VectorMind Phase 4
 
+> **Superseded (2026-08-24).** These figures describe the retired Phase 4
+> checkpoint, whose embedding space had collapsed (separation 0.094). The
+> "x chance" multiples here were corrected from the original ~30x-too-low
+> values; see [docs/KNOWN_ISSUES.md](../docs/KNOWN_ISSUES.md) §1b. Regenerate
+> against the current checkpoint with `python scripts/generate_reports.py`.
+
 ## Executive Summary
 
 This report documents the analysis of the initial Phase 4 training run,
@@ -172,7 +178,7 @@ Training will stop when ANY of these conditions are met:
 
 ### Random Baseline Context
 - Random Recall@10 for 100 captions: ~10%
-- Current model: 20.23% (2.0x random)
+- Current model: 20.23% (64x chance)
 - Target: Clearly above random (≥20% Recall@10) — ACHIEVED
 
 ---

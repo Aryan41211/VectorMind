@@ -27,9 +27,12 @@ See [PROJECT_CONTEXT.md](./docs/PROJECT_CONTEXT.md) for the full motivation.
 
 - **Dual-encoder architecture** — independently swappable image tower
   (small CNN), text tower (small Transformer), and projection heads
-- **Contrastive training from scratch** — symmetric InfoNCE loss with
-  a learnable temperature, MoCo-style memory queue to decouple negative
-  sample count from the physical batch size on 6GB VRAM
+- **Contrastive training from scratch** — symmetric InfoNCE loss with a
+  learnable, clamped logit scale, trained on in-batch negatives. A
+  MoCo-style memory queue is implemented and **disabled**: a controlled
+  A/B showed it halving retrieval quality and collapsing the embedding
+  space, because this implementation borrowed MoCo's queue without its
+  momentum encoder ([KNOWN_ISSUES.md](./docs/KNOWN_ISSUES.md) §11)
 - **Cross-modal retrieval** — image → text and text → image search
 - **Full serving stack** (Phase 6+) — FAISS vector index, FastAPI
   backend, React/TypeScript frontend, Dockerized deployment with CI
@@ -285,7 +288,7 @@ demo) is authored but has never been executed — see
 
 Before reading the results as final, read
 [docs/KNOWN_ISSUES.md](./docs/KNOWN_ISSUES.md). The headline number
-(19.63% test R@10, 2.0× random) is real, but the embedding space behind
+(19.63% test R@10, 62× chance) is real, but the embedding space behind
 it is substantially more anisotropic than the Phase 5 reports claim, and
 the image search index contains five duplicate vectors per image. Both
 are documented with measurements rather than left for a reader to find.

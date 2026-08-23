@@ -308,12 +308,12 @@ failure analysis documented, not just the numbers.
 > `scripts/generate_reports.py` once Phase 4b converges.
 
 **Results (corrected 2026-08-07):**
-- **Test Recall@1 (I2T):** 4.62% (4.6x random baseline)
-- **Test Recall@5 (I2T):** 13.43% (2.7x random baseline)
-- **Test Recall@10 (I2T):** 19.63% (2.0x random baseline)
-- **Test Recall@1 (T2I):** 2.49% (2.5x random baseline)
-- **Test Recall@5 (T2I):** 8.91% (1.8x random baseline)
-- **Test Recall@10 (T2I):** 15.09% (1.5x random baseline)
+- **Test Recall@1 (I2T):** 4.62% (147x chance)
+- **Test Recall@5 (I2T):** 13.43% (85x chance)
+- **Test Recall@10 (I2T):** 19.63% (62x chance)
+- **Test Recall@1 (T2I):** 2.49% (79x chance)
+- **Test Recall@5 (T2I):** 8.91% (57x chance)
+- **Test Recall@10 (T2I):** 15.09% (48x chance)
 - **Val→Test Gap (R@10):** -0.60% (reasonable generalization)
 - **Embedding Health:** HEALTHY (no collapse)
 - **Failure Rate:** 80.37%
@@ -325,7 +325,7 @@ metrics were actually both val metrics. Fixed and re-run — corrected test
 R@10 is 19.63% (vs val 20.23%), a normal ~0.6pp generalization gap.
 
 **Key Findings:**
-1. Model achieves 2.0x random baseline for image→text retrieval
+1. Model achieves 62x chance for image→text retrieval
 2. Text→image direction weaker (1.5x vs 2.0x)
 3. No embedding collapse detected
 4. Main failure patterns: action ambiguity (35%), object specificity (25%)

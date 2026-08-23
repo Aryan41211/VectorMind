@@ -149,14 +149,14 @@ All three are fixed. Experiment 5 is the controlled re-run.
 - **File:** checkpoints/train/best_model.pt
 - **Epoch:** 7
 - **Step:** 7944
-- **Val Recall@1:** 4.22% (4.2x random baseline)
+- **Val Recall@1:** 4.22% (134x chance)
 - **Val Recall@5:** 14.00%
-- **Val Recall@10:** 20.23% (2.0x random baseline)
+- **Val Recall@10:** 20.23% (64x chance)
 - **Temperature:** 55.24 (learned from 14.29)
-- **Test Recall@1 (I2T):** 4.62% (4.6x random baseline) [CORRECTED]
-- **Test Recall@5 (I2T):** 13.43% (2.7x random baseline) [CORRECTED]
-- **Test Recall@10 (I2T):** 19.63% (2.0x random baseline) [CORRECTED]
-- **Test Recall@10 (T2I):** 15.09% (1.5x random baseline) [CORRECTED]
+- **Test Recall@1 (I2T):** 4.62% (147x chance) [CORRECTED]
+- **Test Recall@5 (I2T):** 13.43% (85x chance) [CORRECTED]
+- **Test Recall@10 (I2T):** 19.63% (62x chance) [CORRECTED]
+- **Test Recall@10 (T2I):** 15.09% (48x chance) [CORRECTED]
 - **Val→Test Gap (R@10):** -0.60% (reasonable generalization) [CORRECTED]
 
 ### Training Summary
