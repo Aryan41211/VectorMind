@@ -40,12 +40,21 @@ dataset:
   batch_size: 128
 
   # persistent_workers must stay false on Windows — the shared-memory
-  # mapping it relies on fails there partway into training. prefetch_factor
-  # of 4 recovers most of the throughput that costs.
-  num_workers: 4
+  # mapping it relies on fails there partway into training.
+  #
+  # num_workers and prefetch_factor are bounded by SYSTEM RAM, not VRAM.
+  # The dataloader holds num_workers * prefetch_factor * batch_size
+  # decoded images in pinned, page-locked memory that cannot be swapped:
+  # at 4 x 4 x 128 that is 1.15GB, on a 16GB laptop also running a
+  # desktop. A run died at epoch 7 with a cuDNN HOST allocation failure
+  # with 4.5GB free while the GPU was fine.
+  #
+  # 2 x 2 x 128 is 0.29GB — a quarter of the pinned footprint, at a small
+  # throughput cost that is worth paying for a run that finishes.
+  num_workers: 2
   pin_memory: true
   persistent_workers: false
-  prefetch_factor: 4
+  prefetch_factor: 2
   drop_last: true
 
 # Image normalization (ImageNet-standard — reasonable for from-scratch)
