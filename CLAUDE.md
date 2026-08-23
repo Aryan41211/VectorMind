@@ -146,18 +146,37 @@ research script.
 ## 11. Related Documents
 
 This file covers engineering rules. Related documents, each
-independently readable but consistent with everything above:
+independently readable but consistent with everything above.
 
-- `PROJECT_CONTEXT.md` — why this project exists, product vision
+Only the five documents a new reader needs first stay at the repository
+root; everything else lives in `docs/`. Seventeen Markdown files at root
+made the entry point harder to find, not better documented.
+
+**Root — read in this order:**
+- `README.md` — what this is, how to run it, current honest status
 - `ARCHITECTURE.md` — full technical architecture (training §1-8,
   serving/frontend/deployment §9-14)
 - `ROADMAP.md` — phases, milestones, dependencies, current status
-- `TECH_STACK.md` — every technology used, why, and alternatives considered
-- `CODING_STANDARDS.md` — detailed style rules extending §3 above
-- `DEVELOPMENT_GUIDE.md` — the full feature lifecycle, planning through deployment
-- `PROJECT_RULES.md` — permanent, non-negotiable engineering rules
-- `FOLDER_STRUCTURE.md` — purpose and ownership of every directory
-- `FUTURE_IDEAS.md` — research backlog, explicitly not on the critical path
+- `CHANGELOG.md` — what changed and when
+- `CLAUDE.md` — this file
+
+**`docs/` — supporting material:**
+- `docs/PROJECT_CONTEXT.md` — why this project exists, product vision
+- `docs/TECH_STACK.md` — every technology used, why, and alternatives considered
+- `docs/CODING_STANDARDS.md` — detailed style rules extending §3 above
+- `docs/DEVELOPMENT_GUIDE.md` — the full feature lifecycle, planning through deployment
+- `docs/PROJECT_RULES.md` — permanent, non-negotiable engineering rules
+- `docs/FOLDER_STRUCTURE.md` — purpose and ownership of every directory
+- `docs/FUTURE_IDEAS.md` — research backlog, explicitly not on the critical path
+- `docs/PROJECT_STATUS.md` — live status, updated at every milestone
+- `docs/PROJECT_MEMORY.md` — decision journal: what happened and why
+- `docs/TRAINING_LOG.md` — every training run and its results
+- `docs/EXPERIMENTS.md` — structured experiment log
+- `docs/DATASETS.md` — dataset licensing and access
+- `docs/KNOWN_ISSUES.md` — open defects, with measured evidence
+- `docs/DESIGN_DECISIONS.md` — decisions and alternatives, for readers
+- `docs/DEBUGGING_STORY.md` — what broke and how it was found
+- `docs/PHASE_0_REPORT.md` — environment and VRAM profiling results
 
 If any of the above ever contradicts this file or ARCHITECTURE.md's
 locked training decisions (§1-8), this file and ARCHITECTURE.md §1-8

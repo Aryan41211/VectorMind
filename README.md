@@ -21,7 +21,7 @@ the text encoder — from scratch, under a hard hardware constraint
 (RTX 4050, 6GB VRAM), and treats every architectural decision as
 something that has to be *justified against what's actually trainable
 at this scale*, not against what a 400M-pair-scale system would do.
-See [PROJECT_CONTEXT.md](./PROJECT_CONTEXT.md) for the full motivation.
+See [PROJECT_CONTEXT.md](./docs/PROJECT_CONTEXT.md) for the full motivation.
 
 ## Features
 
@@ -58,13 +58,17 @@ live in [ARCHITECTURE.md](./ARCHITECTURE.md).
 | Frontend | React, TypeScript, Tailwind CSS |
 | Deployment | Docker, GitHub Actions |
 
-Full rationale and alternatives considered for each: [TECH_STACK.md](./TECH_STACK.md).
+Full rationale and alternatives considered for each: [TECH_STACK.md](./docs/TECH_STACK.md).
 
 ## Demo
 
-_Coming in Phase 6.5/7 — screenshots and a live link will go here once
-the frontend demo and deployment are built. See
-[ROADMAP.md](./ROADMAP.md) for current phase status._
+The React frontend (Phase 6.5) is built and runs locally against the
+FastAPI backend — see [Running the Full Stack](#running-the-full-stack).
+
+There is **no public deployment yet**. The Phase 7 Docker and CI
+configuration exists in `deployment/` and `.github/workflows/` but has
+never been executed; see [docs/KNOWN_ISSUES.md](./docs/KNOWN_ISSUES.md)
+§5 for what stands in the way.
 
 ## Installation
 
@@ -176,7 +180,43 @@ vectormind/
 └── tests/              → mirrors src/vectormind/
 ```
 
-Full ownership/responsibility breakdown: [FOLDER_STRUCTURE.md](./FOLDER_STRUCTURE.md).
+Full ownership/responsibility breakdown: [FOLDER_STRUCTURE.md](./docs/FOLDER_STRUCTURE.md).
+
+## Frontend
+
+The React frontend lives in `frontend/` and is built with Vite + TypeScript + Tailwind CSS.
+
+### Development
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The dev server runs on `http://localhost:3000` (see `frontend/vite.config.ts`)
+and proxies `/search`, `/health`, and `/images` to the backend on port 8000.
+
+### Production Build
+
+```bash
+cd frontend
+npm run build        # outputs to frontend/dist/
+```
+
+The backend (`backend/app.py`) serves `frontend/dist/` as static files in production,
+so no separate web server is needed. Set `VITE_API_BASE_URL` in `frontend/.env.production`
+if the API is at a different origin.
+
+### Running the Full Stack
+
+```bash
+# Terminal 1 — backend + static serving
+python -m uvicorn backend.app:app --host 0.0.0.0 --port 8000
+
+# Terminal 2 — frontend dev server (optional, for HMR)
+cd frontend && npm run dev
+```
 
 ## Development Roadmap
 
@@ -186,18 +226,35 @@ criteria, and current status per phase.
 
 ## Screenshots
 
-_Placeholder — will be added once the Phase 6.5 frontend exists._
+_Not yet captured. The frontend exists and runs; screenshots are still
+to be added here. Run it locally with the
+[Running the Full Stack](#running-the-full-stack) instructions above._
 
 ## Contributing
 
 This is currently a solo portfolio project. If you're another engineer
 picking this up: read
 [CLAUDE.md](./CLAUDE.md) first (the permanent engineering rules),
-then [DEVELOPMENT_GUIDE.md](./DEVELOPMENT_GUIDE.md) for the expected
+then [DEVELOPMENT_GUIDE.md](./docs/DEVELOPMENT_GUIDE.md) for the expected
 workflow, then [ARCHITECTURE.md](./ARCHITECTURE.md) and
 [ROADMAP.md](./ROADMAP.md) for current state. Conventional Commits
 required (`feat:`, `fix:`, `docs:`, etc. — see CLAUDE.md §7).
 
+## Status & Known Issues
+
+Phases 0–6.5 are complete and verified. Phase 7 (Docker, CI, public
+demo) is authored but has never been executed — see
+[PROJECT_STATUS.md](./docs/PROJECT_STATUS.md).
+
+Before reading the results as final, read
+[docs/KNOWN_ISSUES.md](./docs/KNOWN_ISSUES.md). The headline number
+(19.63% test R@10, 2.0× random) is real, but the embedding space behind
+it is substantially more anisotropic than the Phase 5 reports claim, and
+the image search index contains five duplicate vectors per image. Both
+are documented with measurements rather than left for a reader to find.
+
 ## License
 
-_Not yet chosen — add before any public release beyond portfolio use._
+[MIT](./LICENSE). Covers the source code only — not the Flickr30k
+dataset (see [DATASETS.md](./docs/DATASETS.md)) and not any trained
+checkpoints, which are not committed to this repository.
