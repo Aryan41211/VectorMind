@@ -74,20 +74,63 @@ temperature stays positive without clipping.
 
 ---
 
-## 5. Memory Queue for Hard Negatives
+## 5. Memory Queue for Hard Negatives — reversed 2026-08-24
 
-**Decision:** Maintain a queue of recent embeddings from the previous
-N batches as additional negative examples.
+**Original decision:** maintain a queue of recent embeddings from the
+previous N batches as additional negative examples.
 
-**Why:** With batch size 256, each batch only provides 255 negatives
-per query. Flickr30k has ~31k images — a memory queue (4,096 entries)
-exposes the model to a much larger negative pool, improving embedding
-quality. The queue improved R@10 by 18.2% (Phase 4 results).
+**Original reasoning:** with batch size 128, each batch provides only
+127 negatives per query. A 4,096-entry queue exposes the model to a much
+larger negative pool. Recorded as improving R@10 by 18.2%.
 
-**Key implementation detail:** Embeddings are detached from the
-computation graph before enqueueing (`.detach()`) to prevent
-gradients from flowing through stale embeddings. This was verified
-and documented — see ROADMAP.md Phase 4.
+**Current decision: the queue is disabled.** It does not improve
+embedding quality here — it destroys it.
+
+A controlled A/B, both arms resuming from the same checkpoint with the
+queue as the only variable:
+
+| Epoch 7 from `epoch_006.pt` | Queue active | Queue inactive |
+|---|---|---|
+| Val R@10 | 10.51% | **19.63%** |
+| Separation | 0.062 | **0.322** |
+| Logit scale | 67.6 | **18.6** |
+
+**Why the original reasoning was wrong.** It counted negatives without
+asking whether they were *comparable*. MoCo pairs its queue with a
+momentum encoder — a slow EMA copy that produces the queued keys — and
+that is the entire mechanism keeping an embedding written 32 batches ago
+meaningful against the current encoder. This implementation borrowed the
+queue and not the momentum encoder, so the extra 4,096 negatives are
+outputs of a model that no longer exists, outnumbering the valid
+in-batch ones 32 to 1.
+
+Faced with thousands of mismatched stale negatives, the cheapest way to
+lower the loss is to sharpen the similarity distribution rather than
+improve the representation — and an unbounded logit scale is the
+cheapest way to sharpen. The scale runs away, the embedding space
+collapses into a narrow cone, and recall falls a few epochs later. Phase
+4 recorded that final step as an unrelated "temperature overgrowth"
+problem.
+
+**Why the 18.2% figure held up for weeks.** It was one epoch measured
+immediately after activation, before the collapse reached the metric.
+It was never a controlled comparison — `--no-queue` substituted a
+size-1 stub queue that `load_checkpoint` rejected against a real
+checkpoint, so the two arms could not share a starting state. And no
+embedding-health metric existed, so Recall@K was the only signal, which
+is exactly the signal that lags a collapse.
+
+**The transferable lesson:** when borrowing a technique, check which
+part of it is load-bearing. The queue is the visible half of MoCo; the
+momentum encoder is the half that makes it work.
+
+**Retained implementation detail:** embeddings are detached before
+enqueueing, so no gradient flows through stale entries. That was always
+correct — it just was not sufficient.
+
+**If revisited:** implement a momentum encoder and re-run the A/B. See
+[FUTURE_IDEAS.md](FUTURE_IDEAS.md), [KNOWN_ISSUES.md](KNOWN_ISSUES.md)
+§11, and [EXPERIMENTS.md](EXPERIMENTS.md) 006.
 
 ---
 

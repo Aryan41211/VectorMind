@@ -83,6 +83,46 @@ interesting extension of the "trained from scratch" story: the base
 model is still from scratch, but adaptation techniques are explored on
 top of it.
 
+## Momentum Encoder for the Memory Queue
+
+**Status:** the highest-value open research item in this project.
+
+The memory queue was disabled in Phase 4b because it collapsed the
+embedding space — R@10 10.51% with it against 19.63% without, from an
+identical checkpoint (KNOWN_ISSUES.md §11, EXPERIMENTS.md 006). The
+cause is that this implementation borrowed MoCo's queue without MoCo's
+momentum encoder.
+
+A momentum encoder is a second copy of both towers updated as an
+exponential moving average of the live weights:
+
+```
+theta_momentum = m * theta_momentum + (1 - m) * theta_live      # m ~ 0.999
+```
+
+Queued keys are produced by that slow copy, so an embedding written 32
+batches ago is still comparable to what the current encoder produces.
+That comparability is what makes thousands of extra negatives useful
+rather than noise.
+
+**Cost:** a second copy of both towers in VRAM. At 23.9M parameters that
+is ~96MB in fp32 — affordable within 6GB, since the momentum encoder
+needs no gradients or optimizer state. The forward pass for queued keys
+is extra compute, though it can reuse the batch already loaded.
+
+**Why it matters here:** it is the difference between two claims. "A
+memory queue does not work at this scale" is not supported by the
+evidence. "A memory queue does not work *without the mechanism that
+makes it work elsewhere*" is — and only an implementation with a
+momentum encoder can distinguish them. Until that experiment is run,
+this project has tested its own implementation rather than MoCo.
+
+**Acceptance criterion:** re-run the Experiment 006 A/B a third time,
+three arms — no queue, queue, queue with momentum encoder — all from a
+shared checkpoint, reporting separation alongside Recall@K.
+
+---
+
 ## Distributed Training
 
 Not relevant at this project's scale (single 6GB GPU, ~30k images) —
