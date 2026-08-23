@@ -33,6 +33,7 @@ src/vectormind.models). No dependency on training/ or data/
 from __future__ import annotations
 
 import logging
+import math
 from typing import Any
 
 import torch
@@ -46,6 +47,13 @@ logger = logging.getLogger(__name__)
 
 # CLIP convention: temperature = log(1/0.07)
 _INITIAL_LOG_TEMPERATURE: float = 2.659260036931346
+
+# CLIP clamps its learnable logit scale at 100. Without a ceiling the
+# optimizer can minimize contrastive loss by inflating this scalar
+# instead of separating representations — which is exactly what Phase 4
+# of this project did (14.3 -> 55 -> 500+, with the embedding space
+# collapsing into a narrow cone). See docs/KNOWN_ISSUES.md §1.
+DEFAULT_MAX_LOGIT_SCALE: float = 100.0
 
 
 class VectorMindModel(nn.Module):
@@ -154,6 +162,46 @@ class VectorMindModel(nn.Module):
             Scalar temperature tensor.
         """
         return self.log_temperature.exp()  # type: ignore[no-any-return]
+
+    @torch.no_grad()
+    def clamp_log_temperature(
+        self,
+        max_logit_scale: float = DEFAULT_MAX_LOGIT_SCALE,
+    ) -> float:
+        """Clamp the learnable logit scale to an upper bound, in place.
+
+        Call this after every ``optimizer.step()``. The scalar the
+        contrastive loss multiplies by is CLIP's ``logit_scale``, and it
+        is an unconstrained parameter: driving it upward lowers the loss
+        without improving the representation. Left unbounded in this
+        project's Phase 4 run it reached 500+, and the embedding space
+        collapsed into a narrow cone while Recall@K still looked
+        acceptable. CLIP's own implementation clamps at 100.
+
+        Args:
+            max_logit_scale: Ceiling on ``exp(log_temperature)``. Must
+                be greater than 1.0 — a ceiling at or below 1 would
+                force similarities to be attenuated rather than scaled.
+
+        Returns:
+            The logit scale after clamping, as a float.
+
+        Raises:
+            ValueError: If ``max_logit_scale`` is not greater than 1.0.
+
+        Assumptions:
+            Called outside the autograd graph — the decorator enforces
+            this, so the clamp does not appear as an operation in the
+            next backward pass.
+        """
+        if max_logit_scale <= 1.0:
+            raise ValueError(
+                f"max_logit_scale must be > 1.0, got {max_logit_scale}."
+            )
+
+        ceiling = math.log(max_logit_scale)
+        self.log_temperature.clamp_(max=ceiling)
+        return float(self.log_temperature.exp().item())
 
     def encode_image(
         self,

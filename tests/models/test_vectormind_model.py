@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import math
+
 import pytest
 import torch
 import torch.nn as nn
 
 from vectormind.models.projection_head import ProjectionHead
 from vectormind.models.vectormind_model import (
+    DEFAULT_MAX_LOGIT_SCALE,
     _INITIAL_LOG_TEMPERATURE,
     VectorMindModel,
 )
@@ -329,3 +332,74 @@ class TestGradients:
         loss = result["temperature"]
         loss.backward()
         assert small_model.log_temperature.grad is not None
+
+
+class TestClampLogTemperature:
+    """Regression guard for the Phase 4 collapse (docs/KNOWN_ISSUES.md §1).
+
+    The learnable logit scale is unconstrained. Left unclamped it ran to
+    500+ during Phase 4 while the embedding space collapsed into a cone.
+    These tests pin the ceiling in place.
+    """
+
+    def test_clamps_value_above_ceiling(
+        self, small_model: VectorMindModel
+    ) -> None:
+        with torch.no_grad():
+            small_model.log_temperature.fill_(6.5)  # logit scale ~665
+        assert small_model.clamp_log_temperature(100.0) == pytest.approx(
+            100.0, rel=1e-4
+        )
+
+    def test_leaves_value_below_ceiling_untouched(
+        self, small_model: VectorMindModel
+    ) -> None:
+        with torch.no_grad():
+            small_model.log_temperature.fill_(2.0)
+        before = small_model.temperature.item()
+        after = small_model.clamp_log_temperature(100.0)
+        assert after == pytest.approx(before)
+
+    def test_clip_init_is_below_default_ceiling(
+        self, small_model: VectorMindModel
+    ) -> None:
+        """CLIP's log(1/0.07) init must survive the default clamp."""
+        expected = math.exp(_INITIAL_LOG_TEMPERATURE)
+        assert expected < DEFAULT_MAX_LOGIT_SCALE
+        assert small_model.clamp_log_temperature() == pytest.approx(expected)
+
+    def test_is_idempotent(self, small_model: VectorMindModel) -> None:
+        with torch.no_grad():
+            small_model.log_temperature.fill_(9.0)
+        first = small_model.clamp_log_temperature(100.0)
+        second = small_model.clamp_log_temperature(100.0)
+        assert first == pytest.approx(second)
+
+    def test_mutates_in_place(self, small_model: VectorMindModel) -> None:
+        with torch.no_grad():
+            small_model.log_temperature.fill_(9.0)
+        small_model.clamp_log_temperature(100.0)
+        assert small_model.log_temperature.item() == pytest.approx(
+            math.log(100.0), rel=1e-5
+        )
+
+    def test_does_not_track_gradients(
+        self, small_model: VectorMindModel
+    ) -> None:
+        """The clamp must not enter the autograd graph."""
+        with torch.no_grad():
+            small_model.log_temperature.fill_(9.0)
+        small_model.clamp_log_temperature(100.0)
+        assert small_model.log_temperature.grad is None
+        assert small_model.log_temperature.requires_grad is True
+
+    def test_rejects_ceiling_at_or_below_one(
+        self, small_model: VectorMindModel
+    ) -> None:
+        with pytest.raises(ValueError, match="must be > 1.0"):
+            small_model.clamp_log_temperature(1.0)
+        with pytest.raises(ValueError, match="must be > 1.0"):
+            small_model.clamp_log_temperature(0.5)
+
+    def test_default_ceiling_matches_clip(self) -> None:
+        assert DEFAULT_MAX_LOGIT_SCALE == 100.0
