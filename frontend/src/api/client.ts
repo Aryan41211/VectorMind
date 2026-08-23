@@ -8,7 +8,7 @@ import type {
   TextSearchRequest,
 } from '../types/search';
 
-const API_BASE = '';
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
 
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
