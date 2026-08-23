@@ -195,29 +195,89 @@ iterating on hyperparameters as needed.
 clearly and reproducibly above random-chance baseline (documented
 with the actual number, not just "it works").
 
-**Status:** complete
+**Status:** complete — **superseded by Phase 4b (2026-08-24)**
 
-**Results:**
-- **Best Checkpoint:** Epoch 7, Step 7944 (checkpoints/train/best_model.pt)
-- **Val Recall@1:** 4.22% (4.2x random baseline)
+> **This run's checkpoint has been retired.** Its embedding space was
+> collapsed: matched-vs-unmatched separation 0.094, against 0.964 for
+> the Phase 3.5 overfit. The Phase 5 reports called it HEALTHY. The
+> cause was the memory queue, not the temperature — see
+> [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) §11 and
+> [ARCHITECTURE.md](ARCHITECTURE.md) §6.1. Results are kept below as
+> the record of what was believed at the time.
+
+**Results (superseded):**
+- **Best Checkpoint:** Epoch 7, Step 7944
+- **Val Recall@1:** 4.22%
 - **Val Recall@5:** 14.03%
-- **Val Recall@10:** 20.23% (2.0x random baseline)
+- **Val Recall@10:** 20.23%
 - **Training Time:** ~45 minutes total (8 epochs baseline + continuation)
 - **Memory Queue:** Enabled (size=4096)
 - **Temperature:** Learned from 14.29 to 55.24
+- **Separation:** 0.094 — measured afterwards, not at the time
 
-**Key Findings:**
-1. Memory queue fix improved Recall@10 from 17.12% to 20.23% (+18.2% relative)
-2. Lower learning rate (5e-4) hurt performance (Recall@10 dropped to 10.54%)
-3. **Embedding collapse after Epoch 7** — temperature grew too large, causing variance to drop 83%
-4. Epoch 7 is the true convergence point — no improvement beyond this
-5. Gradient norm logging bug identified and fixed (was always 0.0)
+**Key Findings, annotated:**
+1. ~~Memory queue improved Recall@10 from 17.12% to 20.23% (+18.2%)~~ — **retracted.** A controlled A/B from a shared checkpoint gives 10.51% with the queue against 19.63% without. The original figure was one epoch measured before the collapse reached the metric, and was never a controlled comparison.
+2. Lower learning rate (5e-4) hurt performance (Recall@10 dropped to 10.54%) — **stands**, though it should be re-run without the queue.
+3. **Embedding collapse after Epoch 7** — **stands, but the cause was misattributed.** The temperature did not grow on its own; the queue drove it.
+4. ~~Epoch 7 is the true convergence point~~ — **retracted.** Without the queue the model kept improving past epoch 7.
+5. Gradient norm logging bug identified and fixed (was always 0.0) — **stands.**
+
+**Every "x random baseline" multiple in the original results was ~30x
+too low** — the 1%/10% baselines belong to the Phase 3.5 100-image
+subset. See [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) §1b.
 
 **Documentation:**
 - Baseline analysis: reports/baseline_analysis.md
 - Training curves: reports/figures/training_curves.png
 - Checkpoint summary: reports/checkpoint_summary.json
 - Training log: TRAINING_LOG.md
+
+---
+
+## Phase 4b — Clamped Re-run (2026-08-24)
+
+**Goal:** retrain with the collapse cause removed, and with a metric
+that can actually detect collapse.
+
+**Why:** Phase 4 shipped a checkpoint whose embedding space had
+collapsed into a narrow cone while its reports said HEALTHY. The only
+health metric was per-dimension variance, which cannot distinguish a
+cone from a spread on a unit hypersphere.
+
+**Changes under test:**
+- Memory queue **disabled** — it was the cause, not the mitigation (§6.1)
+- Learnable logit scale **clamped at 100**, CLIP's ceiling
+- `log_temperature` excluded from weight decay
+- Separation, anisotropy and ‖mean embedding‖ logged beside Recall@K every epoch
+
+**Deliverables:**
+- [x] Controlled A/B isolating the memory queue from a shared checkpoint
+- [x] Embedding health measured every epoch, not reconstructed afterwards
+- [ ] Run to convergence or early stop
+- [ ] Rebuild FAISS index and regenerate all reports from the final checkpoint
+
+**Acceptance criteria:** a checkpoint whose separation is materially
+above Phase 4's 0.094, at no cost to Recall@10, with every reported
+figure regenerable by `scripts/generate_reports.py`.
+
+**Status:** in progress
+
+**Progress at epoch 7 of 20:**
+
+| Metric | Phase 4 (shipped) | Phase 4b (epoch 7) |
+|---|---|---|
+| Val Recall@10 | 20.23% | 19.63% |
+| **Separation** | **0.094** | **0.322** |
+| Mean image–image cosine | 0.810 | 0.409 |
+| Logit scale | 55.2 (→500+) | 18.6 |
+
+Equivalent retrieval on a space 3.4× better separated, with the logit
+scale stable near its initialization instead of running away.
+
+**Documentation:**
+- Experiments 004-006: [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md)
+- Run log and interruptions: [docs/TRAINING_LOG.md](docs/TRAINING_LOG.md)
+- Root cause: [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) §11
 
 ---
 
@@ -238,7 +298,14 @@ quantitatively and qualitatively.
 with a stated comparison to random-chance baseline; qualitative
 failure analysis documented, not just the numbers.
 
-**Status:** complete (corrected — see bug fix note below)
+**Status:** complete for the Phase 4 checkpoint — **must be re-run for Phase 4b**
+
+> The metrics below describe the retired Phase 4 checkpoint, and every
+> "x random baseline" multiple in them is roughly 30x too low
+> ([docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) §1b — the real figure
+> for R@10 is 62x chance, not 2.0x). The embedding-health verdict is
+> also wrong: separation was 0.094, not the 0.33 reported. Rerun with
+> `scripts/generate_reports.py` once Phase 4b converges.
 
 **Results (corrected 2026-08-07):**
 - **Test Recall@1 (I2T):** 4.62% (4.6x random baseline)
@@ -368,10 +435,9 @@ with a working, deployed demo. See ARCHITECTURE.md §11-12.
       `build.yml` (Docker builds on merge to `main`)
 - [ ] Deployed demo reachable via a public URL (single-machine/VM
       deployment — Kubernetes and managed cloud endpoints are
-      explicitly out of scope; see FUTURE_IDEAS.md)
-- [ ] Write-up of design decisions and tradeoffs
-- [ ] Write-up of the debugging story (what broke, how it was found,
-      how it was fixed — including the Phase 3.5 sanity check result)
+      explicitly out of scope; see docs/FUTURE_IDEAS.md)
+- [x] Write-up of design decisions and tradeoffs — `docs/DESIGN_DECISIONS.md`
+- [x] Write-up of the debugging story — `docs/DEBUGGING_STORY.md`, 11 narratives
 
 **Dependencies:** Phases 0–6.5 complete.
 
@@ -380,7 +446,23 @@ understand what it does, how it was built, why key decisions were
 made, and what went wrong along the way, from the docs alone, AND can
 reach a live deployed instance to try it themselves.
 
-**Status:** complete
+**Status:** **in progress** — was marked complete in error
+
+The documentation half of the acceptance criteria is met. The
+deployment half is not, and the phase was previously marked complete
+while its own deliverable checklist still had the demo unchecked.
+
+| Deliverable | State |
+|---|---|
+| Dockerfiles, compose, nginx | Written and statically checked. The backend image asserts `import backend.app` at build time; the frontend runs `tsc`, `oxlint` and `nginx -t`. **Neither has been built.** |
+| CI workflows | Written, now also running ruff, mypy and the frontend build. **Never observed green** — `.github/` was untracked until 2026-08-23, so GitHub had never seen them. |
+| Deployed demo at a public URL | **Not started.** Needs a host. |
+| Design-decision write-up | Done. |
+| Debugging write-up | Done. |
+
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md), which states the same
+verification status and lists the known gaps (no TLS, single worker, no
+metrics, no auth).
 
 **Results:**
 - **Docker:** `backend.Dockerfile` (Python + PyTorch, ~500MB), `frontend.Dockerfile` (Node → nginx, ~30MB)
