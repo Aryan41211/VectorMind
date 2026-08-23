@@ -13,6 +13,9 @@
 
 services:
   backend:
+    # Named so the artifact can be built once and reused, rather than
+    # compose inventing a project-scoped tag that nothing else can refer to.
+    image: vectormind-backend:latest
     build:
       context: ..
       dockerfile: deployment/backend.Dockerfile
@@ -52,11 +55,17 @@ services:
           memory: 4G
 
   frontend:
+    image: vectormind-frontend:latest
     build:
       context: ..
       dockerfile: deployment/frontend.Dockerfile
     ports:
-      - "80:80"
+      # Configurable because port 80 is frequently already taken on a
+      # development machine (IIS, another proxy, Docker Desktop itself),
+      # and a port collision is a confusing first failure for someone
+      # following the README.
+      #   FRONTEND_PORT=3000 docker compose -f deployment/docker-compose.yml up
+      - "${FRONTEND_PORT:-8080}:80"
     depends_on:
       backend:
         condition: service_healthy
