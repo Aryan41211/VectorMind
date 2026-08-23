@@ -49,6 +49,7 @@ def train_one_step(
     memory_queue: MemoryQueue,
     accumulation_steps: int = 1,
     device: torch.device | None = None,
+    enqueue_text: bool = True,
 ) -> dict[str, float]:
     """Execute one training step with AMP and gradient accumulation.
 
@@ -67,6 +68,9 @@ def train_one_step(
             before optimizer.step(). Default 1 (no accumulation).
         device: Device to move batch tensors to. If None, uses the
             model's parameter device.
+        enqueue_text: If True (default), push this step's text
+            embeddings into ``memory_queue`` before returning. Set
+            False only when the caller manages the queue itself.
 
     Returns:
         Dictionary of metrics:
@@ -86,9 +90,10 @@ def train_one_step(
 
     Assumptions:
         The caller handles optimizer.zero_grad(), optimizer.step(),
-        scaler.update(), and memory_queue.enqueue() at the correct
-        accumulation boundaries. This function only computes the
-        loss and scales it for accumulation.
+        and scaler.update() at the correct accumulation boundaries,
+        and calls ``model.clamp_log_temperature()`` after each
+        optimizer step. This function computes the loss, scales it for
+        accumulation, and maintains the memory queue.
 
     Limitations:
         Gradient clipping is not applied here — the caller can
@@ -123,8 +128,18 @@ def train_one_step(
     # Backward pass (scaled by GradScaler)
     scaler.scale(scaled_loss).backward()
 
-    # Collect metrics (detached, no gradients)
     with torch.no_grad():
+        # Enqueue the text embeddings this step already produced.
+        #
+        # This used to be the caller's job, which meant every training
+        # step ran the text encoder a second time purely to fill the
+        # queue — roughly a 20% throughput cost for an identical result.
+        # Enqueueing here also matches MoCo semantics: the queue holds
+        # the embeddings the loss actually saw, from before this step's
+        # optimizer update.
+        if enqueue_text:
+            memory_queue.enqueue(text_embeds)
+
         metrics = _collect_metrics(
             loss=loss,
             model=model,
@@ -191,7 +206,16 @@ def create_optimizer(
 
     Uses different weight decay for different parameter groups:
     - No weight decay on biases and LayerNorm parameters
+    - No weight decay on the learnable logit scale
     - Standard weight decay on everything else
+
+    ``log_temperature`` is excluded because weight decay on it is not a
+    regularizer, it is a fixed pull toward ``log_temperature = 0``, i.e.
+    a logit scale of 1.0. That is an arbitrary target unrelated to
+    generalization, and it fights the gradient signal rather than
+    constraining it. CLIP excludes the scalar for the same reason; the
+    real ceiling is the clamp in
+    :meth:`VectorMindModel.clamp_log_temperature`.
 
     Args:
         model: The model to optimize.
@@ -208,7 +232,12 @@ def create_optimizer(
     for name, param in model.named_parameters():
         if not param.requires_grad:
             continue
-        if "bias" in name or "norm" in name or "ln" in name:
+        if (
+            "bias" in name
+            or "norm" in name
+            or "ln" in name
+            or "log_temperature" in name
+        ):
             no_decay_params.append(param)
         else:
             decay_params.append(param)
