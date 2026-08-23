@@ -9,7 +9,10 @@ Design decisions (locked in ARCHITECTURE.md §5):
   text→image), averaged.
 - Learnable temperature parameter (initialized as log(1/0.07) per
   CLIP convention) — the model calibrates similarity sharpness
-  during training.
+  during training. Note this scalar is CLIP's logit_scale: logits are
+  multiplied by it, so larger values sharpen the distribution.
+  Phase 4 observed it growing unbounded to ~55, which drove the
+  embedding-space anisotropy documented in docs/KNOWN_ISSUES.md.
 - Accepts optional extra negatives from a MoCo-style memory queue
   (ARCHITECTURE.md §6) concatenated onto the text-side for the
   image→text direction only.
@@ -55,16 +58,18 @@ def symmetric_infonce(
     Args:
         image_embeds: L2-normalized image embeddings, shape ``[B, D]``.
         text_embeds: L2-normalized text embeddings, shape ``[B, D]``.
-        temperature: Learnable temperature scalar tensor. Higher values
-            produce softer similarity distributions; lower values
-            produce sharper ones.
+        temperature: Learnable scalar tensor that similarities are
+            *multiplied* by. Despite the name (kept for API stability),
+            this is CLIP's ``logit_scale`` — the reciprocal of a
+            temperature. Higher values produce SHARPER similarity
+            distributions; lower values produce softer ones.
         queue_embeddings: Optional L2-normalized extra negatives from
             the memory queue, shape ``[K, D]``. When provided, these
             are added as extra columns in the image→text similarity
             matrix (not extra rows).
 
     Returns:
-        Scalar loss tensor (平均 of both directions).
+        Scalar loss tensor (mean of both directions).
 
     Raises:
         ValueError: If batch dimensions don't match.
@@ -84,7 +89,7 @@ def symmetric_infonce(
     B = image_embeds.shape[0]
 
     # Compute similarity matrix: [B, B]
-    # Scale by temperature (higher temp = softer distribution)
+    # Multiply by the learnable logit scale (higher = sharper distribution)
     logits = image_embeds @ text_embeds.T * temperature
 
     # Labels: diagonal elements are positive pairs
