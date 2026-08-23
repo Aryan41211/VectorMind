@@ -1,21 +1,46 @@
-# Core
+# VectorMind — runtime + development dependencies
+#
+# Installing this file must be sufficient to run the test suite, the
+# training scripts, and the serving stack. Exact pinned versions of a
+# known-good environment live in requirements.lock.txt.
+#
+# GPU note: torch/torchvision here resolve to the default (CPU or
+# system-CUDA) wheel. For an RTX-class GPU, install the build matching
+# your CUDA version FIRST from https://pytorch.org/get-started/locally/,
+# then run `pip install -r requirements.txt`.
+
+# --- Core ML ---
 torch>=2.2,<3.0
 torchvision>=0.17,<1.0
+numpy>=1.26,<3.0
 
-# Config management
+# --- Data / preprocessing ---
+# transformers is used ONLY for its tokenizer (see ARCHITECTURE.md §3);
+# no pretrained model weights are loaded anywhere in the pipeline.
+transformers>=4.40
+tokenizers>=0.15,<1.0
+Pillow>=10.0,<13.0
+opencv-python>=4.9
+
+# --- Config ---
 pyyaml>=6.0,<7.0
 
-# Tokenization (pretrained BPE tokenizer only — see ARCHITECTURE.md §3;
-# no pretrained model weights are loaded, only used as a preprocessing utility)
-tokenizers>=0.15,<1.0
-
-# Experiment tracking (CLAUDE.md §5 — pick one; wandb assumed as default)
+# --- Experiment tracking (CLAUDE.md §5) ---
+tensorboard>=2.16
 wandb>=0.16,<1.0
 
-# Testing
-pytest>=8.0,<9.0
+# --- Analysis / reporting ---
+matplotlib>=3.8
 
-# NOTE: pin exact versions once Phase 0.1 environment verification is done
-# and the working combination on the RTX 4050 / installed CUDA toolkit is
-# confirmed. Do not treat these ranges as verified-compatible — check
-# against `nvidia-smi` / pytorch.org's install matrix before installing.
+# --- Serving ---
+fastapi>=0.110
+uvicorn[standard]>=0.29
+python-multipart>=0.0.6
+faiss-cpu>=1.8
+requests>=2.31,<3.0
+
+# --- Testing / QA ---
+pytest>=8.0,<9.0
+httpx>=0.27
+mypy>=1.10
+ruff>=0.6
