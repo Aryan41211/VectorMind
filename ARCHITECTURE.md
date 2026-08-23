@@ -107,6 +107,42 @@ A learnable temperature lets the model calibrate how "sharp" the
 similarity distribution should be over training, rather than us
 guessing a fixed value upfront.
 
+### 5.1 The scalar is a logit scale, and it must be clamped
+
+Naming, because this caused a real failure: the parameter is stored as
+`log_temperature`, but the loss **multiplies** similarities by
+`exp(log_temperature)`. That makes it CLIP's `logit_scale` — the
+*reciprocal* of a temperature. Larger values sharpen the distribution;
+they do not soften it. The docstring said the opposite until the
+2026-08-23 audit.
+
+**Decision (2026-08-23):** clamp the logit scale at **100**, CLIP's own
+ceiling, after every optimizer step. Configured at
+`configs/training.yaml → temperature.max_logit_scale`.
+
+**Why this is a correctness guard and not a hyperparameter:** the scalar
+is unconstrained, and inflating it lowers contrastive loss without
+improving the representation. It is the cheapest direction in the loss
+landscape, and the optimizer takes it. Phase 4 ran without a ceiling:
+
+| Epoch | 6 | 7 | 9 | 11 | 14 |
+|---|---|---|---|---|---|
+| Logit scale | 18.6 | 55.2 | 78.6 | 160.5 | 338.6 |
+| Val R@10 | 17.12% | **20.23%** | 13.62% | 17.31% | 13.75% |
+
+Image variance fell 83% and text variance 86% over that span. The epoch-7
+checkpoint was shipped as healthy; measuring it directly afterwards gave
+a matched-vs-unmatched separation of 0.094, against 0.964 for the
+Phase 3.5 overfit run. It was not healthy, only earlier on the same
+curve.
+
+`log_temperature` is also excluded from weight decay. Decay on it is not
+regularization — it is a constant pull toward a logit scale of 1.0,
+which is an arbitrary target unrelated to generalization. The clamp is
+the bound; weight decay was noise.
+
+See `docs/KNOWN_ISSUES.md` §1.
+
 ---
 
 ## 6. VRAM-Constrained Batch Strategy (critical)
@@ -133,7 +169,8 @@ used 32,768) to work well — completely infeasible on 6GB.
    recent past batches to use as additional negatives, decoupling
    the number of negatives from the physical batch size. This is the
    key mitigation for negative-sample count specifically, since
-   gradient accumulation alone doesn't fix it.
+   gradient accumulation alone doesn't fix it. **It requires a warmup
+   period — see §6.1.**
 4. **Gradient checkpointing** — fallback if still OOM after the
    above; trades compute for memory by recomputing activations during
    the backward pass instead of storing them.
@@ -148,6 +185,45 @@ used 32,768) to work well — completely infeasible on 6GB.
 - **Encoder dims:** image 512, text 256, shared embedding 256
 
 The above replaces the placeholder text "Actual batch size and queue size will be determined empirically in Phase 0.2..."
+
+Training uses **batch 128**, not the profiled 256. The profiler measured
+a forward/backward pass in isolation; a live epoch also holds the
+validation pass and the 4096-entry queue. 128 measured ~4.6 GB peak in
+practice. Both values live in `configs/data.yaml`.
+
+### 6.1 The memory queue is not true MoCo, and needs a warmup
+
+**What is missing:** MoCo pairs its queue with a **momentum encoder** —
+a slowly-updated EMA copy of the encoder that produces the queued keys.
+That is the mechanism that keeps entries written 32 batches ago
+comparable to what the current encoder produces. VectorMind has no
+momentum encoder; the queue holds raw outputs of the live encoder.
+
+**Why that matters at this scale:** with `queue_size` 4096 against a
+batch of 128, queued negatives outnumber in-batch negatives 32 to 1. If
+they are stale, the gradient is dominated by noise.
+
+**Measured (2026-08-23):**
+
+| Schedule | Val R@10 after 2 epochs | Separation |
+|---|---|---|
+| Queue active from step 1 | 0.35% (chance) | 0.000 |
+| In-batch negatives first | 2.99% → 5.03% | 0.102 → 0.166 |
+
+**Decision:** the queue fills from step 1 but serves no negatives until
+`memory_queue.warmup_epochs` (default 6) has passed, so it activates
+already full of *recent* embeddings. Implemented as
+`MemoryQueue.active`.
+
+This is the schedule that produced Phase 4's best checkpoint — reached
+by accident, because the first six epochs ran with a forgotten
+`--no-queue` flag. The improvement was recorded at the time as "the
+memory queue helps"; the fuller finding is "the memory queue helps once
+the encoder has stabilized." It is deliberate and configured now.
+
+A momentum encoder would remove the need for the warmup and is the
+correct long-term fix; it costs a second copy of both towers in VRAM,
+which is why it is in `docs/FUTURE_IDEAS.md` rather than here.
 
 ---
 
@@ -202,6 +278,49 @@ force cosine similarity is still sub-millisecond and exact — the
 approximate-index tradeoff (recall loss for speed) has no upside
 until the corpus is orders of magnitude larger. Revisit if
 FUTURE_IDEAS.md's "larger datasets" item is pursued.
+
+### 9.1 Two indices, two index maps, different lengths
+
+The two search directions rank different things, so they need
+differently-shaped indices:
+
+| Endpoint | Searches | Rows | Index map |
+|---|---|---|---|
+| `POST /search/text` | image index | one per **unique image** (3,179) | `image_samples.json` |
+| `POST /search/image` | text index | one per **caption** (15,895) | `caption_samples.json` |
+
+This is stated explicitly because getting it wrong was not hypothetical.
+The builder originally emitted one image embedding per *(image,
+caption)* pair, putting 15,895 rows — five identical vectors per
+picture — in the image index. A single top-10 could return the same
+photo five times, so effective result diversity was closer to top-2.
+
+Both indices also shared one `sample_metadata.json` keyed by pair
+position, so an image-index hit was resolved against a caption-indexed
+list and could return a filename belonging to a different image.
+
+`save_indices()` now refuses to write when either map's length disagrees
+with its index, and the app refuses to load a mismatched pair, so a
+half-rebuilt index directory fails loudly rather than serving results
+with metadata from a previous build. See `docs/KNOWN_ISSUES.md` §2.
+
+### 9.2 Serving must preprocess exactly as training did
+
+An uploaded image and a typed query have to travel the same path the
+indexed data did, or the query embedding lands somewhere else in the
+space than everything it is compared against. Two skews existed:
+
+- The image router re-declared its own `Resize/CenterCrop/Normalize`
+  chain with the constants inline, rather than calling
+  `get_eval_transforms(configs/data.yaml)`. Any change to the config
+  would have desynchronized serving silently.
+- The text router padded to the query's own length while training padded
+  every caption to a fixed 77 tokens.
+
+Both now read `configs/serving.yaml`, which is pinned to
+`configs/data.yaml`. The tokenizer is also baked into the Docker image,
+since loading it on first request made the container depend on outbound
+network access at query time.
 
 **API layer:** FastAPI, chosen over Flask for native async support,
 automatic OpenAPI schema generation, and Pydantic-based request/
