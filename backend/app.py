@@ -29,8 +29,35 @@ from fastapi.staticfiles import StaticFiles
 
 from backend.index_builder import load_model
 from backend.schemas import HealthResponse, ServerConfig
+from vectormind.utils.config import load_config, require_keys
 
 logger = logging.getLogger(__name__)
+
+# Serving configuration lives in config, not in this module (CLAUDE.md §6).
+SERVING_CONFIG_PATH = Path("configs/serving.yaml")
+MODEL_CONFIG_PATH = Path("configs/model.yaml")
+
+
+def load_serving_config(
+    path: Path | str = SERVING_CONFIG_PATH,
+) -> dict[str, Any]:
+    """Load the serving-layer configuration.
+
+    Args:
+        path: Path to the serving YAML. Defaults to
+            ``configs/serving.yaml``.
+
+    Returns:
+        Parsed configuration with ``server``, ``cors``, ``paths``,
+        ``search`` and ``tokenizer`` sections.
+
+    Raises:
+        FileNotFoundError: If the config file does not exist.
+        KeyError: If a required top-level section is missing.
+    """
+    config: dict[str, Any] = load_config(str(path))
+    require_keys(config, ["server", "cors", "paths", "search", "tokenizer"])
+    return config
 
 
 @dataclass
@@ -41,7 +68,10 @@ class AppState:
     image_index: faiss.Index | None = None
     text_index: faiss.Index | None = None
     index_metadata: dict[str, Any] | None = None
-    sample_metadata: list[dict[str, Any]] | None = None
+    # One record per image-index position: filename, path, all captions.
+    image_samples: list[dict[str, Any]] | None = None
+    # One record per text-index position: caption, filename, path.
+    caption_samples: list[dict[str, Any]] | None = None
     loaded: bool = False
 
 
@@ -53,6 +83,7 @@ def create_app(
     model_config: dict[str, Any] | None = None,
     server_config: ServerConfig | None = None,
     test_mode: bool = False,
+    serving_config: dict[str, Any] | None = None,
 ) -> FastAPI:
     """
     Create and configure the FastAPI application.
@@ -61,23 +92,34 @@ def create_app(
         model_config: Model configuration dictionary. If None, loads from config.
         server_config: Server configuration. If None, uses defaults.
         test_mode: If True, skip model loading (for testing).
+        serving_config: Parsed configs/serving.yaml. If None, loaded from
+            disk. Injectable so tests can point at temporary directories
+            instead of the real checkpoint and index.
 
     Returns:
         Configured FastAPI application.
+
+    Raises:
+        FileNotFoundError: If serving_config is None and
+            configs/serving.yaml is missing.
     """
     if server_config is None:
         server_config = ServerConfig()
+    if serving_config is None:
+        serving_config = load_serving_config()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         """Application lifespan: load model and index at startup."""
         if not test_mode:
-            _load_model_and_index(model_config)
+            _load_model_and_index(model_config, serving_config)
         yield
         # Cleanup on shutdown
         app_state.model = None
         app_state.image_index = None
         app_state.text_index = None
+        app_state.image_samples = None
+        app_state.caption_samples = None
         app_state.loaded = False
         logger.info("Application shutdown, resources released")
 
@@ -88,13 +130,17 @@ def create_app(
         lifespan=lifespan,
     )
 
-    # CORS middleware
+    # CORS middleware. Origins, methods and headers come from
+    # configs/serving.yaml. The previous wildcard-plus-credentials pair
+    # was rejected by browsers outright — the wildcard origin is not
+    # permitted when allow_credentials is true.
+    cors_cfg = serving_config["cors"]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_origins=cors_cfg["allow_origins"],
+        allow_credentials=cors_cfg["allow_credentials"],
+        allow_methods=cors_cfg["allow_methods"],
+        allow_headers=cors_cfg["allow_headers"],
     )
 
     # Request timing middleware
@@ -140,7 +186,7 @@ def create_app(
     app.include_router(image_search.router)
 
     # Serve Flickr30k images as static files
-    images_dir = Path("data/raw/flickr30k/images")
+    images_dir = Path(serving_config["paths"]["images_dir"])
     if images_dir.exists():
         app.mount("/images", StaticFiles(directory=str(images_dir)), name="images")
         logger.info(f"Mounted static images from {images_dir}")
@@ -148,7 +194,7 @@ def create_app(
         logger.warning(f"Images directory not found: {images_dir}")
 
     # Serve frontend SPA (production static build)
-    frontend_dist = Path("frontend/dist")
+    frontend_dist = Path(serving_config["paths"]["frontend_dist"])
     if frontend_dist.exists():
         app.mount("/static", StaticFiles(directory=str(frontend_dist)), name="frontend_static")
         logger.info(f"Mounted frontend static assets from {frontend_dist}")
@@ -171,19 +217,30 @@ def create_app(
     return app
 
 
-def _load_model_and_index(model_config: dict[str, Any] | None = None) -> None:
+def _load_model_and_index(
+    model_config: dict[str, Any] | None = None,
+    serving_config: dict[str, Any] | None = None,
+) -> None:
     """
     Load the trained model and FAISS index into application state.
 
+    Missing artifacts are logged and skipped rather than raised: the app
+    still starts, /health reports what is loaded, and the search
+    endpoints return 503. That keeps a container without its volumes
+    mounted diagnosable instead of crash-looping.
+
     Args:
-        model_config: Model configuration dictionary.
+        model_config: Model configuration dictionary. Loaded from
+            configs/model.yaml when None.
+        serving_config: Parsed configs/serving.yaml. Loaded from disk
+            when None.
     """
     import json
 
-    # Load configuration
     if model_config is None:
-        from src.vectormind.utils.config import load_config
-        model_config = load_config("configs/model.yaml")
+        model_config = load_config(str(MODEL_CONFIG_PATH))
+    if serving_config is None:
+        serving_config = load_serving_config()
 
     # Determine device
     if torch.cuda.is_available():
@@ -194,7 +251,8 @@ def _load_model_and_index(model_config: dict[str, Any] | None = None) -> None:
         logger.info("Using CPU device")
 
     # Load model checkpoint
-    checkpoint_path = Path("checkpoints/train/best_model.pt")
+    paths = serving_config["paths"]
+    checkpoint_path = Path(paths["checkpoint"])
     if not checkpoint_path.exists():
         logger.warning(f"Checkpoint not found: {checkpoint_path}")
         logger.warning("Running in degraded mode — model not loaded")
@@ -210,15 +268,15 @@ def _load_model_and_index(model_config: dict[str, Any] | None = None) -> None:
         return
 
     # Load FAISS indices
-    index_dir = Path("backend/indices")
+    index_dir = Path(paths["index_dir"])
     if not index_dir.exists():
         logger.warning(f"Index directory not found: {index_dir}")
         logger.warning("Running without index — search endpoints unavailable")
         return
 
     try:
-        image_index_path = index_dir / "image_index.faiss"
-        text_index_path = index_dir / "text_index.faiss"
+        image_index_path = index_dir / paths["image_index"]
+        text_index_path = index_dir / paths["text_index"]
 
         if image_index_path.exists():
             app_state.image_index = faiss.read_index(str(image_index_path))
@@ -229,19 +287,35 @@ def _load_model_and_index(model_config: dict[str, Any] | None = None) -> None:
             logger.info(f"Loaded text index: {app_state.text_index.ntotal} vectors")
 
         # Load metadata
-        metadata_path = index_dir / "index_metadata.json"
+        metadata_path = index_dir / paths["index_metadata"]
         if metadata_path.exists():
             with open(metadata_path) as f:
                 app_state.index_metadata = json.load(f)
 
-        # Load sample metadata (per-vector image paths and captions)
-        sample_metadata_path = index_dir / "sample_metadata.json"
-        if sample_metadata_path.exists():
-            with open(sample_metadata_path, encoding="utf-8") as f:
-                app_state.sample_metadata = json.load(f)
-            logger.info(
-                f"Loaded sample metadata: {len(app_state.sample_metadata)} entries"
-            )
+        # Load the two index maps. Each must line up with its own index;
+        # a mismatch means the indices and maps were built from
+        # different runs, and every result would carry wrong metadata.
+        for key, attr, index in (
+            ("image_samples", "image_samples", app_state.image_index),
+            ("caption_samples", "caption_samples", app_state.text_index),
+        ):
+            samples_path = index_dir / paths[key]
+            if not samples_path.exists():
+                logger.warning("Index map not found: %s", samples_path)
+                continue
+            with open(samples_path, encoding="utf-8") as f:
+                records = json.load(f)
+            if index is not None and len(records) != index.ntotal:
+                logger.error(
+                    "%s has %d records but its index holds %d vectors — "
+                    "rebuild with 'python -m backend.index_builder'.",
+                    samples_path,
+                    len(records),
+                    index.ntotal,
+                )
+                continue
+            setattr(app_state, attr, records)
+            logger.info("Loaded %s: %d records", key, len(records))
 
         app_state.loaded = True
         logger.info("FAISS indices loaded successfully")
