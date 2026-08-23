@@ -1,1 +1,227 @@
 @import "tailwindcss";
+
+/* Manual theme control. Tailwind v4 defaults `dark:` to
+   prefers-color-scheme; this variant lets an explicit choice on <html>
+   win in both directions while still falling back to the OS setting. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---------------------------------------------------------------------
+   Design tokens
+
+   One neutral ramp plus a single accent. A retrieval UI is mostly
+   photographs, and photographs supply all the colour a page needs — the
+   chrome around them should stay quiet enough that result imagery is
+   what the eye lands on.
+   --------------------------------------------------------------------- */
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+
+  /* Accent: a desaturated indigo. Saturated blues vibrate against
+     photographic content; this sits behind it instead. */
+  --color-accent-50: oklch(0.97 0.014 275);
+  --color-accent-100: oklch(0.94 0.03 275);
+  --color-accent-200: oklch(0.89 0.055 275);
+  --color-accent-300: oklch(0.81 0.09 275);
+  --color-accent-400: oklch(0.71 0.13 275);
+  --color-accent-500: oklch(0.62 0.16 275);
+  --color-accent-600: oklch(0.54 0.17 275);
+  --color-accent-700: oklch(0.46 0.15 275);
+  --color-accent-800: oklch(0.39 0.12 275);
+  --color-accent-900: oklch(0.33 0.09 275);
+
+  --radius-card: 0.75rem;
+  --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ---------------------------------------------------------------------
+   Semantic surface variables
+
+   Components reference these rather than raw palette steps, so the whole
+   theme is one block to change and dark mode cannot drift out of sync
+   with light.
+   --------------------------------------------------------------------- */
+:root {
+  --surface: oklch(0.99 0.002 275);
+  --surface-raised: oklch(1 0 0);
+  --surface-sunken: oklch(0.96 0.004 275);
+  --surface-hover: oklch(0.955 0.005 275);
+
+  --border-subtle: oklch(0.91 0.005 275);
+  --border-strong: oklch(0.84 0.008 275);
+
+  --text-primary: oklch(0.22 0.012 275);
+  --text-secondary: oklch(0.48 0.012 275);
+  --text-tertiary: oklch(0.62 0.01 275);
+
+  --accent: var(--color-accent-600);
+  --accent-hover: var(--color-accent-700);
+  --accent-subtle: var(--color-accent-50);
+  --accent-contrast: oklch(1 0 0);
+
+  --success: oklch(0.62 0.15 155);
+  --danger: oklch(0.58 0.19 25);
+  --warning: oklch(0.72 0.15 75);
+
+  --shadow-card: 0 1px 2px oklch(0.2 0.02 275 / 0.04),
+    0 4px 12px oklch(0.2 0.02 275 / 0.05);
+  --shadow-lifted: 0 2px 4px oklch(0.2 0.02 275 / 0.06),
+    0 12px 32px oklch(0.2 0.02 275 / 0.1);
+}
+
+.dark {
+  --surface: oklch(0.17 0.008 275);
+  --surface-raised: oklch(0.21 0.01 275);
+  --surface-sunken: oklch(0.14 0.008 275);
+  --surface-hover: oklch(0.25 0.012 275);
+
+  --border-subtle: oklch(0.28 0.012 275);
+  --border-strong: oklch(0.36 0.014 275);
+
+  --text-primary: oklch(0.95 0.004 275);
+  --text-secondary: oklch(0.72 0.01 275);
+  --text-tertiary: oklch(0.57 0.012 275);
+
+  --accent: var(--color-accent-400);
+  --accent-hover: var(--color-accent-300);
+  --accent-subtle: oklch(0.26 0.05 275);
+  --accent-contrast: oklch(0.16 0.01 275);
+
+  --success: oklch(0.72 0.15 155);
+  --danger: oklch(0.68 0.18 25);
+  --warning: oklch(0.78 0.14 75);
+
+  --shadow-card: 0 1px 2px oklch(0 0 0 / 0.3), 0 4px 12px oklch(0 0 0 / 0.25);
+  --shadow-lifted: 0 2px 4px oklch(0 0 0 / 0.35), 0 12px 32px oklch(0 0 0 / 0.45);
+}
+
+/* ---------------------------------------------------------------------
+   Base
+   --------------------------------------------------------------------- */
+@layer base {
+  html {
+    color-scheme: light;
+    /* The toggle scrolls nothing, but anchored sections should glide. */
+    scroll-behavior: smooth;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--surface);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Similarity scores, ranks, and latencies are read in columns.
+     Proportional digits make them jitter as values change. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  /* A single visible focus treatment everywhere, rather than each
+     component inventing its own. */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background-color: var(--accent-subtle);
+    color: var(--text-primary);
+  }
+
+  /* Motion is decoration here — every animation is safe to drop. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer utilities {
+  .surface {
+    background-color: var(--surface-raised);
+  }
+  .surface-sunken {
+    background-color: var(--surface-sunken);
+  }
+  .border-subtle {
+    border-color: var(--border-subtle);
+  }
+  .border-strong {
+    border-color: var(--border-strong);
+  }
+  .text-primary {
+    color: var(--text-primary);
+  }
+  .text-secondary {
+    color: var(--text-secondary);
+  }
+  .text-tertiary {
+    color: var(--text-tertiary);
+  }
+  .text-accent {
+    color: var(--accent);
+  }
+  .bg-accent {
+    background-color: var(--accent);
+  }
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+  .shadow-lifted {
+    box-shadow: var(--shadow-lifted);
+  }
+
+  .animate-in {
+    animation: fade-rise 0.32s var(--ease-out-soft) both;
+  }
+
+  /* Skeletons rather than a spinner: a spinner says "wait", a skeleton
+     says "here is the shape of what is coming", and it holds layout so
+     results do not shift the page when they land. */
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--surface-sunken) 25%,
+      var(--surface-hover) 37%,
+      var(--surface-sunken) 63%
+    );
+    background-size: 400% 100%;
+    animation: shimmer 1.4s ease-in-out infinite;
+  }
+}
+
+@keyframes fade-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
