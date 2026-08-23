@@ -8,6 +8,7 @@
  */
 
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { ResultGrid } from './ResultGrid';
 import type { SearchResponse, SearchResult } from '../types/search';
@@ -41,9 +42,11 @@ describe('ResultGrid', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('shows an empty state when a search returns no results', () => {
+  it('shows an empty state that explains the corpus', () => {
+    // "No results" alone reads as a broken demo. Naming the corpus tells
+    // the visitor their query was simply out of domain.
     render(<ResultGrid response={response({ results: [], total_results: 0 })} />);
-    expect(screen.getByText('No results found')).toBeInTheDocument();
+    expect(screen.getByText(/Flickr30k photographs/i)).toBeInTheDocument();
   });
 
   it('echoes the query back to the user', () => {
@@ -51,9 +54,9 @@ describe('ResultGrid', () => {
     expect(screen.getByText(/a busy market/)).toBeInTheDocument();
   });
 
-  it('reports latency to one decimal place', () => {
+  it('reports latency in whole milliseconds', () => {
     render(<ResultGrid response={response()} />);
-    expect(screen.getByText(/14\.2ms/)).toBeInTheDocument();
+    expect(screen.getByText('14ms')).toBeInTheDocument();
   });
 
   it('renders one card per result', () => {
@@ -89,12 +92,36 @@ describe('ResultGrid', () => {
     ).not.toThrow();
   });
 
-  it('shows the search direction', () => {
-    render(
-      <ResultGrid
-        response={response({ search_type: 'image_to_text' })}
-      />
-    );
-    expect(screen.getByText(/image_to_text/)).toBeInTheDocument();
+  it('names the search direction in words, not the wire value', () => {
+    render(<ResultGrid response={response({ search_type: 'image_to_text' })} />);
+    expect(screen.getByText('image → text')).toBeInTheDocument();
+    expect(screen.queryByText(/image_to_text/)).not.toBeInTheDocument();
+  });
+
+  it('pluralises the result count', () => {
+    // The count is split across elements for styling, so assert on the
+    // heading's text rather than trying to match a single text node.
+    const { rerender } = render(<ResultGrid response={response()} />);
+    expect(screen.getByRole('heading').textContent).toMatch(/1 result for/);
+
+    const many = [result({ rank: 1, index: 1 }), result({ rank: 2, index: 2 })];
+    rerender(<ResultGrid response={response({ results: many, total_results: 2 })} />);
+    expect(screen.getByRole('heading').textContent).toMatch(/2 results/);
+  });
+
+  it('opens a detail dialog when a result is activated', async () => {
+    const user = userEvent.setup();
+    render(<ResultGrid response={response()} />);
+    await user.click(screen.getAllByRole('button')[0]);
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('closes the detail dialog on Escape', async () => {
+    const user = userEvent.setup();
+    render(<ResultGrid response={response()} />);
+    await user.click(screen.getAllByRole('button')[0]);
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });

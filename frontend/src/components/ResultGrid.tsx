@@ -1,55 +1,74 @@
 /**
- * ResultGrid Component — Ranked retrieval results with real images
+ * Ranked retrieval results.
+ *
+ * The design goal is that the photographs carry the page. Chrome around
+ * each result stays quiet: rank and score sit on the image rather than in
+ * a caption bar, so the grid reads as a wall of pictures rather than a
+ * table with thumbnails.
+ *
+ * Score is shown on every card deliberately. This model is honestly
+ * mid-quality, and a visitor who can see that result #1 scored 0.94 and
+ * result #8 scored 0.71 can calibrate what the ranking means — which is
+ * more informative than hiding the number and letting the order imply
+ * more confidence than exists.
  */
 
-import { useState } from 'react';
-import type { SearchResult, SearchResponse } from '../types/search';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { SearchResponse, SearchResult } from '../types/search';
+import { CloseIcon, ImageIcon } from './Icon';
 
 interface ResultGridProps {
   response: SearchResponse | null;
 }
 
 export function ResultGrid({ response }: ResultGridProps) {
-  const [selectedResult, setSelectedResult] = useState<SearchResult | null>(null);
+  const [selected, setSelected] = useState<SearchResult | null>(null);
 
   if (!response) return null;
 
+  const { results, query, search_type, total_results, latency_ms } = response;
+  const direction =
+    search_type === 'text_to_image' ? 'text → image' : 'image → text';
+
   return (
     <>
-      <div className="w-full max-w-4xl mx-auto mt-8">
-        <div className="mb-4 text-sm text-gray-600">
-          <span className="font-medium">Query:</span> {response.query}
-          <span className="mx-2">|</span>
-          <span className="font-medium">Type:</span> {response.search_type}
-          <span className="mx-2">|</span>
-          <span className="font-medium">Results:</span> {response.total_results}
-          <span className="mx-2">|</span>
-          <span className="font-medium">Latency:</span> {response.latency_ms.toFixed(1)}ms
-        </div>
-
-        {response.results.length === 0 ? (
-          <div className="text-center text-gray-500 py-8">
-            No results found
+      <section className="w-full max-w-6xl mx-auto mt-10 animate-in">
+        <header className="flex flex-wrap items-baseline justify-between gap-3 pb-4 mb-6 border-b border-subtle">
+          <h2 className="text-sm text-secondary">
+            <span className="text-primary font-medium">{total_results}</span>{' '}
+            {total_results === 1 ? 'result' : 'results'}
+            {query && (
+              <>
+                {' for '}
+                <span className="text-primary font-medium">“{query}”</span>
+              </>
+            )}
+          </h2>
+          <div className="flex items-center gap-3 text-xs text-tertiary tabular">
+            <span>{direction}</span>
+            <span aria-hidden>·</span>
+            <span>{latency_ms.toFixed(0)}ms</span>
           </div>
+        </header>
+
+        {results.length === 0 ? (
+          <p className="text-center text-sm text-secondary py-16">
+            Nothing matched closely enough. The corpus is 3,179 Flickr30k
+            photographs — everyday scenes of people, animals, and streets.
+          </p>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {response.results.map((result) => (
-              <ResultCard
-                key={`${result.index}-${result.rank}`}
-                result={result}
-                onClick={() => setSelectedResult(result)}
-              />
+          <ul className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {results.map((result) => (
+              <li key={`${result.index}-${result.rank}`}>
+                <ResultCard result={result} onSelect={() => setSelected(result)} />
+              </li>
             ))}
-          </div>
+          </ul>
         )}
-      </div>
+      </section>
 
-      {/* Modal */}
-      {selectedResult && (
-        <ImageModal
-          result={selectedResult}
-          onClose={() => setSelectedResult(null)}
-        />
+      {selected && (
+        <ResultDialog result={selected} onClose={() => setSelected(null)} />
       )}
     </>
   );
@@ -57,137 +76,182 @@ export function ResultGrid({ response }: ResultGridProps) {
 
 function ResultCard({
   result,
-  onClick,
+  onSelect,
 }: {
   result: SearchResult;
-  onClick: () => void;
+  onSelect: () => void;
 }) {
-  const [imgError, setImgError] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const showImage = Boolean(result.image_url) && !failed;
 
   return (
-    <div
-      className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
-      onClick={onClick}
+    <button
+      type="button"
+      onClick={onSelect}
+      className="group w-full text-left rounded-[--radius-card] overflow-hidden border border-subtle transition-all hover:shadow-lifted focus-visible:shadow-lifted"
+      style={{ background: 'var(--surface-raised)' }}
     >
-      {/* Image */}
-      {result.image_url && !imgError ? (
-        <div className="aspect-square bg-gray-100">
+      <div className="relative aspect-square surface-sunken overflow-hidden">
+        {showImage ? (
           <img
             src={result.image_url}
-            alt={result.caption || `Result ${result.rank}`}
-            className="w-full h-full object-cover"
+            alt={result.caption ?? `Search result ${result.rank}`}
             loading="lazy"
-            onError={() => setImgError(true)}
+            decoding="async"
+            onError={() => setFailed(true)}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
           />
-        </div>
-      ) : (
-        <div className="aspect-square bg-gray-100 flex items-center justify-center">
-          <svg className="w-12 h-12 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
-        </div>
-      )}
-
-      {/* Info */}
-      <div className="p-3">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-xs font-medium text-gray-500">#{result.rank}</span>
-          <span className="text-xs font-mono text-blue-600">
-            {result.score.toFixed(3)}
-          </span>
-        </div>
-
-        {result.filename && (
-          <div className="text-xs text-gray-500 truncate mb-1">
-            {result.filename}
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <ImageIcon className="w-8 h-8 text-tertiary" />
           </div>
         )}
+
+        {/* Rank and score float over the image so the card is pure picture
+            until you look for the numbers. */}
+        <span
+          className="absolute top-2 left-2 text-[11px] font-medium tabular px-1.5 py-0.5 rounded backdrop-blur-sm"
+          style={{ background: 'oklch(0 0 0 / 0.55)', color: 'oklch(1 0 0)' }}
+        >
+          #{result.rank}
+        </span>
+        <span
+          className="absolute top-2 right-2 text-[11px] font-mono tabular px-1.5 py-0.5 rounded backdrop-blur-sm"
+          style={{ background: 'oklch(0 0 0 / 0.55)', color: 'oklch(1 0 0)' }}
+        >
+          {result.score.toFixed(3)}
+        </span>
 
         {result.caption && (
-          <div className="text-sm text-gray-700 line-clamp-2">
+          <p
+            className="absolute inset-x-0 bottom-0 p-2.5 text-[11px] leading-snug line-clamp-3 opacity-0 translate-y-1 transition-all duration-200 group-hover:opacity-100 group-hover:translate-y-0 group-focus-visible:opacity-100"
+            style={{
+              background:
+                'linear-gradient(to top, oklch(0 0 0 / 0.85), oklch(0 0 0 / 0))',
+              color: 'oklch(1 0 0)',
+            }}
+          >
             {result.caption}
-          </div>
+          </p>
         )}
       </div>
-    </div>
+    </button>
   );
 }
 
-function ImageModal({
+function ResultDialog({
   result,
   onClose,
 }: {
   result: SearchResult;
   onClose: () => void;
 }) {
-  const [imgError, setImgError] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const previouslyFocused = useRef<HTMLElement | null>(null);
+
+  // Move focus into the dialog and restore it on close, so keyboard users
+  // are not dropped at the top of the document.
+  useEffect(() => {
+    previouslyFocused.current = document.activeElement as HTMLElement | null;
+    closeRef.current?.focus();
+    return () => previouslyFocused.current?.focus();
+  }, []);
+
+  // Escape closes; the body must not scroll behind the overlay.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [onClose]);
+
+  const stop = useCallback(
+    (event: React.MouseEvent) => event.stopPropagation(),
+    []
+  );
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Result ${result.rank} detail`}
       onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in"
+      style={{ background: 'oklch(0 0 0 / 0.72)', backdropFilter: 'blur(4px)' }}
     >
       <div
-        className="bg-white rounded-xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-hidden shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
+        onClick={stop}
+        className="surface border border-subtle rounded-[--radius-card] shadow-lifted w-full max-w-3xl max-h-[90vh] overflow-y-auto"
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b">
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-gray-500">
-              Rank #{result.rank}
-            </span>
-            <span className="text-sm font-mono text-blue-600">
-              Score: {result.score.toFixed(3)}
+        <header className="sticky top-0 z-10 flex items-center justify-between gap-4 px-5 py-3 border-b border-subtle surface">
+          <div className="flex items-center gap-3 text-sm tabular">
+            <span className="font-medium text-primary">Rank {result.rank}</span>
+            <span className="text-tertiary" aria-hidden>·</span>
+            <span className="font-mono text-accent">
+              {result.score.toFixed(4)}
             </span>
           </div>
           <button
+            ref={closeRef}
+            type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            aria-label="Close detail view"
+            className="p-1.5 rounded-lg text-secondary transition-colors hover:text-primary"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <CloseIcon />
           </button>
-        </div>
+        </header>
 
-        {/* Image */}
-        {result.image_url && !imgError ? (
-          <div className="bg-gray-100">
-            <img
-              src={result.image_url}
-              alt={result.caption || `Result ${result.rank}`}
-              className="w-full max-h-[50vh] object-contain"
-              onError={() => setImgError(true)}
-            />
-          </div>
+        {result.image_url && !failed ? (
+          <img
+            src={result.image_url}
+            alt={result.caption ?? `Result ${result.rank}`}
+            onError={() => setFailed(true)}
+            className="w-full max-h-[55vh] object-contain surface-sunken"
+          />
         ) : (
-          <div className="bg-gray-100 h-64 flex items-center justify-center">
-            <svg className="w-16 h-16 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
+          <div className="h-56 flex items-center justify-center surface-sunken">
+            <ImageIcon className="w-10 h-10 text-tertiary" />
           </div>
         )}
 
-        {/* Details */}
-        <div className="p-4 space-y-2">
-          {result.filename && (
-            <div className="text-sm">
-              <span className="font-medium text-gray-700">Filename:</span>{' '}
-              <span className="text-gray-600">{result.filename}</span>
-            </div>
-          )}
-          <div className="text-sm">
-            <span className="font-medium text-gray-700">Dataset Index:</span>{' '}
-            <span className="text-gray-600">{result.index}</span>
-          </div>
+        <dl className="px-5 py-4 grid gap-3 text-sm">
           {result.caption && (
-            <div className="text-sm">
-              <span className="font-medium text-gray-700">Caption:</span>{' '}
-              <span className="text-gray-600">{result.caption}</span>
+            <div>
+              <dt className="text-xs uppercase tracking-wide text-tertiary mb-1">
+                Caption
+              </dt>
+              <dd className="text-primary leading-relaxed">{result.caption}</dd>
             </div>
           )}
-        </div>
+          <div className="grid grid-cols-2 gap-3">
+            {result.filename && (
+              <div>
+                <dt className="text-xs uppercase tracking-wide text-tertiary mb-1">
+                  File
+                </dt>
+                <dd className="font-mono text-xs text-secondary break-all">
+                  {result.filename}
+                </dd>
+              </div>
+            )}
+            <div>
+              <dt className="text-xs uppercase tracking-wide text-tertiary mb-1">
+                Index position
+              </dt>
+              <dd className="font-mono text-xs text-secondary tabular">
+                {result.index}
+              </dd>
+            </div>
+          </div>
+        </dl>
       </div>
     </div>
   );
