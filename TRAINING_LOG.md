@@ -66,7 +66,7 @@ Proceed to Phase 4 full training.
 |-------|------|---------|---------|----------|------|-------|--------|
 | 1 | ~4.92 | - | - | - | 13.6 | 1 | Baseline |
 | 6 | 2.54 | 3.46% | 11.42% | 17.12% | 18.6 | 1 | Before queue |
-| 7 | 3.72 | 4.22% | 14.03% | 20.26% | 55.2 | 4096 | **BEST** |
+| 7 | 3.72 | 4.22% | 14.03% | 20.23% | 55.2 | 4096 | **BEST** |
 | 9 | 3.75 | 2.67% | 8.53% | 13.62% | 78.6 | 4096 | Degraded |
 | 11 | 3.51 | 3.59% | 11.33% | 17.31% | 160.5 | 4096 | Degraded |
 | 14 | 3.43 | 2.05% | 8.12% | 13.75% | 338.6 | 4096 | Degraded |
@@ -84,7 +84,7 @@ Proceed to Phase 4 full training.
 **Decision:** Restored best_model.pt to Epoch 7 (original best). Training beyond Epoch 7 is NOT beneficial.
 
 ### Key Observations
-1. **Memory queue fix improved Recall@10 by 3.1 percentage points** (17.12% → 20.26%)
+1. **Memory queue fix improved Recall@10 by 3.1 percentage points** (17.12% → 20.23%)
 2. **Temperature increased significantly** (18.6 → 55.2) — model learning to sharpen similarity
 3. **Embedding collapse after Epoch 7** — temperature grew too large
 4. **Epoch 7 is the true convergence point** — no improvement beyond this
@@ -127,18 +127,19 @@ more negative samples for contrastive learning.
 
 ## Final Results
 
-### Best Checkpoint (Verified 2026-08-06)
+### Best Checkpoint (Verified 2026-08-07)
 - **File:** checkpoints/train/best_model.pt
 - **Epoch:** 7
 - **Step:** 7944
 - **Val Recall@1:** 4.22% (4.2x random baseline)
-- **Val Recall@5:** 14.03%
-- **Val Recall@10:** 20.26% (2.0x random baseline)
+- **Val Recall@5:** 14.00%
+- **Val Recall@10:** 20.23% (2.0x random baseline)
 - **Temperature:** 55.24 (learned from 14.29)
-- **Test Recall@1 (I2T):** 4.22% (4.2x random baseline)
-- **Test Recall@5 (I2T):** 14.00% (2.8x random baseline)
-- **Test Recall@10 (I2T):** 20.26% (2.0x random baseline)
-- **Test Recall@10 (T2I):** 15.21% (1.5x random baseline)
+- **Test Recall@1 (I2T):** 4.62% (4.6x random baseline) [CORRECTED]
+- **Test Recall@5 (I2T):** 13.43% (2.7x random baseline) [CORRECTED]
+- **Test Recall@10 (I2T):** 19.63% (2.0x random baseline) [CORRECTED]
+- **Test Recall@10 (T2I):** 15.09% (1.5x random baseline) [CORRECTED]
+- **Val→Test Gap (R@10):** -0.60% (reasonable generalization) [CORRECTED]
 
 ### Training Summary
 - **Total epochs:** 8 (6 baseline + 2 with queue)
@@ -148,16 +149,25 @@ more negative samples for contrastive learning.
 - **Embedding Variance:** Image 0.000746, Text 0.000471 (healthy)
 - **Pairwise Distances:** Image 0.6054, Text 0.4765 (healthy)
 
-### Phase 5 Evaluation Summary
-- **Val→Test Gap:** 0.00% (excellent generalization)
+### Phase 5 Evaluation Summary (Corrected 2026-08-07)
+- **Val→Test Gap (R@10):** -0.60% (reasonable generalization)
 - **Embedding Health:** HEALTHY (no collapse)
-- **Failure Rate:** 79.74%
+- **Failure Rate:** 80.37%
 - **Main Failure Patterns:** Action ambiguity (35%), Object specificity (25%)
+
+### Bug Fix (2026-08-07)
+- **Test evaluation bug:** `evaluate_test_set.py` had `_, eval_loader, _` destructuring
+  that always used val_loader regardless of `--split` argument. Fixed to properly select
+  test_loader when `--split test`. Re-run confirmed real test R@10 = 19.63% (vs val 20.23%).
+- **Data helpers import bug:** `_data_helpers.py` imported `datasets` at function entry
+  before cache check, causing ImportError even when cache existed. Fixed to lazy-import
+  only when download is needed.
 
 ### Verified Issues
 1. **Gradient norm logging bug (FIXED):** Was computing norm after zero_grad(), always 0.0
 2. **Temperature discrepancy:** Reported 53.51, actual 55.24
 3. **Pairwise distances:** Updated to verified values (0.60/0.48)
+4. **Test eval bug (FIXED 2026-08-07):** Always evaluated on val split due to destructuring error
 
 ### Lessons Learned
 1. **Memory queue is critical:** Enabling queue improved Recall@10 by 18.2%
@@ -166,8 +176,9 @@ more negative samples for contrastive learning.
 4. **Embedding variance monitoring is essential:** Caught that variance remained healthy
 5. **Checkpoint resume works correctly:** Successfully resumed from Epoch 6 to Epoch 8
 6. **Gradient norm must be computed before zero_grad():** Common AMP training bug
-7. **Val→Test gap minimal:** 0.00% gap indicates good generalization
+7. **Val→Test gap reasonable:** ~0.6pp gap indicates decent generalization
 8. **Action recognition is weak:** Model struggles with fine-grained actions
+9. **Test eval destructuring bug (FIXED):** `_, loader, _` always used val_loader — always verify which split is actually being evaluated by printing filenames
 
 ---
 
