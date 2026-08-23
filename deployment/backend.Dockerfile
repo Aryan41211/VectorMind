@@ -27,11 +27,17 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Install dependencies first so this layer caches across source edits.
-# requirements.txt is now complete — it previously omitted fastapi,
-# uvicorn, faiss-cpu and numpy, so the resulting image could not start.
-COPY requirements.txt .
+#
+# CPU torch explicitly: the default wheels carry CUDA and weigh ~2.5GB,
+# which a CPU-only serving container cannot use.
+#
+# requirements-serving.txt rather than requirements.txt — the full set
+# pulls in tensorboard, wandb, matplotlib, pytest, mypy and ruff, none of
+# which are reachable from a running server.
+COPY requirements-serving.txt .
 RUN pip install --upgrade pip && \
-    pip install -r requirements.txt
+    pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu && \
+    pip install -r requirements-serving.txt
 
 # Install the package itself. Without this, `vectormind` is not on
 # sys.path and backend/ fails at import: modules under src/ import

@@ -54,6 +54,33 @@ jobs:
       - name: Test (pytest)
         run: pytest tests/ -q --tb=short
 
+  serving-deps:
+    name: Serving dependency set is sufficient
+    runs-on: ubuntu-latest
+    # requirements-serving.txt is what the Docker image installs. If it
+    # drifts from what backend/ imports, the image breaks and nothing
+    # else catches it — the dev environment has everything installed, so
+    # the other jobs would still pass.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-serving.txt
+
+      - name: Install serving dependencies only
+        run: |
+          pip install --upgrade pip
+          pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements-serving.txt
+          pip install --no-deps -e .
+
+      - name: Import the app
+        run: python -c "import backend.app; print('serving deps sufficient')"
+
   typescript:
     name: TypeScript (tsc, oxlint, build)
     runs-on: ubuntu-latest

@@ -1,0 +1,42 @@
+# VectorMind — serving-only dependencies
+#
+# What the FastAPI app and the modules it imports actually need, and
+# nothing else. Derived from the import graph reachable from `backend/`:
+# faiss, fastapi, numpy, pydantic, starlette, torch, torchvision,
+# transformers, uvicorn, yaml.
+#
+# Why this file exists separately from requirements.txt: the serving
+# image was installing the full development set, which pulls in
+# tensorboard, wandb, matplotlib, pytest, mypy and ruff. None of them are
+# reachable from a running server. They are hundreds of megabytes of
+# image, a longer build, and additional surface for no benefit.
+#
+# Install CPU torch BEFORE this file — the default wheels carry CUDA and
+# are ~2.5GB, which a CPU-only container has no use for:
+#
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+#   pip install -r requirements-serving.txt
+#
+# deployment/backend.Dockerfile does exactly that.
+
+# --- Inference ---
+torch>=2.2,<3.0
+torchvision>=0.17,<1.0
+numpy>=1.26,<3.0
+
+# --- Vector search ---
+faiss-cpu>=1.8
+
+# --- Query preprocessing ---
+# transformers supplies the tokenizer only; no pretrained model weights
+# are loaded anywhere (ARCHITECTURE.md §3).
+transformers>=4.40
+Pillow>=10.0,<13.0
+
+# --- API ---
+fastapi>=0.110
+uvicorn[standard]>=0.29
+python-multipart>=0.0.6
+
+# --- Config ---
+pyyaml>=6.0,<7.0
