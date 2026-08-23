@@ -126,7 +126,54 @@ function App() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <p className="text-lg">Enter a query to search</p>
-            <p className="text-sm mt-1">Try: "a dog playing in the park"</p>
+            <p className="text-sm mt-1">Try the examples above, or type your own query</p>
+          </div>
+        )}
+
+        {/* About This Demo */}
+        {!isLoading && !result && !error && (
+          <div className="mt-12 max-w-2xl mx-auto">
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">About This Demo</h2>
+              <p className="text-sm text-gray-600 mb-4">
+                This is a research prototype of a dual-encoder multimodal model trained
+                from scratch on Flickr30k (~31k images, 5 captions each). It learns a
+                shared embedding space for images and text via contrastive learning
+                (CLIP-style architecture), without any pretrained vision-language weights.
+              </p>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="font-medium text-gray-900">Val R@10:</span>{' '}
+                  <span className="text-gray-600">20.23%</span>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-900">Test R@10:</span>{' '}
+                  <span className="text-gray-600">19.63%</span>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-900">Image encoder:</span>{' '}
+                  <span className="text-gray-600">ResNet-18-style CNN (from scratch)</span>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-900">Text encoder:</span>{' '}
+                  <span className="text-gray-600">Transformer (6-layer)</span>
+                </div>
+              </div>
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <h3 className="font-medium text-gray-900 mb-2">Known Failure Patterns</h3>
+                <ul className="text-sm text-gray-600 space-y-1">
+                  <li><span className="font-medium">Action ambiguity (~35%):</span> Queries with vague actions ("a person doing something") often retrieve unrelated images because the model can't resolve underspecified motion.</li>
+                  <li><span className="font-medium">Object specificity (~25%):</span> Distinguishing similar objects ("a blue boat" vs "a red boat") is unreliable — the model struggles with fine-grained attribute binding.</li>
+                  <li><span className="font-medium">Context vs content (~20%):</span> Abstract or scene-level concepts ("a safe neighborhood") are hard to separate from visual content — the model conflates appearance with meaning.</li>
+                  <li><span className="font-medium">Compositional complexity (~15%):</span> Multi-object spatial relations ("a cat on a mat next to a dog") are only marginally better than chance.</li>
+                </ul>
+              </div>
+              <p className="mt-4 text-xs text-gray-400">
+                These limitations are expected for a ~12M parameter model trained on 31k
+                image-text pairs from scratch. Larger datasets and pretrained backbones
+                are needed to close the gap with production CLIP models.
+              </p>
+            </div>
           </div>
         )}
 
@@ -136,7 +183,7 @@ function App() {
 
       <footer className="bg-white border-t border-gray-200 py-4">
         <div className="max-w-7xl mx-auto px-4 text-center text-sm text-gray-500">
-          VectorMind — Trained from scratch on Flickr30k • Recall@10: 20.26% • 345 tests passing
+          VectorMind — Trained from scratch on Flickr30k • Test R@10: 19.6% I2T / 15.1% T2I
         </div>
       </footer>
     </div>
