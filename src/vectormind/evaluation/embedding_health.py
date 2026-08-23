@@ -83,7 +83,12 @@ class EmbeddingHealth:
         text_dim_variance: Mean per-dimension variance of text
             embeddings.
         num_samples: Number of embedding pairs the statistics used.
-        collapsed: True if any collapse threshold was crossed.
+        collapsed: True if any collapse threshold was crossed. Strict:
+            unchanged by the introduction of ``grade``.
+        grade: ``"HEALTHY"``, ``"ANISOTROPIC"`` or ``"COLLAPSED"``.
+            ANISOTROPIC means separation clears its floor — retrieval is
+            meaningful — while the space still carries a shared
+            directional component.
         verdict: Short human-readable summary.
     """
 
@@ -98,6 +103,7 @@ class EmbeddingHealth:
     text_dim_variance: float
     num_samples: int
     collapsed: bool
+    grade: str
     verdict: str
 
     def to_dict(self) -> dict[str, Any]:
@@ -236,7 +242,8 @@ def compute_embedding_health(
     text_mean_cosine = _mean_offdiagonal_cosine(txt_s)
 
     failures: list[str] = []
-    if separation < SEPARATION_COLLAPSE_THRESHOLD:
+    separation_failed = separation < SEPARATION_COLLAPSE_THRESHOLD
+    if separation_failed:
         failures.append(
             f"separation {separation:.3f} < {SEPARATION_COLLAPSE_THRESHOLD}"
         )
@@ -252,13 +259,37 @@ def compute_embedding_health(
             f"{ANISOTROPY_COLLAPSE_THRESHOLD}"
         )
 
+    # `collapsed` stays strict: any failed threshold sets it. The grade
+    # adds resolution, not leniency — no threshold has been moved.
+    #
+    # The distinction it draws is real. Separation is what retrieval
+    # rests on, so a space that clears it while still carrying a shared
+    # directional component is usable but not clean, and that is a
+    # different state from one where matched and unmatched pairs are
+    # indistinguishable. Reporting both as a flat "COLLAPSED" was how
+    # a 0.094-separation checkpoint and a 0.330-separation one ended up
+    # described identically.
     collapsed = bool(failures)
-    verdict = (
-        "COLLAPSED — " + "; ".join(failures)
-        if collapsed
-        else f"HEALTHY — separation {separation:.3f}, "
-        f"max mean-cosine {max(image_mean_cosine, text_mean_cosine):.3f}"
-    )
+    if not failures:
+        grade = "HEALTHY"
+    elif separation_failed:
+        grade = "COLLAPSED"
+    else:
+        grade = "ANISOTROPIC"
+
+    if grade == "HEALTHY":
+        verdict = (
+            f"HEALTHY — separation {separation:.3f}, "
+            f"max mean-cosine {max(image_mean_cosine, text_mean_cosine):.3f}"
+        )
+    elif grade == "ANISOTROPIC":
+        verdict = (
+            f"ANISOTROPIC — separation {separation:.3f} is above the "
+            f"{SEPARATION_COLLAPSE_THRESHOLD} floor, so retrieval is "
+            f"meaningful, but " + "; ".join(failures)
+        )
+    else:
+        verdict = "COLLAPSED — " + "; ".join(failures)
 
     health = EmbeddingHealth(
         matched_similarity=matched,
@@ -272,6 +303,7 @@ def compute_embedding_health(
         text_dim_variance=text_dim_variance,
         num_samples=n,
         collapsed=collapsed,
+        grade=grade,
         verdict=verdict,
     )
 

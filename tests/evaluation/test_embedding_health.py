@@ -157,3 +157,69 @@ class TestSerialization:
         for key, value in health.to_dict().items():
             if isinstance(value, float):
                 assert math.isfinite(value), f"{key} is not finite"
+
+
+class TestGrade:
+    """Three states, because two conflated genuinely different spaces.
+
+    A 0.094-separation checkpoint and a 0.330-separation one were both
+    reported as "COLLAPSED". Separation is what retrieval rests on, so a
+    space that clears its floor while still carrying a shared
+    directional component is usable-but-not-clean — a different thing
+    from one where matched and unmatched pairs are indistinguishable.
+    """
+
+    def test_healthy_space_grades_healthy(self) -> None:
+        health = compute_embedding_health(*_healthy_pair())
+        assert health.grade == "HEALTHY"
+        assert health.collapsed is False
+
+    def test_cone_grades_collapsed(self) -> None:
+        health = compute_embedding_health(*_collapsed_pair())
+        assert health.grade == "COLLAPSED"
+
+    def test_collapsed_grade_requires_separation_to_fail(self) -> None:
+        """COLLAPSED is reserved for a failed separation, not any failure."""
+        health = compute_embedding_health(*_collapsed_pair())
+        assert health.separation < SEPARATION_COLLAPSE_THRESHOLD
+
+    def test_good_separation_with_shared_direction_grades_anisotropic(
+        self,
+    ) -> None:
+        torch.manual_seed(0)
+        axis = _normalize(torch.randn(1, DIM))
+        image = _normalize(axis * 2.0 + torch.randn(N, DIM) * 0.6)
+        text = _normalize(axis * 2.0 + torch.randn(N, DIM) * 0.6)
+        text = _normalize(0.55 * image + 0.45 * text)
+
+        health = compute_embedding_health(image, text)
+        assert health.separation > SEPARATION_COLLAPSE_THRESHOLD
+        assert health.grade == "ANISOTROPIC"
+        # The strict flag must not have been softened by the grade.
+        assert health.collapsed is True
+
+    def test_anisotropic_verdict_explains_the_distinction(self) -> None:
+        torch.manual_seed(0)
+        axis = _normalize(torch.randn(1, DIM))
+        image = _normalize(axis * 2.0 + torch.randn(N, DIM) * 0.6)
+        text = _normalize(0.55 * image + 0.45 * _normalize(
+            axis * 2.0 + torch.randn(N, DIM) * 0.6
+        ))
+        verdict = compute_embedding_health(image, text).verdict
+        assert verdict.startswith("ANISOTROPIC")
+        assert "retrieval is" in verdict
+
+    def test_worse_modality_determines_the_grade(self) -> None:
+        """Health is max() over modalities: one bad tower is enough."""
+        torch.manual_seed(0)
+        axis = _normalize(torch.randn(1, DIM))
+        image = _normalize(torch.randn(N, DIM))          # spread
+        text = _normalize(axis + 0.06 * torch.randn(N, DIM))  # cone
+        health = compute_embedding_health(image, text)
+        assert health.image_mean_cosine < 0.2
+        assert health.text_mean_cosine > 0.5
+        assert health.collapsed is True
+
+    def test_grade_is_serialized(self) -> None:
+        payload = compute_embedding_health(*_healthy_pair()).to_dict()
+        assert payload["grade"] == "HEALTHY"
