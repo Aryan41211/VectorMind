@@ -43,7 +43,11 @@ from vectormind.models.vectormind_model import (
     DEFAULT_MAX_LOGIT_SCALE,
     VectorMindModel,
 )
-from vectormind.training.checkpoint import load_checkpoint, save_checkpoint
+from vectormind.training.checkpoint import (
+    load_checkpoint,
+    read_checkpoint_metric,
+    save_checkpoint,
+)
 from vectormind.training.logger import TrainingLogger
 from vectormind.training.memory_queue import MemoryQueue
 from vectormind.training.oom import run_step_with_oom_retry
@@ -314,7 +318,18 @@ def main() -> None:
     )
 
     best_val_recall = 0.0
+    # Recover the best-so-far from the existing best checkpoint. Starting
+    # at 0.0 after a resume means the first completed epoch always wins
+    # the comparison and overwrites best_model.pt however bad it is —
+    # which replaced a 17.46% R@10 checkpoint with a 10.51% one.
     best_val_recall10 = 0.0
+    if args.resume:
+        best_val_recall10 = read_checkpoint_metric(
+            checkpoint_dir / "best_model.pt", "recall@10"
+        )
+        logger.info(
+            "  Best-so-far restored: val R@10=%.4f", best_val_recall10
+        )
     training_start = time.time()
     first_epoch_metrics: dict[str, float] | None = None
     last_epoch_metrics: dict[str, float] | None = None
@@ -515,6 +530,7 @@ def main() -> None:
                     epoch=epoch,
                     step=global_step,
                     config=training_config,
+                    metrics=val_metrics,
                 )
                 epochs_without_improvement = 0
                 logger.info(

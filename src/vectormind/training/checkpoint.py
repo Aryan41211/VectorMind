@@ -48,6 +48,7 @@ def save_checkpoint(
     epoch: int,
     step: int,
     config: dict[str, Any] | None = None,
+    metrics: dict[str, float] | None = None,
 ) -> None:
     """Save complete training state to a checkpoint file.
 
@@ -60,6 +61,10 @@ def save_checkpoint(
         epoch: Current epoch number.
         step: Current global step number.
         config: Optional configuration dict to include in metadata.
+        metrics: Optional validation metrics achieved by this
+            checkpoint. Stored so a resumed run can recover the
+            best-so-far score instead of restarting the comparison from
+            zero and overwriting a better checkpoint with a worse one.
 
     Raises:
         OSError: If the file cannot be written.
@@ -101,6 +106,8 @@ def save_checkpoint(
         "step": step,
         "num_params": sum(p.numel() for p in model.parameters()),
     }
+    if metrics is not None:
+        metadata["metrics"] = dict(metrics)
     if config is not None:
         metadata["config_hash"] = hashlib.sha256(
             json.dumps(config, sort_keys=True).encode()
@@ -202,3 +209,54 @@ def load_checkpoint(
     )
 
     return epoch, step
+
+
+def read_checkpoint_metric(
+    path: str | Path,
+    key: str,
+    default: float = 0.0,
+) -> float:
+    """Read one recorded validation metric from a checkpoint.
+
+    Used on resume to recover the best-so-far score. Without it,
+    ``best_val_recall10`` restarts at zero and the first epoch after a
+    resume overwrites ``best_model.pt`` whatever its score — which is
+    how a checkpoint at 17.46% R@10 was replaced by one at 10.51%.
+
+    Args:
+        path: Checkpoint file. A missing file is not an error.
+        key: Metric name, e.g. ``"recall@10"``.
+        default: Returned when the file, the metadata, or the key is
+            absent.
+
+    Returns:
+        The recorded value, or ``default``.
+
+    Assumptions:
+        Reads with ``weights_only=False`` because the metadata is a
+        plain dict rather than tensors. Only load checkpoints you
+        produced.
+    """
+    path = Path(path)
+    if not path.exists():
+        return default
+
+    try:
+        checkpoint = torch.load(path, map_location="cpu", weights_only=False)
+    except Exception as error:  # noqa: BLE001 - a corrupt file must not
+        # abort a training run that is otherwise ready to start.
+        logger.warning("Could not read %s: %s", path, error)
+        return default
+
+    metrics = checkpoint.get("metadata", {}).get("metrics")
+    if not isinstance(metrics, dict) or key not in metrics:
+        logger.warning(
+            "%s records no '%s'; best-so-far starts at %.4f. A checkpoint "
+            "saved before metrics were recorded may be overwritten.",
+            path,
+            key,
+            default,
+        )
+        return default
+
+    return float(metrics[key])

@@ -6,9 +6,13 @@ import pytest
 import torch
 
 from vectormind.models.vectormind_model import VectorMindModel
-from vectormind.training.checkpoint import load_checkpoint, save_checkpoint
+from vectormind.training.checkpoint import (
+    load_checkpoint,
+    read_checkpoint_metric,
+    save_checkpoint,
+)
 from vectormind.training.memory_queue import MemoryQueue
-from vectormind.training.train_loop import create_scaler
+from vectormind.training.train_loop import create_optimizer, create_scaler
 
 # ---------------------------------------------------------------------------
 # Config fixtures
@@ -305,3 +309,77 @@ class TestCheckpointErrors:
                 create_scaler(),
                 queue2,
             )
+
+
+class TestBestCheckpointMetrics:
+    """A resumed run must not overwrite a better checkpoint.
+
+    save_checkpoint recorded no score, and train.py reset its
+    best-so-far to 0.0 on resume, so the first epoch after any resume
+    won the comparison unconditionally. That replaced a checkpoint at
+    17.46% val R@10 with one at 10.51%.
+    """
+
+    def _save(self, tmp_path, small_config, metrics=None):
+        config = small_config
+        model = VectorMindModel(config)
+        optimizer = create_optimizer(model)
+        scaler = torch.amp.GradScaler("cpu", enabled=False)
+        queue = MemoryQueue(queue_size=8, embed_dim=config["embedding"]["shared_dim"])
+        path = tmp_path / "best_model.pt"
+        save_checkpoint(
+            path=path,
+            model=model,
+            optimizer=optimizer,
+            scaler=scaler,
+            memory_queue=queue,
+            epoch=3,
+            step=100,
+            metrics=metrics,
+        )
+        return path
+
+    def test_records_metrics_in_metadata(self, tmp_path, small_config):
+        path = self._save(tmp_path, small_config, {"recall@10": 0.1746, "recall@1": 0.0343})
+        checkpoint = torch.load(path, map_location="cpu", weights_only=False)
+        assert checkpoint["metadata"]["metrics"]["recall@10"] == pytest.approx(0.1746)
+
+    def test_reads_the_recorded_metric_back(self, tmp_path, small_config):
+        path = self._save(tmp_path, small_config, {"recall@10": 0.1746})
+        assert read_checkpoint_metric(path, "recall@10") == pytest.approx(0.1746)
+
+    def test_missing_file_returns_the_default(self, tmp_path):
+        """A first run has no best checkpoint; that is not an error."""
+        assert read_checkpoint_metric(tmp_path / "nope.pt", "recall@10") == 0.0
+
+    def test_checkpoint_without_metrics_returns_the_default(
+        self, tmp_path, small_config
+    ):
+        """Checkpoints predating this change must still be resumable."""
+        path = self._save(tmp_path, small_config, metrics=None)
+        assert read_checkpoint_metric(path, "recall@10") == 0.0
+
+    def test_absent_key_returns_the_default(self, tmp_path, small_config):
+        path = self._save(tmp_path, small_config, {"recall@1": 0.03})
+        assert read_checkpoint_metric(path, "recall@10") == 0.0
+
+    def test_honours_a_custom_default(self, tmp_path):
+        assert (
+            read_checkpoint_metric(tmp_path / "nope.pt", "recall@10", default=0.5)
+            == 0.5
+        )
+
+    def test_corrupt_file_does_not_abort_the_run(self, tmp_path):
+        """A damaged best checkpoint must not stop training from starting."""
+        path = tmp_path / "best_model.pt"
+        path.write_bytes(b"not a checkpoint")
+        assert read_checkpoint_metric(path, "recall@10") == 0.0
+
+    def test_metrics_survive_a_full_round_trip(self, tmp_path, small_config):
+        """The regression guard: resume recovers the real best-so-far."""
+        path = self._save(tmp_path, small_config, {"recall@10": 0.1746})
+        recovered = read_checkpoint_metric(path, "recall@10")
+        worse_epoch_score = 0.1051
+        assert worse_epoch_score < recovered, (
+            "a worse epoch must not beat the restored best-so-far"
+        )
