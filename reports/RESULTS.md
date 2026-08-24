@@ -7,9 +7,9 @@ in a single run against a single checkpoint. Regenerate with:
 python scripts/generate_reports.py --checkpoint checkpoints/train/best_model.pt
 ```
 
-**Checkpoint:** `checkpoints/train/best_model.pt` (epoch 10, step 10923)  
-**Learned logit scale:** 23.38  
-**Generated:** 2026-08-24 08:27 UTC
+**Checkpoint:** `checkpoints/train/best_model.pt` (epoch 11, step 11916)  
+**Learned logit scale:** 24.33  
+**Generated:** 2026-08-24 11:00 UTC
 
 ---
 
@@ -24,23 +24,23 @@ overstates chance when an image has five valid captions.
 
 | Direction | K | Measured | Chance | vs chance |
 |---|---|---|---|---|
-| image → text | 1 | 5.92% | 0.03% | 188.0× |
-| image → text | 5 | 17.68% | 0.16% | 112.5× |
-| image → text | 10 | 25.77% | 0.31% | 82.0× |
-| text → image | 1 | 5.00% | 0.03% | 159.0× |
-| text → image | 5 | 15.36% | 0.16% | 97.6× |
-| text → image | 10 | 23.14% | 0.31% | 73.5× |
+| image → text | 1 | 7.17% | 0.03% | 228.0× |
+| image → text | 5 | 20.01% | 0.16% | 127.3× |
+| image → text | 10 | 29.30% | 0.31% | 93.2× |
+| text → image | 1 | 5.64% | 0.03% | 179.2× |
+| text → image | 5 | 16.94% | 0.16% | 107.6× |
+| text → image | 10 | 24.92% | 0.31% | 79.2× |
 
 ### Test split (3179 images, 15895 captions)
 
 | Direction | K | Measured | Chance | vs chance |
 |---|---|---|---|---|
-| image → text | 1 | 6.29% | 0.03% | 200.0× |
-| image → text | 5 | 17.77% | 0.16% | 113.1× |
-| image → text | 10 | 25.64% | 0.31% | 81.6× |
-| text → image | 1 | 5.06% | 0.03% | 160.8× |
-| text → image | 5 | 15.50% | 0.16% | 98.6× |
-| text → image | 10 | 23.07% | 0.31% | 73.3× |
+| image → text | 1 | 7.71% | 0.03% | 245.0× |
+| image → text | 5 | 20.60% | 0.16% | 131.1× |
+| image → text | 10 | 28.91% | 0.31% | 92.0× |
+| text → image | 1 | 5.71% | 0.03% | 181.4× |
+| text → image | 5 | 17.33% | 0.16% | 110.2× |
+| text → image | 10 | 25.20% | 0.31% | 80.1× |
 
 ## Embedding health
 
@@ -52,17 +52,17 @@ would have caught it.
 
 | Metric | Value | Healthy |
 |---|---|---|
-| Matched similarity | 0.5993 | high |
-| Unmatched similarity | 0.2551 | ≈ 0 |
-| **Separation** | **0.3442** | **large** |
-| Mean image–image cosine | 0.3536 | ≈ 0 |
-| Mean text–text cosine | 0.3846 | ≈ 0 |
-| ‖mean image embedding‖ | 0.5948 | ≈ 0 |
-| Per-dimension variance | 0.002525 | — |
+| Matched similarity | 0.6036 | high |
+| Unmatched similarity | 0.2569 | ≈ 0 |
+| **Separation** | **0.3467** | **large** |
+| Mean image–image cosine | 0.3452 | ≈ 0 |
+| Mean text–text cosine | 0.3859 | ≈ 0 |
+| ‖mean image embedding‖ | 0.5877 | ≈ 0 |
+| Per-dimension variance | 0.002558 | — |
 
 **Grade:** ANISOTROPIC
 
-ANISOTROPIC — separation 0.344 is above the 0.25 floor, so retrieval is meaningful, but ||mean embedding|| 0.620 > 0.5
+ANISOTROPIC — separation 0.347 is above the 0.25 floor, so retrieval is meaningful, but ||mean embedding|| 0.621 > 0.5
 
 Reference points from this project's own runs: the Phase 3.5
 tiny-subset overfit reached separation 0.964; the unclamped
