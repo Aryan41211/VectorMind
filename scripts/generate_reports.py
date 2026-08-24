@@ -42,12 +42,17 @@ import torch
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _data_helpers import load_flickr30k_from_hf
+from _data_helpers import build_eval_loaders
 
-from vectormind.data.dataloader import create_dataloaders
-from vectormind.data.splitter import create_splits
-from vectormind.data.tokenizer import CaptionTokenizer
-from vectormind.data.transforms import get_eval_transforms, get_train_transforms
+from vectormind.evaluation.embedding_health import (
+    ANISOTROPY_COLLAPSE_THRESHOLD as ANISOTROPY_CEILING,
+)
+from vectormind.evaluation.embedding_health import (
+    MEAN_NORM_COLLAPSE_THRESHOLD as MEAN_NORM_CEILING,
+)
+from vectormind.evaluation.embedding_health import (
+    SEPARATION_COLLAPSE_THRESHOLD as SEPARATION_FLOOR,
+)
 from vectormind.evaluation.evaluator import SplitMetrics, evaluate_split
 from vectormind.models.vectormind_model import VectorMindModel
 from vectormind.utils.config import load_config
@@ -134,48 +139,6 @@ def random_baseline(k: int, n_candidates: int, n_relevant: int = 1) -> float:
             return 1.0
         p_none *= non_relevant / remaining
     return 1.0 - p_none
-
-
-def build_loaders(
-    data_config: dict[str, Any],
-    batch_size: int | None,
-) -> dict[str, Any]:
-    """Build val and test dataloaders from the configured dataset.
-
-    Args:
-        data_config: Parsed configs/data.yaml.
-        batch_size: Optional override for evaluation batch size.
-
-    Returns:
-        Mapping of split name to DataLoader.
-    """
-    cfg = dict(data_config)
-    cfg["dataset"] = dict(data_config["dataset"])
-    if batch_size is not None:
-        cfg["dataset"]["batch_size"] = batch_size
-
-    cache_dir = cfg["dataset"]["local_cache_dir"]
-    image_paths, captions = load_flickr30k_from_hf(cache_dir)
-    train_pairs, val_pairs, test_pairs = create_splits(
-        config=cfg,
-        image_paths=[Path(p) for p in image_paths],
-        captions=captions,
-    )
-
-    tokenizer = CaptionTokenizer(
-        tokenizer_name=cfg["dataset"]["tokenizer_name"],
-        max_length=cfg["dataset"]["max_text_length"],
-    )
-    _, val_loader, test_loader = create_dataloaders(
-        config=cfg,
-        train_pairs=train_pairs,
-        val_pairs=val_pairs,
-        test_pairs=test_pairs,
-        train_transform=get_train_transforms(cfg),
-        eval_transform=get_eval_transforms(cfg),
-        tokenizer=tokenizer,
-    )
-    return {"val": val_loader, "test": test_loader}
 
 
 def summarize(metrics: SplitMetrics, captions_per_image: int) -> dict[str, Any]:
@@ -291,15 +254,23 @@ def write_results_markdown(
         "and whose report called it HEALTHY. These are the numbers that",
         "would have caught it.",
         "",
-        "| Metric | Value | Healthy |",
+        "| Metric | Value | Threshold |",
         "|---|---|---|",
         f"| Matched similarity | {health['matched_similarity']:.4f} | high |",
         f"| Unmatched similarity | {health['unmatched_similarity']:.4f} | ≈ 0 |",
-        f"| **Separation** | **{health['separation']:.4f}** | **large** |",
-        f"| Mean image–image cosine | {health['image_mean_cosine']:.4f} | ≈ 0 |",
-        f"| Mean text–text cosine | {health['text_mean_cosine']:.4f} | ≈ 0 |",
-        f"| ‖mean image embedding‖ | {health['image_mean_norm']:.4f} | ≈ 0 |",
+        f"| **Separation** | **{health['separation']:.4f}** | > {SEPARATION_FLOOR} |",
+        f"| Mean image–image cosine | {health['image_mean_cosine']:.4f} "
+        f"| < {ANISOTROPY_CEILING} |",
+        f"| Mean text–text cosine | {health['text_mean_cosine']:.4f} "
+        f"| < {ANISOTROPY_CEILING} |",
+        f"| ‖mean image embedding‖ | {health['image_mean_norm']:.4f} "
+        f"| < {MEAN_NORM_CEILING} |",
+        f"| ‖mean text embedding‖ | {health['text_mean_norm']:.4f} "
+        f"| < {MEAN_NORM_CEILING} |",
         f"| Per-dimension variance | {health['image_dim_variance']:.6f} | — |",
+        "",
+        "The two norm rows are graded as their maximum, which is why the",
+        "verdict below quotes the larger of them.",
         "",
         f"**Grade:** {health['grade']}",
         "",
@@ -340,11 +311,18 @@ def main() -> None:
     model.load_state_dict(ckpt["model_state_dict"])
     model.to(device).eval()
 
-    epoch = int(ckpt.get("epoch", -1))
+    # Checkpoints store the training loop's 0-based epoch index, but
+    # every document in this project counts epochs from 1 — the shipped
+    # checkpoint is "epoch 12", stored as 11 and saved as epoch_012.pt.
+    # Reporting the raw index is how RESULTS.md came to say epoch 11
+    # while ROADMAP.md and PROJECT_STATUS.md said epoch 12 for the same
+    # weights.
+    raw_epoch = int(ckpt.get("epoch", -1))
+    epoch = raw_epoch + 1 if raw_epoch >= 0 else -1
     step = int(ckpt.get("step", -1))
     logit_scale = float(model.temperature.item())
 
-    loaders = build_loaders(data_config, args.batch_size)
+    loaders = build_eval_loaders(data_config, args.batch_size)
 
     per_split: dict[str, dict[str, Any]] = {}
     test_metrics: SplitMetrics | None = None
