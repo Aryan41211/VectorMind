@@ -344,12 +344,17 @@ R@10 is 19.63% (vs val 20.23%), a normal ~0.6pp generalization gap.
 5. Strong scene understanding, weak fine-grained action recognition
 6. Reasonable generalization: val-test gap ~0.6pp at R@10
 
-**Documentation:**
-- Test metrics: reports/phase5_test_metrics.json
-- Val metrics: reports/phase5_val_metrics.json
-- Embedding diagnostics: reports/phase5_embedding_diagnostics.json
+**Documentation (superseded artifacts):**
 - Qualitative analysis: reports/phase5_qualitative_analysis.md
 - Final report: reports/phase5_final_report.md
+
+> The three `phase5_*_metrics.json` files this section used to link no
+> longer exist. They were hand-assembled and disagreed with each other
+> ([docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md) §8); `reports/` is now
+> written in one pass by `scripts/generate_reports.py` into
+> `metrics_val.json`, `metrics_test.json`,
+> `embedding_diagnostics.json`, `checkpoint_summary.json` and
+> `RESULTS.md`.
 
 ---
 

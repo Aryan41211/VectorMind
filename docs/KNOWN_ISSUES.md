@@ -261,9 +261,30 @@ config.
 
 ---
 
-## 8. `reports/` numbers are mutually inconsistent
+## 8. `reports/` numbers are mutually inconsistent ✅ FIXED (2026-08-24/25)
 
-Three files describe the same evaluation and disagree:
+**Fixed by `scripts/generate_reports.py`**, which writes every metric
+file in one pass from one checkpoint. The three files below no longer
+exist; `metrics_val.json`, `metrics_test.json`,
+`embedding_diagnostics.json`, `checkpoint_summary.json` and
+`RESULTS.md` replace them, and `checkpoint_summary.json` no longer
+carries a `temperature_discrepancy` field because there is nothing left
+to disagree with.
+
+Two residual mismatches were closed on 2026-08-25:
+
+- `RESULTS.md` reported the checkpoint as **epoch 11** where every other
+  document said epoch 12. Both were describing the same weights: the
+  checkpoint stores the training loop's 0-based index. The report now
+  prints the human epoch number.
+- The health table listed only `||mean image embedding||` (0.588) while
+  the verdict beside it quoted 0.621 — the *text* norm, which is the
+  larger of the two and therefore the graded one. Both norms are now in
+  the table, with the thresholds they are graded against.
+
+The original defect, for the record:
+
+Three files described the same evaluation and disagreed:
 
 - `phase5_embedding_diagnostics.json` — matched 0.45 / unmatched 0.12, separation 0.33
 - `phase5_qualitative_analysis.md` — every listed retrieval score is 0.97–0.99, for correct *and* incorrect results

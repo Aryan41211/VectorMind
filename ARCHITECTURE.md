@@ -143,6 +143,31 @@ the bound; weight decay was noise.
 
 See `docs/KNOWN_ISSUES.md` §1.
 
+### 5.2 Optional uniformity term
+
+**Decision (2026-08-24):** the loss can carry a second term — Wang &
+Isola's uniformity penalty, the log of the mean Gaussian kernel over
+pairwise distances within each modality — behind a config weight at
+`configs/training.yaml → uniformity.weight`.
+
+**Why it exists:** InfoNCE alone left the converged model with a shared
+directional component. Every embedding carried it, so the mean image
+embedding had length 0.62 on a scale where 0 is ideal, and the health
+grade was ANISOTROPIC rather than HEALTHY. Uniformity attacks exactly
+that: it pays the model to spread non-matching pairs over the sphere.
+
+**Why it is a weight and not a default.** It trades against retrieval,
+and the trade is measurable rather than theoretical (EXPERIMENTS.md 008,
+009). Both towers are penalized, because the health grade takes the
+worse of the two and regularizing one would simply let the other drift.
+
+The implementation is `src/vectormind/training/uniformity.py`, and 0.0
+reproduces InfoNCE-only training exactly — the term is not added to the
+graph at all — so the weight is a genuine A/B knob rather than a code
+path that has to be trusted.
+
+See `docs/KNOWN_ISSUES.md` §12.
+
 ---
 
 ## 6. VRAM-Constrained Batch Strategy (critical)
@@ -277,11 +302,18 @@ src/vectormind/
 │   └── vectormind_model.py  → combines towers + heads into one model
 ├── training/
 │   ├── losses.py            → §5 (InfoNCE)
+│   ├── uniformity.py        → §5.2 (optional uniformity term)
 │   ├── memory_queue.py      → §6 (MoCo-style queue)
 │   ├── train_loop.py        → training loop, mixed precision, accumulation
+│   ├── oom.py               → retry a step that lost its allocation
 │   ├── checkpoint.py        → save/load full training state
 │   └── logger.py            → TensorBoard metrics logging
-├── evaluation/    → Phase 4: Recall@K, embedding diagnostics
+├── evaluation/    → Phase 4/5: Recall@K, embedding health, diagnostics
+│   ├── evaluator.py         → one implementation every script calls
+│   ├── embedding_health.py  → separation/anisotropy grading
+│   ├── retrieval.py         → recall, examples, failure statistics
+│   ├── memorization.py      → Phase 3.5 overfit checks
+│   └── projection.py        → 2D projection + modality gap, for reports
 └── utils/         → logging, checkpointing, seeding, config loading
 ```
 
