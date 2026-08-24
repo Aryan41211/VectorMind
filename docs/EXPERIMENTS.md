@@ -1,6 +1,6 @@
 # EXPERIMENTS.md — VectorMind
 
-Experiment tracking log. Six runs have been executed and are recorded
+Experiment tracking log. Seven runs have been executed and are recorded
 below. Experiments 004-006 supersede 002's memory-queue conclusion —
 see 006 for the controlled re-run that reverses it. This file defines the template every future experiment must
 follow, so the log stays consistent from the first real run onward.
@@ -429,3 +429,55 @@ Implement a momentum encoder and re-run this A/B a third time. That is
 the difference between "a queue does not work here" and "a queue does
 not work here *without the mechanism that makes it work elsewhere*",
 and only the second statement is actually about MoCo.
+
+---
+
+### Experiment 007 — Does training past epoch 12 help?
+
+**Date:** 2026-08-24
+**Phase:** 4b
+**Config file(s) used:** `configs/training.yaml`, `--no-queue`
+
+**Hypothesis:** the epoch-12 checkpoint was reached by a run that had
+been interrupted, not by convergence, and validation was still climbing
+when it stopped. More epochs should improve it further.
+
+**Setup:** resume from `best_model.pt` (epoch 12) and continue toward
+the configured 20 epochs, with the queue still disabled.
+
+**Evaluation Metrics:**
+
+| Epoch | Train loss | Val R@10 | Separation | ‖mean embedding‖ |
+|---|---|---|---|---|
+| 12 (start) | 1.70 | **29.30%** | 0.356 | 0.613 |
+| 13 | 1.57 | no improvement | 0.356 | 0.568 |
+| 14 | 1.46 | no improvement | 0.344 | 0.568 |
+
+**Observations:**
+Training loss fell by 14% across the two epochs while validation R@10
+did not improve at all. Separation held and then declined slightly.
+
+That combination — training loss falling, validation flat — is the
+standard signature of a model that has started fitting its training
+split. At 25,426 training images and 24M parameters it is unsurprising
+that this arrives around epoch 12.
+
+Worth noting what did *not* happen: no collapse. The logit scale sat
+around 26 against its ceiling of 100, and separation stayed near 0.35.
+The failure mode of the original Phase 4 run is genuinely gone — this is
+ordinary convergence, which is a much better problem to have.
+
+**Conclusions:**
+Hypothesis REJECTED. Epoch 12 is the converged checkpoint and is the
+shipped model. Early stopping at patience 5 would have selected the same
+weights at epoch 17.
+
+The practical value of this result is negative-but-useful: it closes off
+"train longer" as an option, so any further accuracy work has to be
+architectural.
+
+**Future Improvements:**
+Three candidates, in order of expected value:
+1. A momentum encoder, making the memory queue usable rather than harmful (Experiment 006, FUTURE_IDEAS.md).
+2. A uniformity term targeting ‖mean embedding‖ 0.621 — the one health threshold the model still fails.
+3. More data. Flickr30k is 31k images; the constraint is the project's premise rather than an oversight.
