@@ -1,0 +1,64 @@
+# Overlay that puts a TLS terminator in front of the demo.
+#
+# The base compose file publishes the app's nginx on ${FRONTEND_PORT}
+# over plain HTTP, which is right for local use and not something to
+# expose to the internet. This overlay:
+#
+#   1. rebinds that port to the loopback interface, so the only way in
+#      from outside is through Caddy;
+#   2. adds Caddy on 80/443, which obtains and renews a Let's Encrypt
+#      certificate for $DOMAIN automatically.
+#
+# Usage:
+#
+#   DOMAIN=demo.example.com TLS_EMAIL=you@example.com \
+#     docker compose -f deployment/docker-compose.yml \
+#                    -f deployment/docker-compose.tls.yml up -d
+#
+# Combine with docker-compose.auth.yml for a private demo behind both
+# TLS and HTTP Basic auth — that is the combination worth using, since
+# Basic auth over plain HTTP protects nothing.
+#
+# Status: written, not yet run against a real domain (docs/DEPLOYMENT.md
+# says the same). Everything it depends on — the frontend's nginx, its
+# healthcheck, the backend's /ready gate — has been run.
+
+services:
+  frontend:
+    ports:
+      # Loopback only. Overriding the base file's mapping rather than
+      # removing it, because compose merges port lists by replacement
+      # for the same container port and there is no "unpublish" syntax.
+      - "127.0.0.1:${FRONTEND_PORT:-8080}:80"
+
+  caddy:
+    image: caddy:2-alpine
+    depends_on:
+      frontend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # No defaults: an unset DOMAIN would make Caddy serve on a
+      # placeholder name and fail issuance in a way that reads like a
+      # certificate problem rather than a missing variable.
+      DOMAIN: ${DOMAIN:?set DOMAIN to the public hostname}
+      TLS_EMAIL: ${TLS_EMAIL:?set TLS_EMAIL for Let's Encrypt notices}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificates and the ACME account key. Without this volume every
+      # restart re-issues, and Let's Encrypt's rate limit (5 duplicate
+      # certificates per week) turns a few restarts into a week of
+      # plain HTTP.
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+volumes:
+  caddy_data:
+  caddy_config:

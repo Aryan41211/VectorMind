@@ -21,8 +21,9 @@ stack run end to end on this machine.** What was actually observed:
 | Request correlation | ✅ `X-Request-ID` on every response |
 | Rate limiting | ✅ 429 after the configured 30/minute |
 
-Still not verified: CI has never been observed green on GitHub, and
-there is no public deployment.
+CI has since been observed green (run 32756952454, all five jobs).
+Still not verified: there is no public deployment — the runbook below is
+written but has not been executed.
 
 ---
 
@@ -165,11 +166,148 @@ Two values to revisit before exposing this publicly:
 
 Honest list of what this deployment is not.
 
-1. **No TLS.** Nothing here terminates HTTPS, and the security headers deliberately omit HSTS, which belongs on whatever does. Put this behind a TLS terminator before it faces the internet.
+1. **No TLS in the default stack.** The base compose file serves plain HTTP, and its security headers deliberately omit HSTS, which belongs on whichever hop terminates TLS. `deployment/docker-compose.tls.yml` adds Caddy for that and sets HSTS there — written, not yet run against a real domain (see "Going public").
 2. **Single machine, single worker.** The rate limiter holds per-process state, so horizontal scaling silently multiplies the effective limit. Kubernetes and managed endpoints are explicitly out of scope — see [FUTURE_IDEAS.md](FUTURE_IDEAS.md).
 3. **No metrics or tracing.** Structured logs with request ids are all the observability there is. Adequate for a demo, not for anything on call.
 4. **CPU inference.** The image installs CPU torch, and only the packages serving actually imports (`requirements-serving.txt`). Measured through the proxy: 8-19ms warm, 2.07s on the first query while the tokenizer and first forward pass warm up. Fine at this corpus size; GPU serving would need the CUDA base image and a runtime with device access.
 5. **No authentication.** Every endpoint is public. There is nothing to protect but the GPU, which is what the rate limit is for.
+
+---
+
+## Going public
+
+Everything above runs the stack on a machine you are already sitting at.
+This section is the remaining Phase 7 deliverable: the same stack, on a
+host with a public name and a certificate.
+
+**Status: written, not executed.** Nothing in this section has been run
+against a real host or domain, and it is marked as such deliberately —
+this project has a history of documents describing intentions in the
+same voice as results (docs/KNOWN_ISSUES.md §5).
+
+### What the host needs
+
+Sized from what was actually measured locally, not guessed:
+
+| Resource | Needed | Where it goes |
+|---|---|---|
+| RAM | **4GB minimum**, 8GB comfortable | The backend container is capped at 4G in compose; the model plus both FAISS indices sit around 1.5GB resident |
+| Disk | **~12GB** | 2.17GB backend image, 93MB frontend image, 1.3GB Flickr30k images, 234MB indices, 278MB checkpoint, plus Docker overhead |
+| vCPU | 2 | Inference is CPU-only here: 8-19ms warm per query |
+| Ports | 80, 443 | Caddy. The app's own port stays on loopback |
+
+A €4-6/month VM (Hetzner CX22, DigitalOcean 2GB/2vCPU with an upgraded
+disk, Lightsail 4GB) is enough. **Do not size for 2GB RAM** — the
+backend limit alone is 4G, and the container will be OOM-killed
+mid-request rather than failing at startup where it would be obvious.
+
+Serverless and scale-to-zero platforms fit this badly: 1.3GB of images
+and a 234MB index have to live somewhere persistent, and a cold start
+that loads a 278MB checkpoint is a poor fit for a request-triggered
+container. A plain VM is both cheaper and simpler here.
+
+### Step 1 — provision and prepare the host
+
+```bash
+# On the VM, as a sudo-capable user
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker "$USER" && exec su -l "$USER"
+
+sudo ufw allow OpenSSH && sudo ufw allow 80 && sudo ufw allow 443
+sudo ufw enable
+```
+
+Point the domain's A record (and AAAA, if the host has IPv6) at the VM
+**before** starting Caddy. The HTTP-01 challenge is answered on port 80,
+so issuance fails while DNS is still propagating, and the failure reads
+like a certificate problem rather than a DNS one.
+
+### Step 2 — get the code and the artifacts there
+
+The repository clones; the three mounted artifacts do not, because none
+of them are in git (see Prerequisites above).
+
+```bash
+git clone https://github.com/<you>/VectorMind.git && cd VectorMind
+
+# From your development machine, in the repo root:
+rsync -avz --progress checkpoints/train/best_model.pt     <user>@<host>:VectorMind/checkpoints/train/
+rsync -avz --progress backend/indices/     <user>@<host>:VectorMind/backend/indices/
+rsync -avz --progress data/raw/flickr30k/images/     <user>@<host>:VectorMind/data/raw/flickr30k/images/
+```
+
+The images are the slow part — 1.3GB, and `rsync` resumes, which
+`scp` does not.
+
+**Alternative: build the index on the host.** If the upload is painful,
+copy only the checkpoint and the images, then run
+`python -m backend.index_builder --checkpoint checkpoints/train/best_model.pt --split all`
+there. On CPU that takes considerably longer than the ~10 minutes it
+takes on a GPU, so uploading is usually the better trade.
+
+### Step 3 — start it, with TLS
+
+```bash
+DOMAIN=demo.example.com TLS_EMAIL=you@example.com   docker compose -f deployment/docker-compose.yml                  -f deployment/docker-compose.tls.yml up -d --build
+```
+
+`deployment/docker-compose.tls.yml` rebinds the app's own port to
+loopback and puts Caddy on 80/443 with automatic certificate issuance
+and renewal. HSTS is set there, on the hop that actually terminates TLS.
+
+For a private demo, add HTTP Basic auth as well — worth doing if the
+link is going into a CV rather than onto the open internet:
+
+```bash
+docker run --rm httpd:alpine htpasswd -nbB <user> '<passphrase>'   > deployment/.htpasswd
+cp deployment/auth.conf.example deployment/auth.conf
+
+DOMAIN=demo.example.com TLS_EMAIL=you@example.com   docker compose -f deployment/docker-compose.yml                  -f deployment/docker-compose.tls.yml                  -f deployment/docker-compose.auth.yml up -d
+```
+
+Both credential files are gitignored. Basic auth is only meaningful
+behind TLS, which is why the overlays are used together.
+
+### Step 4 — verify, and record what you saw
+
+The claim in ROADMAP.md is "a reader can reach a live deployed instance",
+so the check is a real query from a browser on another network, not a
+`curl` from the host:
+
+```bash
+curl -sS https://demo.example.com/ready | python -m json.tool
+curl -sS -X POST https://demo.example.com/search/text   -H 'Content-Type: application/json'   -d '{"query": "a dog running through grass", "top_k": 5}'   | python -m json.tool
+```
+
+| Check | Expected |
+|---|---|
+| `/ready` | `"ready": true`, model and both indices loaded |
+| `num_indexed_images` | 31783 — the full corpus, not 3179 |
+| Text search | 5 results, distinct filenames, plausible for the query |
+| Image search | Upload from the browser returns ranked results |
+| Certificate | Valid, issued by Let's Encrypt, auto-renewing |
+| First query | Seconds (cold start); subsequent queries fast |
+
+Then update `ROADMAP.md` Phase 7, `docs/PROJECT_STATUS.md` and the
+verification table at the top of this file with the URL and the date —
+and only then. The point of the status tables in this repository is that
+they record what was observed.
+
+### Keeping it running
+
+- `restart: unless-stopped` is set on every service, so the stack comes back after a reboot. Verify it once with `sudo reboot` rather than assuming.
+- Watch disk. Docker image layers accumulate on rebuilds: `docker system prune -f` after a deploy.
+- The rate limiter is in-process at 30 requests/minute (`configs/serving.yaml`). Keep one backend worker, or the limit multiplies by worker count.
+- There is no metrics stack. `docker compose logs -f backend` and the request ids in each response are the observability, which is proportionate for a demo and stated as a gap below.
+
+### Cost, honestly
+
+A €4-6/month VM running continuously, plus a domain. If that is not
+worth it, the defensible alternative is to run the demo on request:
+record a screen capture (`docs/screenshots/`), keep the stack
+reproducible with one compose command, and say plainly in the README
+that the demo runs locally. What is not defensible is leaving a dead
+link in a portfolio.
 
 ---
 
