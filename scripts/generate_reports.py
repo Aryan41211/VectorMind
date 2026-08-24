@@ -44,21 +44,19 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _data_helpers import build_eval_loaders
 
-from vectormind.evaluation.embedding_health import (
-    ANISOTROPY_COLLAPSE_THRESHOLD as ANISOTROPY_CEILING,
-)
-from vectormind.evaluation.embedding_health import (
-    MEAN_NORM_COLLAPSE_THRESHOLD as MEAN_NORM_CEILING,
-)
-from vectormind.evaluation.embedding_health import (
-    SEPARATION_COLLAPSE_THRESHOLD as SEPARATION_FLOOR,
-)
+from vectormind.evaluation import embedding_health
 from vectormind.evaluation.evaluator import SplitMetrics, evaluate_split
 from vectormind.models.vectormind_model import VectorMindModel
 from vectormind.utils.config import load_config
 from vectormind.utils.logging_config import setup_logging
 
 logger = logging.getLogger(__name__)
+
+# Printed beside each health figure so a reader can see what it is being
+# graded against, rather than taking the verdict on trust.
+SEPARATION_FLOOR = embedding_health.SEPARATION_COLLAPSE_THRESHOLD
+MEAN_NORM_CEILING = embedding_health.MEAN_NORM_COLLAPSE_THRESHOLD
+ANISOTROPY_CEILING = embedding_health.ANISOTROPY_COLLAPSE_THRESHOLD
 
 # Random-chance baselines for the Flickr30k splits, used to state every
 # recall figure as a multiple of chance rather than as a bare number.

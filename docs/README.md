@@ -1,7 +1,7 @@
 # VectorMind Documentation
 
 Start with [../README.md](../README.md). This index says which document
-answers which question, so you do not have to open all sixteen.
+answers which question, so you do not have to open all seventeen.
 
 If any document here contradicts [../CLAUDE.md](../CLAUDE.md) or
 [../ARCHITECTURE.md](../ARCHITECTURE.md) §1-8, those two win — flag the
@@ -18,6 +18,7 @@ contradiction rather than silently picking one.
 | **What is broken or misleading?** | **[KNOWN_ISSUES.md](KNOWN_ISSUES.md)** |
 | Why was it built this way? | [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) |
 | What went wrong along the way? | [DEBUGGING_STORY.md](DEBUGGING_STORY.md) |
+| How do I run or deploy it? | [DEPLOYMENT.md](DEPLOYMENT.md) |
 
 `KNOWN_ISSUES.md` is deliberately in that list. The headline result —
 28.91% test Recall@10, 92× chance — is real, but the embedding space

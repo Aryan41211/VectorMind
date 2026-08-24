@@ -165,6 +165,7 @@ made the entry point harder to find, not better documented.
 - `docs/TECH_STACK.md` — every technology used, why, and alternatives considered
 - `docs/CODING_STANDARDS.md` — detailed style rules extending §3 above
 - `docs/DEVELOPMENT_GUIDE.md` — the full feature lifecycle, planning through deployment
+- `docs/DEPLOYMENT.md` — how to run and deploy the stack, and what has actually been verified
 - `docs/PROJECT_RULES.md` — permanent, non-negotiable engineering rules
 - `docs/FOLDER_STRUCTURE.md` — purpose and ownership of every directory
 - `docs/FUTURE_IDEAS.md` — research backlog, explicitly not on the critical path
