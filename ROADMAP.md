@@ -430,7 +430,7 @@ errors and correct loading/empty/error states handled.
 with a working, deployed demo. See ARCHITECTURE.md §11-12.
 
 **Deliverables:**
-- [ ] `backend.Dockerfile` / `frontend.Dockerfile` + `docker-compose.yml`
+- [x] `backend.Dockerfile` / `frontend.Dockerfile` + `docker-compose.yml` — built and run
 - [ ] GitHub Actions: `test.yml` (pytest + `tsc --noEmit` on every PR),
       `build.yml` (Docker builds on merge to `main`)
 - [ ] Deployed demo reachable via a public URL (single-machine/VM
@@ -446,17 +446,18 @@ understand what it does, how it was built, why key decisions were
 made, and what went wrong along the way, from the docs alone, AND can
 reach a live deployed instance to try it themselves.
 
-**Status:** **in progress** — was marked complete in error
+**Status:** **in progress** — was marked complete in error, now
+genuinely most of the way there
 
-The documentation half of the acceptance criteria is met. The
-deployment half is not, and the phase was previously marked complete
-while its own deliverable checklist still had the demo unchecked.
+The documentation half of the acceptance criteria is met, and the
+containers now demonstrably run. What remains is a public URL and one
+green CI run.
 
 | Deliverable | State |
 |---|---|
-| Dockerfiles, compose, nginx | Written and statically checked. The backend image asserts `import backend.app` at build time; the frontend runs `tsc`, `oxlint` and `nginx -t`. **Neither has been built.** |
+| Dockerfiles, compose, nginx | ✅ **Both images built and the stack run end to end.** Backend 2.17GB, frontend 93.1MB. `/ready` green with model and both indices loaded; search returns 10 unique images of 10 at 8-19ms through the proxy. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). |
 | CI workflows | Written, now also running ruff, mypy and the frontend build. **Never observed green** — `.github/` was untracked until 2026-08-23, so GitHub had never seen them. |
-| Deployed demo at a public URL | **Not started.** Needs a host. |
+| Deployed demo at a public URL | **Not started.** Runs locally via compose; needs a host to be public. |
 | Design-decision write-up | Done. |
 | Debugging write-up | Done. |
 

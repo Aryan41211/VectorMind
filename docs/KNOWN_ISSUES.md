@@ -187,9 +187,19 @@ Dockerfile.
 
 ---
 
-## 5. Nothing in `deployment/` or `.github/` has ever been executed
+## 5. Nothing in `deployment/` or `.github/` has ever been executed ✅ MOSTLY FIXED (2026-08-24)
 
-`ROADMAP.md` marks Phase 7 **complete**. In fact:
+**Fix:** both images are now built and the stack has been run end to
+end — `/ready` green, search returning 10 unique images of 10 at 8-19ms
+through the nginx proxy ([DEPLOYMENT.md](DEPLOYMENT.md)). Building
+surfaced three real defects: nginx could not resolve its upstream at
+config-test time, compose services had no image names, and security
+headers arrived twice on proxied paths.
+
+**Still open:** CI has never been observed green on GitHub, and there is
+no public deployment.
+
+**Severity when open:** high. As originally written:
 
 - No Docker image has been built (issues 3 and 4 guarantee the backend image fails).
 - No CI run exists — `.github/` is untracked, so GitHub has never seen the workflows.
@@ -330,10 +340,10 @@ about MoCo.
 Fixes landed in code that the shipped artifacts do not yet reflect.
 Listed so the gap is visible rather than assumed closed.
 
-- [ ] **Rebuild `backend/indices/`** from the final checkpoint. The committed index still has the 5× duplication of §2 and was built from the superseded model.
-- [ ] **Regenerate `reports/`** with `scripts/generate_reports.py`. §8's mutually inconsistent files are still the committed ones.
-- [ ] **Propagate the final numbers** to ROADMAP.md, PROJECT_STATUS.md, README.md and the frontend About panel, all of which still quote the old checkpoint and the wrong baselines from §1b.
-- [ ] **Build and run both Docker images** (§5). They are written and statically checked; neither has been built.
+- [x] **Rebuild `backend/indices/`** — done. 3,179 image vectors, verified live in the container.
+- [x] **Regenerate `reports/`** — done, all from one script run.
+- [x] **Propagate the final numbers** — done across README, PROJECT_STATUS and the About panel.
+- [x] **Build and run both Docker images** (§5) — done 2026-08-24.
 - [ ] **Observe CI green once** (§3, §5).
 
 ---
