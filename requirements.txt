@@ -31,6 +31,11 @@ wandb>=0.16,<1.0
 
 # --- Analysis / reporting ---
 matplotlib>=3.8
+# scikit-learn supplies t-SNE for the embedding-space figure
+# (scripts/visualize_embedding_space.py). Nothing in the training or
+# serving path imports it; it is a dependency of the reports and of
+# tests/evaluation/test_projection.py, so CI needs it.
+scikit-learn>=1.5
 
 # --- Serving ---
 fastapi>=0.110

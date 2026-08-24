@@ -22,6 +22,11 @@ from vectormind.evaluation.memorization import (
     compute_text_level_recall,
     compute_top_k_examples,
 )
+from vectormind.evaluation.projection import (
+    ModalityGap,
+    measure_modality_gap,
+    project_2d,
+)
 from vectormind.evaluation.retrieval import (
     compute_alignment,
     compute_bidirectional_recall,
@@ -33,6 +38,7 @@ from vectormind.evaluation.retrieval import (
 
 __all__ = [
     "EmbeddingHealth",
+    "ModalityGap",
     "SplitMetrics",
     "collapse_image_embeddings",
     "compute_alignment",
@@ -49,4 +55,6 @@ __all__ = [
     "compute_uniformity",
     "encode_split",
     "evaluate_split",
+    "measure_modality_gap",
+    "project_2d",
 ]

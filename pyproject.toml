@@ -58,6 +58,11 @@ module = [
     "cv2.*",
     "wandb.*",
     "matplotlib.*",
+    "sklearn.*",
+    # umap-learn is optional: scripts/visualize_embedding_space.py can
+    # use it, the default t-SNE path does not need it, and it is not in
+    # requirements.txt because it pulls numba.
+    "umap.*",
 ]
 ignore_missing_imports = true
 
