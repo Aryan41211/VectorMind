@@ -305,3 +305,42 @@ docs/FUTURE_IDEAS.md.
 1. **A resumed run overwrote a better checkpoint.** `best_val_recall10` reset to 0.0 on resume, so the first epoch always won the comparison — a 17.46% checkpoint was replaced by a 10.51% one. `save_checkpoint` now records the score that earned it.
 2. **`--no-queue` could not resume.** The size-1 stub was rejected by `load_checkpoint`, so the baseline arm could only start from scratch. This is why Experiment 1 was never a clean A/B.
 3. **`expandable_segments` is unsupported on Windows** — it was being passed for nothing.
+
+---
+
+## Phase 4b — Convergence (epochs 12–14)
+
+Training was resumed past epoch 12 to test whether the trajectory still
+had room. It did not.
+
+| Epoch | Train loss | Val R@10 | Separation | ‖mean‖ |
+|---|---|---|---|---|
+| 11 | 1.83 | 25.77% | 0.351 | 0.588 |
+| 12 | 1.70 | **29.30%** | 0.356 | 0.613 |
+| 13 | 1.57 | no improvement | 0.356 | 0.568 |
+| 14 | 1.46 | no improvement | 0.344 | 0.568 |
+
+**Training loss fell 1.70 → 1.46 while validation R@10 stopped moving.**
+That divergence is the definition of the model beginning to fit the
+training split rather than learn transferable structure. Separation
+flattened and then fell slightly, which says the same thing from the
+representation side.
+
+**Conclusion: epoch 12 is the converged checkpoint.** It is the shipped
+model. Early stopping (patience 5) would have terminated the run at
+epoch 17 and selected the same weights.
+
+**What this rules out.** "Train longer" was the cheapest remaining lever
+on accuracy and it is now exhausted. Further gains need a change of
+kind, not degree:
+
+- a momentum encoder, which would make the memory queue usable instead of collapsing the space (docs/FUTURE_IDEAS.md)
+- a uniformity term targeting the residual anisotropy — ‖mean embedding‖ 0.621 is the one threshold the model still fails
+- more data, or a larger encoder, both bounded by the 6GB VRAM constraint that defines the project
+
+**Run interruptions.** This run was stopped six times across two days,
+by memory pressure and by manual interruption, on a laptop whose GPU
+also drives the display. It survived because `--resume` restores the
+best-so-far score from the checkpoint rather than restarting the
+comparison at zero — without that fix, any one of those six stops would
+have overwritten the best weights with whatever the next epoch produced.
