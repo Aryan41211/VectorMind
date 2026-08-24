@@ -518,10 +518,19 @@ ROADMAP.md's "Realistic Success Definition."
 
 ## 12. Experiment & Monitoring Architecture
 
-**Experiment tracking:** Weights & Biases (per CLAUDE.md §5), logging
-loss, temperature, embedding norm/variance, and GPU memory per step
-during Phase 3/3.5/4. TensorBoard remains a documented fallback for
-fully offline/no-account use.
+**Experiment tracking: TensorBoard**, via
+`src/vectormind/training/logger.py`, logging loss, temperature,
+embedding norm/variance, gradient norm, GPU memory and per-epoch
+validation — including the health metrics (separation, mean cosine,
+‖mean embedding‖) that Phase 4 lacked and needed.
+
+CLAUDE.md §5 permits either W&B or TensorBoard. This section named W&B
+as the choice and TensorBoard as the fallback until 2026-08-25, which
+was backwards: nothing in `src/` or `scripts/` has ever imported wandb.
+TensorBoard was chosen in practice because it needs no account and
+writes to a local directory, which suits a laptop that trains offline
+and gets interrupted. `wandb` stays in `requirements.txt` as an
+un-taken option, not as a dependency of anything that runs.
 
 **Model registry (lightweight):** checkpoints are saved with a
 metadata sidecar (`checkpoint_metadata.json`: config hash, epoch,

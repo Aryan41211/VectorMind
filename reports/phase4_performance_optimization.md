@@ -1,5 +1,18 @@
 # Performance Optimization Report — VectorMind Phase 4
 
+> **Partly superseded (2026-08-25).** The `batch_size` 256 → 128
+> reduction stands and is still the configured value. The dataloader
+> recommendations below do **not**: `num_workers` 8 and
+> `prefetch_factor` 4 were later measured holding **1.15GB of pinned
+> host memory**, which is not swappable, on a 16GB machine whose GPU
+> also drives the display. Two training runs died of *system* RAM
+> exhaustion, not VRAM. Both were cut to 2, and
+> `configs/data.yaml` carries the arithmetic. See
+> [docs/DEBUGGING_STORY.md](../docs/DEBUGGING_STORY.md) §11.
+>
+> The throughput reasoning here was sound in isolation; it was measured
+> against GPU utilisation without accounting for what the host had left.
+
 ## Hardware Profile
 
 | Component | Specification |
