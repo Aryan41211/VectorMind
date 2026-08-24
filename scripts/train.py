@@ -87,11 +87,20 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Override learning rate.",
     )
-    parser.add_argument(
+    # The config's memory_queue.enabled decides; these two override it
+    # in either direction for a one-off run, and cannot both be given.
+    queue_group = parser.add_mutually_exclusive_group()
+    queue_group.add_argument(
         "--no-queue",
         action="store_true",
         default=False,
-        help="Disable memory queue (baseline experiment).",
+        help="Force the memory queue off, whatever the config says.",
+    )
+    queue_group.add_argument(
+        "--queue",
+        action="store_true",
+        default=False,
+        help="Force the memory queue on (it is off by default — see §6).",
     )
     parser.add_argument(
         "--uniformity-weight",
@@ -273,7 +282,16 @@ def main() -> None:
     # Memory queue. It starts inactive and warms up: without a momentum
     # encoder, early queue entries are stale enough to swamp the gradient
     # at 4096-against-128 (see MemoryQueue's class docstring).
-    use_queue = not args.no_queue
+    # Config decides; the flags override. The default lives in
+    # configs/training.yaml rather than here, because a default that
+    # collapses the embedding space should be visible in the file people
+    # read before a run, not in an argparse call they never see.
+    if args.no_queue:
+        use_queue = False
+    elif args.queue:
+        use_queue = True
+    else:
+        use_queue = bool(mq_cfg.get("enabled", False))
     queue_warmup_epochs = int(mq_cfg.get("warmup_epochs", 0))
 
     # --no-queue deactivates the queue rather than replacing it with a

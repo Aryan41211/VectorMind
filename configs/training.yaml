@@ -50,6 +50,20 @@ uniformity:
 
 # --- Memory Queue (ARCHITECTURE.md §6) ---
 memory_queue:
+  # Off by default, and this default is a result rather than a
+  # preference: a controlled A/B from a shared checkpoint measured the
+  # queue costing 87% of Recall@10 and 81% of separation, because
+  # without a momentum encoder its 4096 stale entries outnumber the
+  # in-batch negatives 32:1 and the cheapest way to fit them is to
+  # inflate the logit scale until the space collapses (EXPERIMENTS.md
+  # 006, KNOWN_ISSUES.md §11).
+  #
+  # ARCHITECTURE.md §6 has described this default since the A/B; the key
+  # itself was missing until 2026-08-25, so `python scripts/train.py`
+  # with no flags trained *with* the queue and reproduced the collapse.
+  # --queue re-enables it for anyone re-running the experiment.
+  enabled: false
+
   # Size of the MoCo-style negative embedding queue.
   # Recommended: 16 * batch_size (CLAUDE.md §9). With batch_size=128,
   # that's 2048. Using 4096 for maximum negative diversity.

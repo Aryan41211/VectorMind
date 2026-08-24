@@ -270,9 +270,16 @@ distribution than by improving the representation, and the unbounded
 scale is the cheapest way to sharpen it. The clamp in §5.1 bounds the
 symptom; removing the queue removes the cause.
 
-**Decision:** train with in-batch negatives only. `memory_queue.enabled`
-is retained and defaults to off; `warmup_epochs` remains for anyone
-re-running the experiment.
+**Decision:** train with in-batch negatives only.
+`configs/training.yaml → memory_queue.enabled` is `false`, and
+`--queue` re-enables it for anyone re-running the experiment;
+`warmup_epochs` and the queue implementation are both retained.
+
+This sentence described the config for a day before the config matched
+it. Until 2026-08-25 there was no `enabled` key, and `scripts/train.py`
+built the queue unless `--no-queue` was passed — so the documented
+default was off and the actual default was on, which is the setting that
+collapses the space. Every run since the A/B passed the flag by hand.
 
 **On the original +18.2% claim.** `TRAINING_LOG.md` credited the queue
 with lifting R@10 from 17.12% to 20.23%. That was a single epoch
