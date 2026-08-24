@@ -8,7 +8,7 @@ things that pass.
 Each entry states the evidence, not just the claim. Entries are removed
 only when fixed, never when they become inconvenient.
 
-**Last audited:** 2026-08-24
+**Last audited:** 2026-08-24 (post-convergence)
 
 ---
 
@@ -18,10 +18,24 @@ only when fixed, never when they become inconvenient.
 diagnosis is the most useful thing in this document.
 
 **Fix:** the cause was the memory queue, not the temperature (§11). With
-the queue disabled and the logit scale clamped, separation went from
-**0.094 to 0.322** and mean image–image cosine from **0.810 to 0.409**,
-at equal or better retrieval quality. See ARCHITECTURE.md §6.1 and
-EXPERIMENTS.md 006.
+the queue disabled and the logit scale clamped, and trained to
+convergence at epoch 12:
+
+| | Before | After |
+|---|---|---|
+| Separation | 0.094 | **0.347** |
+| Mean image–image cosine | 0.810 | **0.322** |
+| ‖mean embedding‖ | 0.900 | **0.621** |
+| Test R@10 | 19.63% | **28.91%** |
+
+Better retrieval *and* a 3.7× better separated space. See
+ARCHITECTURE.md §6.1 and EXPERIMENTS.md 006.
+
+**Partially open.** The grade is ANISOTROPIC, not HEALTHY: ‖mean
+embedding‖ 0.621 still exceeds its 0.5 threshold, so the space retains a
+shared directional component. Separation and anisotropy both pass. This
+is now the project's main open modelling problem, and the candidate fix
+is a uniformity term (Wang & Isola) — see §12.
 
 **Severity when open:** high — this was the project's central technical
 finding and it was documented backwards.
@@ -345,6 +359,42 @@ Listed so the gap is visible rather than assumed closed.
 - [x] **Propagate the final numbers** — done across README, PROJECT_STATUS and the About panel.
 - [x] **Build and run both Docker images** (§5) — done 2026-08-24.
 - [ ] **Observe CI green once** (§3, §5).
+
+---
+
+## 12. The embedding space is still anisotropic (open)
+
+**Severity:** medium — retrieval works, but this is the one health
+threshold the shipped model fails.
+
+| Metric | Value | Threshold | |
+|---|---|---|---|
+| Separation | 0.347 | > 0.25 | ✅ |
+| Mean image–image cosine | 0.322 | < 0.5 | ✅ |
+| **‖mean embedding‖** | **0.621** | **< 0.5** | ❌ |
+
+Every embedding still carries a substantial shared component: the mean
+of all image embeddings has length 0.621 on a scale where 0 is ideal and
+1 is total collapse. Retrieval is unaffected enough to work — rank order
+survives — but the space is using less of the sphere than it could.
+
+**Why it is not §1 again.** §1 was a cone at separation 0.094 reported
+as HEALTHY. This is a well-separated space with a residual offset,
+correctly graded ANISOTROPIC, and stated in every document that quotes
+the numbers. The difference between the two is the whole point of the
+three-state grade.
+
+**Candidate fix:** add a uniformity term to the loss (Wang & Isola,
+"Alignment and Uniformity on the Hypersphere"). `compute_uniformity`
+already exists in `src/vectormind/evaluation/retrieval.py`, so the metric
+side is done; what is missing is using it as a training signal alongside
+InfoNCE, with a weight that has to be tuned against separation so it does
+not trade one for the other.
+
+**Not attempted here** because it changes the loss, which needs its own
+controlled A/B — and this project has just spent considerable effort
+demonstrating what happens when a loss change is adopted on one epoch's
+evidence (§11).
 
 ---
 
