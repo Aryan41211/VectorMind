@@ -44,3 +44,9 @@ pytest>=8.0,<9.0
 httpx>=0.27
 mypy>=1.10
 ruff>=0.6
+
+# Type stubs. mypy needs these to check third-party calls, and their
+# absence is invisible locally once they are installed — CI failed on
+# every push for a day because types-PyYAML was present here and not
+# declared here.
+types-PyYAML>=6.0
