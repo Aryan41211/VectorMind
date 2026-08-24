@@ -1,0 +1,26 @@
+# HTTP Basic auth for a private demo.
+#
+# Copy to deployment/auth.conf and mount it into the frontend container
+# together with an .htpasswd file. nginx includes it via a glob, so with
+# no auth.conf present the demo is open — which is what local
+# development wants.
+#
+# Generate credentials (no local htpasswd binary needed):
+#
+#   docker run --rm httpd:alpine htpasswd -nbB <user> '<password>' \
+#     > deployment/.htpasswd
+#
+# -B forces bcrypt. The default algorithm in some htpasswd builds is MD5,
+# which is not a reasonable choice for anything in 2026.
+#
+# Then:
+#
+#   docker compose -f deployment/docker-compose.yml \
+#     -f deployment/docker-compose.auth.yml up -d
+#
+# Basic auth transmits credentials base64-encoded. That is encoding, not
+# encryption — it is only meaningful behind TLS. Over plain HTTP it keeps
+# a link out of search engines and casual hands, and nothing more.
+
+auth_basic "VectorMind — private demo";
+auth_basic_user_file /etc/nginx/conf.d/.htpasswd;

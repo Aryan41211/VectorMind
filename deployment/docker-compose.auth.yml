@@ -1,0 +1,38 @@
+# Overlay that turns on HTTP Basic auth for a private demo.
+#
+# Kept as an overlay rather than a flag in the base file so the default
+# path stays open — local development should not need credentials, and a
+# gate you have to remember to disable is a gate you will fight.
+#
+# Usage:
+#
+#   1. Generate credentials (bcrypt; no local htpasswd binary needed):
+#
+#        docker run --rm httpd:alpine htpasswd -nbB alice 'a-long-passphrase' \
+#          > deployment/.htpasswd
+#
+#   2. Copy the auth snippet:
+#
+#        cp deployment/auth.conf.example deployment/auth.conf
+#
+#   3. Start with both files:
+#
+#        docker compose -f deployment/docker-compose.yml \
+#          -f deployment/docker-compose.auth.yml up -d
+#
+# deployment/.htpasswd is gitignored. Do not commit credentials.
+#
+# Basic auth sends its credentials base64-encoded, which is encoding and
+# not encryption, so this is only a real control behind TLS. Over plain
+# HTTP it keeps the demo out of search results and away from casual
+# visitors — worth having for a private link, not a substitute for
+# authentication.
+#
+# /health and /ready stay open regardless: the container healthcheck hits
+# them, and a 401 there would get the container killed as unhealthy.
+
+services:
+  frontend:
+    volumes:
+      - ./auth.conf:/etc/nginx/conf.d/auth.conf:ro
+      - ./.htpasswd:/etc/nginx/conf.d/.htpasswd:ro

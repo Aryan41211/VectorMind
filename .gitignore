@@ -43,6 +43,10 @@ backend/indices/
 node_modules/
 frontend/dist/
 
+# --- Demo credentials — never commit ---
+deployment/.htpasswd
+deployment/auth.conf
+
 # --- Local env ---
 .env
 .env.local
