@@ -43,6 +43,40 @@ collapse.
 See `ARCHITECTURE.md` §6.1, `docs/KNOWN_ISSUES.md` §11, and
 `docs/EXPERIMENTS.md` 004–006.
 
+### Relevance and accuracy (2026-08-24, second pass)
+
+Two separate problems, addressed separately.
+
+**The demo searched a tenth of the dataset.** The index was built from
+the test split — 3,179 of 31,783 images — so for most queries nothing
+relevant existed to retrieve, and the model appeared far worse than it
+is. `--split all` indexes the whole corpus. Reported metrics are
+unaffected: Recall@K is measured on the held-out test split by
+`scripts/generate_reports.py`, which never reads the index.
+
+Consequence: the index is now 234MB, with `text_index.faiss` alone above
+GitHub's 100MB file limit, so it is no longer committed. README and
+DEPLOYMENT document the build step (~10 min on a GPU).
+
+**Training had been stopped early.** It was killed at epoch 10 of 20
+with validation still climbing and loss still falling. Resuming to epoch
+11 improved every metric again:
+
+| | Epoch 10 | Epoch 11 |
+|---|---|---|
+| Test R@1 | 6.04% | **6.29%** (200× chance) |
+| Test R@5 | 16.04% | **17.77%** (113× chance) |
+| Test R@10 | 23.91% | **25.64%** (82× chance) |
+| T2I R@10 | 21.53% | **23.07%** (73× chance) |
+| Separation | 0.330 | **0.344** |
+
+Against the originally shipped checkpoint that is 19.63% → 25.64% R@10,
+on a space 3.7× better separated. The grade remains **ANISOTROPIC**:
+‖mean embedding‖ 0.620 against a 0.5 threshold.
+
+Training remains incomplete — epoch 11 of 20, still improving when
+stopped.
+
 ### Added
 
 **Correctness and diagnostics**
