@@ -58,24 +58,34 @@ Consequence: the index is now 234MB, with `text_index.faiss` alone above
 GitHub's 100MB file limit, so it is no longer committed. README and
 DEPLOYMENT document the build step (~10 min on a GPU).
 
-**Training had been stopped early.** It was killed at epoch 10 of 20
-with validation still climbing and loss still falling. Resuming to epoch
-11 improved every metric again:
+**Training had been stopped early, and then reached convergence.** The
+run was interrupted six times across two days by memory pressure on a
+laptop whose GPU also drives the display. Resumed each time, it reached
+epoch 12 and stopped improving:
 
-| | Epoch 10 | Epoch 11 |
+| | Originally shipped | Converged (epoch 12) |
 |---|---|---|
-| Test R@1 | 6.04% | **6.29%** (200× chance) |
-| Test R@5 | 16.04% | **17.77%** (113× chance) |
-| Test R@10 | 23.91% | **25.64%** (82× chance) |
-| T2I R@10 | 21.53% | **23.07%** (73× chance) |
-| Separation | 0.330 | **0.344** |
+| Test R@1 | 4.62% | **7.71%** (245× chance) |
+| Test R@5 | 13.43% | **20.60%** (131× chance) |
+| Test R@10 | 19.63% | **28.91%** (92× chance) |
+| T2I R@10 | 15.09% | **25.20%** (80× chance) |
+| Separation | 0.094 | **0.347** |
+| Logit scale | 55 → 500+ | **24.1** |
 
-Against the originally shipped checkpoint that is 19.63% → 25.64% R@10,
-on a space 3.7× better separated. The grade remains **ANISOTROPIC**:
-‖mean embedding‖ 0.620 against a 0.5 threshold.
+R@10 up **47% relative**, on a space 3.7× better separated.
 
-Training remains incomplete — epoch 11 of 20, still improving when
-stopped.
+**It is converged, not interrupted.** Epochs 13–14 dropped training loss
+14% without improving validation R@10 once — the model fitting its
+training split rather than learning. Early stopping at patience 5 would
+have selected the same weights.
+
+The run survived six interruptions only because the resume path restores
+the best-so-far score from the checkpoint. Without that fix, any one of
+them would have overwritten the best weights with the next epoch's.
+
+The grade remains **ANISOTROPIC**: ‖mean embedding‖ 0.621 against a 0.5
+threshold, now tracked as `docs/KNOWN_ISSUES.md` §12 and the project's
+main open modelling problem.
 
 ### Added
 
