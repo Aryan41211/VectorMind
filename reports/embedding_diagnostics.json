@@ -1,30 +1,30 @@
 {
   "checkpoint": "checkpoints/train/best_model.pt",
-  "epoch": 9,
-  "step": 9930,
+  "epoch": 10,
+  "step": 10923,
   "split": "test",
-  "logit_scale": 22.103347778320312,
+  "logit_scale": 23.376678466796875,
   "health": {
-    "matched_similarity": 0.5927737355232239,
-    "unmatched_similarity": 0.26326149702072144,
-    "separation": 0.32951223850250244,
-    "image_mean_cosine": 0.3834376633167267,
-    "text_mean_cosine": 0.3764926791191101,
-    "image_mean_norm": 0.619379997253418,
-    "text_mean_norm": 0.6137498021125793,
-    "image_dim_variance": 0.002408446744084358,
-    "text_dim_variance": 0.0024355752393603325,
+    "matched_similarity": 0.5993034243583679,
+    "unmatched_similarity": 0.255123108625412,
+    "separation": 0.34418031573295593,
+    "image_mean_cosine": 0.3535965383052826,
+    "text_mean_cosine": 0.38464298844337463,
+    "image_mean_norm": 0.5948107838630676,
+    "text_mean_norm": 0.6203519701957703,
+    "image_dim_variance": 0.0025250136386603117,
+    "text_dim_variance": 0.002403738209977746,
     "num_samples": 3179,
     "collapsed": true,
     "grade": "ANISOTROPIC",
-    "verdict": "ANISOTROPIC \u2014 separation 0.330 is above the 0.25 floor, so retrieval is meaningful, but ||mean embedding|| 0.619 > 0.5"
+    "verdict": "ANISOTROPIC \u2014 separation 0.344 is above the 0.25 floor, so retrieval is meaningful, but ||mean embedding|| 0.620 > 0.5"
   },
   "diagnostics": {
-    "image_dim_variance": 0.002408446744084358,
-    "text_dim_variance": 0.0023696389980614185,
-    "image_mean_pairwise_dist": 1.0894527435302734,
-    "text_mean_pairwise_dist": 1.0814447402954102,
-    "image_min_pairwise_dist": 0.14688299596309662,
+    "image_dim_variance": 0.0025250136386603117,
+    "text_dim_variance": 0.0023420508950948715,
+    "image_mean_pairwise_dist": 1.1169312000274658,
+    "text_mean_pairwise_dist": 1.076221227645874,
+    "image_min_pairwise_dist": 0.2064783126115799,
     "text_min_pairwise_dist": 0.0
   }
 }

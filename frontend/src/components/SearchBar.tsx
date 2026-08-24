@@ -2,7 +2,7 @@
  * Text query input with example suggestions.
  *
  * The examples are not decoration. A visitor has no way to know that the
- * corpus is 3,179 Flickr30k photographs, so an unprompted query is as
+ * corpus is 31,783 Flickr30k photographs, so an unprompted query is as
  * likely to be "quarterly revenue chart" as anything the model can
  * answer — and an empty result set reads as a broken demo rather than an
  * out-of-domain query.

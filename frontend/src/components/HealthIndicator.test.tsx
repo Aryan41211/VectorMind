@@ -19,7 +19,7 @@ function health(overrides: Partial<HealthResponse> = {}): HealthResponse {
     model_loaded: true,
     index_loaded: true,
     device: 'cpu',
-    num_indexed_images: 3179,
+    num_indexed_images: 31783,
     ...overrides,
   };
 }
@@ -37,7 +37,7 @@ describe('HealthIndicator', () => {
     vi.spyOn(client, 'getHealth').mockResolvedValue(health());
     render(<HealthIndicator />);
     await waitFor(() =>
-      expect(screen.getByText('3,179 indexed')).toBeInTheDocument()
+      expect(screen.getByText('31,783 indexed')).toBeInTheDocument()
     );
   });
 

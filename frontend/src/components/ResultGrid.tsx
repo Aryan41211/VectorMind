@@ -53,7 +53,7 @@ export function ResultGrid({ response }: ResultGridProps) {
 
         {results.length === 0 ? (
           <p className="text-center text-sm text-secondary py-16">
-            Nothing matched closely enough. The corpus is 3,179 Flickr30k
+            Nothing matched closely enough. The corpus is 31,783 Flickr30k
             photographs — everyday scenes of people, animals, and streets.
           </p>
         ) : (

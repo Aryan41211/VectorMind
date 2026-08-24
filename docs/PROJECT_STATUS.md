@@ -18,29 +18,34 @@ The Phase 4 checkpoint has been retired and replaced. Its embedding
 space had collapsed — separation 0.094 — while the Phase 5 reports
 called it HEALTHY. The cause was the memory queue, not the temperature
 ([KNOWN_ISSUES.md](KNOWN_ISSUES.md) §11). The current checkpoint is
-better on every retrieval metric *and* on a space 3.5× better separated.
+better on every retrieval metric *and* on a space 3.7× better separated.
+
+The serving index now covers the **full 31,783-image corpus** rather
+than the 3,179-image test split, so a query has the whole dataset to
+match against. Reported metrics below are still measured on the test
+split alone.
 
 ## Overall Completion
-Roughly **90%**. Phases 0–6.5 complete; Phase 4b delivered a better
-checkpoint with regenerated reports; Phase 7's deployment artifacts are
-written but have never been built or run.
+Roughly **95%**. Phases 0–6.5 complete; Phase 4b delivered a better
+checkpoint with regenerated reports; Phase 7's containers are built and
+verified running. What remains is one green CI run and a public URL.
 
 ## Current Results
 
-**Checkpoint:** `checkpoints/train/best_model.pt` — epoch 10, step 9930,
-learned logit scale 22.10. Every figure below is regenerable with
+**Checkpoint:** `checkpoints/train/best_model.pt` — epoch 11, step 10923,
+learned logit scale 23.38. Every figure below is regenerable with
 `python scripts/generate_reports.py`.
 
 ### Retrieval (test split: 3,179 images / 15,895 captions)
 
 | Direction | K | Measured | Chance | vs chance |
 |---|---|---|---|---|
-| image → text | 1 | 6.04% | 0.031% | **192×** |
-| image → text | 5 | 16.04% | 0.157% | **102×** |
-| image → text | 10 | 23.91% | 0.314% | **76×** |
+| image → text | 1 | 6.29% | 0.031% | **200×** |
+| image → text | 5 | 17.77% | 0.157% | **113×** |
+| image → text | 10 | 25.64% | 0.314% | **82×** |
 | text → image | 1 | 5.06% | 0.031% | **161×** |
-| text → image | 5 | 14.63% | 0.157% | **93×** |
-| text → image | 10 | 21.53% | 0.315% | **68×** |
+| text → image | 5 | 15.50% | 0.157% | **99×** |
+| text → image | 10 | 23.07% | 0.315% | **73×** |
 
 Chance is the exact complement of drawing K non-relevant items, not the
 `k/n` shortcut — see [KNOWN_ISSUES.md](KNOWN_ISSUES.md) §1b for why
@@ -50,10 +55,10 @@ every earlier multiple in this project was ~30× too low.
 
 | Metric | Phase 4 (retired) | Current | Threshold |
 |---|---|---|---|
-| Separation | 0.094 | **0.330** | > 0.25 ✅ |
-| Mean image–image cosine | 0.810 | **0.383** | < 0.5 ✅ |
+| Separation | 0.094 | **0.344** | > 0.25 ✅ |
+| Mean image–image cosine | 0.810 | **0.379** | < 0.5 ✅ |
 | ‖mean embedding‖ | 0.900 | **0.619** | < 0.5 ❌ |
-| Logit scale | 55.2 → 500+ | **22.1** | clamped at 100 |
+| Logit scale | 55.2 → 500+ | **23.4** | clamped at 100 |
 
 **Grade: ANISOTROPIC.** Not healthy. Separation clears its floor so
 retrieval is meaningful, but the space still carries a shared
@@ -63,9 +68,8 @@ is the failure this whole audit was about.
 
 ### Val → test
 
-Val R@10 23.06%, test R@10 23.91% — the test split scores **higher**, a
-+0.84pp gap. Comfortably within noise at this split size, and no sign of
-overfitting.
+Val R@10 25.77%, test R@10 25.64% — a gap of 0.13pp. Essentially
+identical, and no sign of overfitting.
 
 ## Tests
 - **444** Python tests
@@ -85,12 +89,13 @@ overfitting.
 - [x] **Phase 6.5 — Frontend:** React + TypeScript, themed, tested, accessible
 
 ## In Progress
-- [ ] **Phase 7 — Deployment.** Dockerfiles, compose, nginx and CI are written and statically checked; **neither image has been built** and CI has never been observed green.
-- [ ] Public deployed demo — not started, needs a host.
+- [x] **Phase 7 — Containers.** Both images built and the stack run end to end: `/ready` green, 31,783 images indexed, search returning distinct results at 8–19ms through nginx.
+- [ ] CI has never been observed green on GitHub.
+- [ ] Public deployed demo — runs locally via compose; needs a host to be public.
 
 ## Key Achievements
 1. Trained from scratch, no pretrained vision-language weights anywhere
-2. Test R@10 **23.91%, 76× chance**, with a val→test gap of +0.84pp
+2. Test R@10 **25.64%, 82× chance**, with a val→test gap of 0.13pp
 3. Found and fixed the collapse: the memory queue was causing it, not mitigating it — a controlled A/B reversed the project's own published conclusion
 4. Built the metric that catches it: separation, not variance, and it now runs every epoch
 5. 500 tests across data, model, training, evaluation, serving and UI
@@ -98,9 +103,9 @@ overfitting.
 
 ## Known Problems
 Tracked in [KNOWN_ISSUES.md](KNOWN_ISSUES.md). Open items:
-1. The space is still ANISOTROPIC — ‖mean embedding‖ 0.619 against a 0.5 threshold.
-2. Training stopped at epoch 10 of 20; val R@10 was still improving.
-3. Neither Docker image has been built; CI never observed green.
+1. The space is still ANISOTROPIC — ‖mean embedding‖ 0.620 against a 0.5 threshold.
+2. Training stopped at epoch 11 of 20 and val R@10 was still climbing (23.06% → 25.77% on the last completed epoch). More epochs would likely help.
+3. CI has never been observed green on GitHub.
 4. No public deployment.
 
 ## Environment

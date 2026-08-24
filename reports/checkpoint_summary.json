@@ -1,13 +1,13 @@
 {
   "checkpoint": "checkpoints/train/best_model.pt",
-  "epoch": 9,
-  "step": 9930,
-  "logit_scale": 22.103347778320312,
-  "val_recall@10": 0.23064820641913153,
-  "test_recall@10": 0.23906888958792072,
-  "val_test_gap_r10": 0.00842068316878919,
-  "embedding_separation": 0.32951223850250244,
+  "epoch": 10,
+  "step": 10923,
+  "logit_scale": 23.376678466796875,
+  "val_recall@10": 0.2577092511013216,
+  "test_recall@10": 0.25636992765020444,
+  "val_test_gap_r10": -0.001339323451117147,
+  "embedding_separation": 0.34418031573295593,
   "collapsed": true,
   "generated_by": "scripts/generate_reports.py",
-  "generated_at": "2026-08-23T20:39:31.737826+00:00"
+  "generated_at": "2026-08-24T08:27:22.999870+00:00"
 }

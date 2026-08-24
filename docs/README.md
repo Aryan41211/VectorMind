@@ -20,7 +20,7 @@ contradiction rather than silently picking one.
 | What went wrong along the way? | [DEBUGGING_STORY.md](DEBUGGING_STORY.md) |
 
 `KNOWN_ISSUES.md` is deliberately in that list. The headline result —
-23.91% test Recall@10, 76× chance — is real, but the embedding space
+25.64% test Recall@10, 82× chance — is real, but the embedding space
 behind it still grades ANISOTROPIC rather than healthy. Read it before
 quoting a number.
 

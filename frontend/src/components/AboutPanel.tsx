@@ -16,10 +16,10 @@
  */
 
 const METRICS = [
-  { label: 'Test R@10', value: '23.9%', note: '76× chance' },
-  { label: 'Test R@1', value: '6.0%', note: '192× chance' },
+  { label: 'Test R@10', value: '25.6%', note: '82× chance' },
+  { label: 'Test R@1', value: '6.3%', note: '200× chance' },
   { label: 'Parameters', value: '24M', note: 'from scratch' },
-  { label: 'Corpus', value: '3,179', note: 'Flickr30k photos' },
+  { label: 'Corpus', value: '31,783', note: 'Flickr30k photos' },
 ];
 
 const LIMITATIONS = [
