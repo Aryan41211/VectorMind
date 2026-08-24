@@ -35,6 +35,7 @@ import torch
 
 from vectormind.models.vectormind_model import VectorMindModel
 from vectormind.training.memory_queue import MemoryQueue
+from vectormind.utils.git_info import describe
 
 logger = logging.getLogger(__name__)
 
@@ -98,13 +99,18 @@ def save_checkpoint(
         },
     }
 
-    # Metadata for traceability (ARCHITECTURE.md §12)
-    metadata = {
+    # Metadata for traceability (ARCHITECTURE.md §12). The git fields
+    # are what make "which code produced this checkpoint?" answerable
+    # later; without them the answer is inferred from timestamps, which
+    # stops working as soon as two runs share an afternoon — and this
+    # project has had six resumed runs in two days.
+    metadata: dict[str, Any] = {
         "timestamp": time.time(),
         "timestamp_iso": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "epoch": epoch,
         "step": step,
         "num_params": sum(p.numel() for p in model.parameters()),
+        "git": describe(),
     }
     if metrics is not None:
         metadata["metrics"] = dict(metrics)
