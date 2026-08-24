@@ -309,6 +309,35 @@ class TestComputeRetrievalExamples:
         )
         assert len(result["successes"]) >= 0
 
+    def test_stride_spreads_examples_across_the_split(
+        self, perfect_embeddings: tuple[torch.Tensor, torch.Tensor]
+    ) -> None:
+        """A stride should draw examples from beyond the first rows."""
+        image_embeds, text_embeds = perfect_embeddings
+        strided = compute_retrieval_examples(
+            image_embeds, text_embeds, num_successes=2, num_failures=0, stride=2
+        )
+        indices = [e["image_index"] for e in strided["successes"]]
+        assert indices == [0, 2]
+
+    def test_stride_of_one_keeps_the_original_behaviour(
+        self, perfect_embeddings: tuple[torch.Tensor, torch.Tensor]
+    ) -> None:
+        """The default must remain a contiguous scan from row 0."""
+        image_embeds, text_embeds = perfect_embeddings
+        result = compute_retrieval_examples(
+            image_embeds, text_embeds, num_successes=2, num_failures=0
+        )
+        assert [e["image_index"] for e in result["successes"]] == [0, 1]
+
+    def test_rejects_a_non_positive_stride(
+        self, perfect_embeddings: tuple[torch.Tensor, torch.Tensor]
+    ) -> None:
+        """A stride of 0 would loop forever; reject it explicitly."""
+        image_embeds, text_embeds = perfect_embeddings
+        with pytest.raises(ValueError, match="stride must be"):
+            compute_retrieval_examples(image_embeds, text_embeds, stride=0)
+
 
 # ---------------------------------------------------------------------------
 # Tests: Failure Analysis
@@ -329,7 +358,7 @@ class TestComputeFailureAnalysis:
             "total_failures",
             "failure_rate",
             "success_rate",
-            "failure_rank_distribution",
+            "hit_rank_distribution",
         ]
         assert all(k in result for k in expected_keys)
 
@@ -359,3 +388,27 @@ class TestComputeFailureAnalysis:
         image_embeds, text_embeds = random_embeddings
         result = compute_failure_analysis(image_embeds, text_embeds)
         assert abs(result["failure_rate"] + result["success_rate"] - 1.0) < 1e-6
+
+    def test_hit_ranks_account_for_every_success(
+        self, random_embeddings: tuple[torch.Tensor, torch.Tensor]
+    ) -> None:
+        """The histogram must sum to the number of successful queries."""
+        image_embeds, text_embeds = random_embeddings
+        result = compute_failure_analysis(image_embeds, text_embeds)
+        successes = result["total_images"] - result["total_failures"]
+        assert sum(result["hit_rank_distribution"]) == successes
+
+    def test_perfect_embeddings_all_hit_at_rank_one(
+        self, perfect_embeddings: tuple[torch.Tensor, torch.Tensor]
+    ) -> None:
+        """Perfect retrieval puts every correct caption first.
+
+        The previous implementation incremented bucket 0 on *failure*,
+        so a perfect run reported an empty histogram and a total failure
+        run reported every image at rank 1 — the reverse of the truth.
+        """
+        image_embeds, text_embeds = perfect_embeddings
+        result = compute_failure_analysis(image_embeds, text_embeds)
+        distribution = result["hit_rank_distribution"]
+        assert distribution[0] == result["total_images"]
+        assert sum(distribution[1:]) == 0

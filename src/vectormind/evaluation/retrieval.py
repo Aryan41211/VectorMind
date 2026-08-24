@@ -195,6 +195,7 @@ def compute_retrieval_examples(
     k: int = 10,
     num_successes: int = 5,
     num_failures: int = 5,
+    stride: int = 1,
 ) -> dict[str, Any]:
     """Generate retrieval examples for qualitative analysis.
 
@@ -210,17 +211,28 @@ def compute_retrieval_examples(
         k: Number of top results to retrieve.
         num_successes: Number of success examples to return.
         num_failures: Number of failure examples to return.
+        stride: Step between candidate images. Collection stops as soon
+            as both quotas are full, so a stride of 1 draws every
+            example from the first rows of the split. A stride spreads
+            them across it, which matters for a report a reader is
+            meant to treat as representative.
 
     Returns:
         Dictionary with "successes" and "failures" lists.
+
+    Raises:
+        ValueError: If ``stride`` is not positive.
     """
+    if stride < 1:
+        raise ValueError(f"stride must be >= 1, got {stride}.")
+
     N_images = image_embeds.shape[0]
     similarity = image_embeds @ text_embeds.T
 
     successes: list[dict[str, Any]] = []
     failures: list[dict[str, Any]] = []
 
-    for i in range(N_images):
+    for i in range(0, N_images, stride):
         start = i * captions_per_image
         end = start + captions_per_image
 
@@ -267,12 +279,13 @@ def compute_failure_analysis(
     captions_per_image: int = 5,
     k: int = 10,
 ) -> dict[str, Any]:
-    """Analyze failure patterns in retrieval.
+    """Summarize how often image->text retrieval misses, and by how far.
 
-    Identifies common failure modes:
-    1. Semantic failures: correct concept but wrong specific
-    2. Visual failures: visually similar but semantically different
-    3. Ambiguous failures: multiple valid interpretations
+    A failure rate on its own does not distinguish a model that ranks
+    the right caption second from one that does not rank it at all, and
+    that difference is most of what a qualitative review is looking
+    for. ``hit_rank_distribution`` carries it: the rank at which each
+    successful query first found a correct caption.
 
     Args:
         image_embeds: L2-normalized image embeddings [N_images, D].
@@ -281,27 +294,43 @@ def compute_failure_analysis(
         k: Number of top results to retrieve.
 
     Returns:
-        Dictionary with failure analysis.
+        Dictionary with ``total_images``, ``total_failures``,
+        ``failure_rate``, ``success_rate``, and
+        ``hit_rank_distribution`` — a length-``k`` list whose entry
+        *r-1* counts images whose best correct caption ranked *r*. It
+        sums to ``total_images - total_failures``.
+
+    Limitations:
+        Classifying *why* a retrieval failed — wrong action, wrong
+        object, plausible-but-different scene — needs a human reading
+        the captions. This function counts; ``compute_retrieval_examples``
+        supplies the material to read.
     """
     N_images = image_embeds.shape[0]
     similarity = image_embeds @ text_embeds.T
 
     total_failures = 0
-    failure_rank_distribution = [0] * k
+    hit_rank_distribution = [0] * k
 
     for i in range(N_images):
         start = i * captions_per_image
         end = start + captions_per_image
 
-        scores, indices = similarity[i].topk(k)
+        _, indices = similarity[i].topk(k)
 
-        correct_in_top_k = [
-            idx.item() for idx in indices if start <= idx.item() < end
-        ]
+        first_hit = next(
+            (
+                rank
+                for rank, idx in enumerate(indices.tolist())
+                if start <= idx < end
+            ),
+            None,
+        )
 
-        if len(correct_in_top_k) == 0:
+        if first_hit is None:
             total_failures += 1
-            failure_rank_distribution[0] += 1
+        else:
+            hit_rank_distribution[first_hit] += 1
 
     failure_rate = total_failures / N_images
 
@@ -310,5 +339,5 @@ def compute_failure_analysis(
         "total_failures": total_failures,
         "failure_rate": failure_rate,
         "success_rate": 1.0 - failure_rate,
-        "failure_rank_distribution": failure_rank_distribution,
+        "hit_rank_distribution": hit_rank_distribution,
     }
