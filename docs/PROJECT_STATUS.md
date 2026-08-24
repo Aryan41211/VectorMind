@@ -32,20 +32,22 @@ verified running. What remains is one green CI run and a public URL.
 
 ## Current Results
 
-**Checkpoint:** `checkpoints/train/best_model.pt` — epoch 11, step 10923,
-learned logit scale 23.38. Every figure below is regenerable with
+**Checkpoint:** `checkpoints/train/best_model.pt` — epoch 12, step 11916,
+learned logit scale 24.06. **Converged**: epochs 13–14 improved training
+loss but not validation, so this is the peak rather than a stopping
+point. Every figure below is regenerable with
 `python scripts/generate_reports.py`.
 
 ### Retrieval (test split: 3,179 images / 15,895 captions)
 
 | Direction | K | Measured | Chance | vs chance |
 |---|---|---|---|---|
-| image → text | 1 | 6.29% | 0.031% | **200×** |
-| image → text | 5 | 17.77% | 0.157% | **113×** |
-| image → text | 10 | 25.64% | 0.314% | **82×** |
-| text → image | 1 | 5.06% | 0.031% | **161×** |
-| text → image | 5 | 15.50% | 0.157% | **99×** |
-| text → image | 10 | 23.07% | 0.315% | **73×** |
+| image → text | 1 | 7.71% | 0.031% | **245×** |
+| image → text | 5 | 20.60% | 0.157% | **131×** |
+| image → text | 10 | 28.91% | 0.314% | **92×** |
+| text → image | 1 | 5.71% | 0.031% | **181×** |
+| text → image | 5 | 17.33% | 0.157% | **110×** |
+| text → image | 10 | 25.20% | 0.315% | **80×** |
 
 Chance is the exact complement of drawing K non-relevant items, not the
 `k/n` shortcut — see [KNOWN_ISSUES.md](KNOWN_ISSUES.md) §1b for why
@@ -55,10 +57,10 @@ every earlier multiple in this project was ~30× too low.
 
 | Metric | Phase 4 (retired) | Current | Threshold |
 |---|---|---|---|
-| Separation | 0.094 | **0.344** | > 0.25 ✅ |
-| Mean image–image cosine | 0.810 | **0.379** | < 0.5 ✅ |
-| ‖mean embedding‖ | 0.900 | **0.619** | < 0.5 ❌ |
-| Logit scale | 55.2 → 500+ | **23.4** | clamped at 100 |
+| Separation | 0.094 | **0.347** | > 0.25 ✅ |
+| Mean image–image cosine | 0.810 | **0.322** | < 0.5 ✅ |
+| ‖mean embedding‖ | 0.900 | **0.621** | < 0.5 ❌ |
+| Logit scale | 55.2 → 500+ | **24.1** | clamped at 100 |
 
 **Grade: ANISOTROPIC.** Not healthy. Separation clears its floor so
 retrieval is meaningful, but the space still carries a shared
@@ -68,8 +70,10 @@ is the failure this whole audit was about.
 
 ### Val → test
 
-Val R@10 25.77%, test R@10 25.64% — a gap of 0.13pp. Essentially
-identical, and no sign of overfitting.
+Val R@10 29.30%, test R@10 28.91% — a gap of 0.39pp. Essentially
+identical, so the checkpoint generalizes; the convergence seen in
+epochs 13–14 is the training split being fitted, not the test split
+being missed.
 
 ## Tests
 - **444** Python tests
@@ -95,7 +99,7 @@ identical, and no sign of overfitting.
 
 ## Key Achievements
 1. Trained from scratch, no pretrained vision-language weights anywhere
-2. Test R@10 **25.64%, 82× chance**, with a val→test gap of 0.13pp
+2. Test R@10 **28.91%, 92× chance**, with a val→test gap of 0.39pp
 3. Found and fixed the collapse: the memory queue was causing it, not mitigating it — a controlled A/B reversed the project's own published conclusion
 4. Built the metric that catches it: separation, not variance, and it now runs every epoch
 5. 500 tests across data, model, training, evaluation, serving and UI
@@ -103,8 +107,8 @@ identical, and no sign of overfitting.
 
 ## Known Problems
 Tracked in [KNOWN_ISSUES.md](KNOWN_ISSUES.md). Open items:
-1. The space is still ANISOTROPIC — ‖mean embedding‖ 0.620 against a 0.5 threshold.
-2. Training stopped at epoch 11 of 20 and val R@10 was still climbing (23.06% → 25.77% on the last completed epoch). More epochs would likely help.
+1. The space is still ANISOTROPIC — ‖mean embedding‖ 0.621 against a 0.5 threshold. This is now the *only* health threshold it fails, and the main open modelling problem.
+2. ~~Training stopped early~~ — **resolved.** Epochs 13–14 dropped training loss 14% without moving validation R@10, so epoch 12 is the converged checkpoint (EXPERIMENTS.md 007). "Train longer" is exhausted as a lever.
 3. CI has never been observed green on GitHub.
 4. No public deployment.
 

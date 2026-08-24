@@ -45,10 +45,10 @@ Trained from scratch on Flickr30k, evaluated on a held-out test split of
 
 | Direction | K | Measured | Chance | vs chance |
 |---|---|---|---|---|
-| image → text | 1 | 6.29% | 0.031% | **200×** |
-| image → text | 5 | 17.77% | 0.157% | **113×** |
-| image → text | 10 | **25.64%** | 0.314% | **82×** |
-| text → image | 10 | 23.07% | 0.315% | **73×** |
+| image → text | 1 | 7.71% | 0.031% | **245×** |
+| image → text | 5 | 20.60% | 0.157% | **131×** |
+| image → text | 10 | **28.91%** | 0.314% | **92×** |
+| text → image | 10 | 25.20% | 0.315% | **80×** |
 
 Chance is the exact complement of drawing K non-relevant items, not the
 `k/n` shortcut — which overstates it whenever an image has five valid
@@ -60,13 +60,13 @@ and this project shipped exactly that before catching it:
 
 | | Earlier checkpoint | Current |
 |---|---|---|
-| Test R@10 | 19.63% | **25.64%** |
-| Matched − unmatched separation | 0.094 | **0.330** |
-| Mean image–image cosine | 0.810 | **0.379** |
-| Learned logit scale | 55 → 500+ | **23.4** |
+| Test R@10 | 19.63% | **28.91%** |
+| Matched − unmatched separation | 0.094 | **0.347** |
+| Mean image–image cosine | 0.810 | **0.322** |
+| Learned logit scale | 55 → 500+ | **24.1** |
 
 The current space grades **ANISOTROPIC**, not healthy: separation clears
-its floor so retrieval is meaningful, but ‖mean embedding‖ is 0.620
+its floor so retrieval is meaningful, but ‖mean embedding‖ is 0.621
 against a 0.5 threshold. That is stated rather than rounded up — the
 earlier checkpoint's report claimed "HEALTHY" on worse numbers, and
 [docs/KNOWN_ISSUES.md](./docs/KNOWN_ISSUES.md) §1 is the write-up of how
@@ -105,13 +105,19 @@ Full rationale and alternatives considered for each: [TECH_STACK.md](./docs/TECH
 
 ## Demo
 
-The React frontend (Phase 6.5) is built and runs locally against the
-FastAPI backend — see [Running the Full Stack](#running-the-full-stack).
+See the [Walkthrough](#walkthrough) below for screenshots captured from
+the running application, including what it looks like when a query has
+no answer in the corpus.
 
-There is **no public deployment yet**. The Phase 7 Docker and CI
-configuration exists in `deployment/` and `.github/workflows/` but has
-never been executed; see [docs/KNOWN_ISSUES.md](./docs/KNOWN_ISSUES.md)
-§5 for what stands in the way.
+The full stack runs in containers and has been verified end to end —
+`/ready` green, 31,783 images indexed, search at 8–30ms through nginx
+([docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md)).
+
+There is **no public deployment**, deliberately: a public instance would
+mean re-hosting 31,783 Flickr photographs, which falls outside the
+dataset's non-commercial research terms
+([docs/DATASETS.md](./docs/DATASETS.md)). For a private link, the
+deployment ships an [optional auth overlay](#running-it-privately).
 
 ## Installation
 
@@ -420,7 +426,7 @@ demo) is authored but has never been executed — see
 
 Before reading the results as final, read
 [docs/KNOWN_ISSUES.md](./docs/KNOWN_ISSUES.md). The headline number
-(25.64% test R@10, 82× chance) is real, but the embedding space behind
+(28.91% test R@10, 92× chance) is real, but the embedding space behind
 it is substantially more anisotropic than the Phase 5 reports claim, and
 the image search index contains five duplicate vectors per image. Both
 are documented with measurements rather than left for a reader to find.
