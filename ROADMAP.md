@@ -253,26 +253,38 @@ cone from a spread on a unit hypersphere.
 **Deliverables:**
 - [x] Controlled A/B isolating the memory queue from a shared checkpoint
 - [x] Embedding health measured every epoch, not reconstructed afterwards
-- [ ] Run to convergence or early stop
-- [ ] Rebuild FAISS index and regenerate all reports from the final checkpoint
+- [x] Run to convergence — epoch 12, confirmed by epochs 13–14 showing no validation gain
+- [x] Rebuild FAISS index and regenerate all reports from the final checkpoint
 
 **Acceptance criteria:** a checkpoint whose separation is materially
 above Phase 4's 0.094, at no cost to Recall@10, with every reported
 figure regenerable by `scripts/generate_reports.py`.
 
-**Status:** in progress
+**Status:** complete — converged at epoch 12
 
-**Progress at epoch 7 of 20:**
+**Final results** (test split, `scripts/generate_reports.py`):
 
-| Metric | Phase 4 (shipped) | Phase 4b (epoch 7) |
+| Metric | Phase 4 (retired) | Phase 4b (epoch 12) |
 |---|---|---|
-| Val Recall@10 | 20.23% | 19.63% |
-| **Separation** | **0.094** | **0.322** |
-| Mean image–image cosine | 0.810 | 0.409 |
-| Logit scale | 55.2 (→500+) | 18.6 |
+| Test Recall@1 | 4.62% | **7.71%** (245× chance) |
+| Test Recall@5 | 13.43% | **20.60%** (131× chance) |
+| Test Recall@10 | 19.63% | **28.91%** (92× chance) |
+| Test Recall@10 (T2I) | 15.09% | **25.20%** (80× chance) |
+| **Separation** | **0.094** | **0.347** |
+| Mean image–image cosine | 0.810 | **0.322** |
+| Logit scale | 55.2 (→500+) | **24.1** |
 
-Equivalent retrieval on a space 3.4× better separated, with the logit
+R@10 up 47% relative, on a space 3.7× better separated, with the logit
 scale stable near its initialization instead of running away.
+
+**Convergence, not interruption.** Epochs 13–14 dropped training loss
+14% without improving validation R@10 once. Epoch 12 is the peak, and
+early stopping at patience 5 would have selected the same weights
+(EXPERIMENTS.md 007).
+
+**Remaining health gap:** the space grades ANISOTROPIC, not HEALTHY —
+‖mean embedding‖ 0.621 against a 0.5 threshold is the one check it still
+fails.
 
 **Documentation:**
 - Experiments 004-006: [docs/EXPERIMENTS.md](docs/EXPERIMENTS.md)
