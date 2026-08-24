@@ -99,17 +99,37 @@ def is_out_of_memory(error: BaseException) -> bool:
 
 
 def release_cuda_memory() -> None:
-    """Return cached allocator blocks to the driver.
+    """Return cached allocator blocks to the driver, best-effort.
 
     Torch keeps freed blocks in its own pool rather than handing them
     back, so a neighbouring process cannot reuse them and neither can a
     differently-shaped allocation of ours. ``gc.collect()`` runs first
     because tensors still referenced by a traceback are not free yet.
+
+    Every CUDA call here is guarded. ``empty_cache()`` and
+    ``synchronize()`` can themselves raise when the context is already
+    in a bad state, and an exception escaping the recovery path turns a
+    retryable OOM into a hard crash *and* masks the original error with
+    a secondary one. That is not hypothetical: it killed a run at epoch
+    13 one step after the retry had correctly fired.
+
+    A failure to free is not fatal — the caller retries regardless, and
+    the attempt may still succeed once whatever took the memory releases
+    it.
     """
     gc.collect()
-    if torch.cuda.is_available():
+    if not torch.cuda.is_available():
+        return
+
+    try:
         torch.cuda.empty_cache()
+    except Exception as error:  # noqa: BLE001 - recovery must not raise
+        logger.warning("empty_cache() failed during recovery: %s", error)
+
+    try:
         torch.cuda.synchronize()
+    except Exception as error:  # noqa: BLE001 - recovery must not raise
+        logger.warning("synchronize() failed during recovery: %s", error)
 
 
 def run_step_with_oom_retry[T](

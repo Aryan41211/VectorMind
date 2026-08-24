@@ -197,3 +197,67 @@ class TestHostAllocationFailures:
                 max_attempts=1,
                 backoff_seconds=0,
             )
+
+
+class TestRecoveryPathCannotCrash:
+    """The recovery path must never be the thing that kills a run.
+
+    empty_cache() and synchronize() can raise when the CUDA context is
+    already in a bad state. An exception escaping from there turns a
+    retryable OOM into a hard crash and masks the original error — which
+    is exactly how a run died at epoch 13, one step after the retry had
+    correctly fired.
+    """
+
+    def test_survives_empty_cache_raising(self, monkeypatch) -> None:
+        monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+        monkeypatch.setattr(
+            torch.cuda,
+            "empty_cache",
+            lambda: (_ for _ in ()).throw(RuntimeError("CUDA error: out of memory")),
+        )
+        monkeypatch.setattr(torch.cuda, "synchronize", lambda: None)
+        release_cuda_memory()  # must not raise
+
+    def test_survives_synchronize_raising(self, monkeypatch) -> None:
+        monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+        monkeypatch.setattr(torch.cuda, "empty_cache", lambda: None)
+        monkeypatch.setattr(
+            torch.cuda,
+            "synchronize",
+            lambda: (_ for _ in ()).throw(RuntimeError("context is corrupt")),
+        )
+        release_cuda_memory()  # must not raise
+
+    def test_retry_still_completes_when_cleanup_fails(self, monkeypatch) -> None:
+        """The end-to-end property: cleanup failure must not stop a retry."""
+        monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+        monkeypatch.setattr(
+            torch.cuda,
+            "empty_cache",
+            lambda: (_ for _ in ()).throw(RuntimeError("cannot free")),
+        )
+        monkeypatch.setattr(torch.cuda, "synchronize", lambda: None)
+
+        calls = {"n": 0}
+
+        def step() -> str:
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise oom_error()
+            return "recovered"
+
+        assert run_step_with_oom_retry(step, backoff_seconds=0) == "recovered"
+        assert calls["n"] == 2
+
+    def test_logs_the_cleanup_failure(self, monkeypatch, caplog) -> None:
+        monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+        monkeypatch.setattr(
+            torch.cuda,
+            "empty_cache",
+            lambda: (_ for _ in ()).throw(RuntimeError("cannot free")),
+        )
+        monkeypatch.setattr(torch.cuda, "synchronize", lambda: None)
+        with caplog.at_level("WARNING"):
+            release_cuda_memory()
+        assert any("empty_cache" in r.message for r in caplog.records)
