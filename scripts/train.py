@@ -94,6 +94,12 @@ def parse_args() -> argparse.Namespace:
         help="Disable memory queue (baseline experiment).",
     )
     parser.add_argument(
+        "--uniformity-weight",
+        type=float,
+        default=None,
+        help="Override uniformity.weight from configs/training.yaml.",
+    )
+    parser.add_argument(
         "--num-workers",
         type=int,
         default=None,
@@ -345,6 +351,17 @@ def main() -> None:
     early_stop_enabled = train_cfg.get("early_stopping", {}).get("enabled", True)
     min_delta = train_cfg.get("early_stopping", {}).get("min_delta", 0.001)
 
+    uni_cfg = train_cfg.get("uniformity", {})
+    uniformity_weight = (
+        args.uniformity_weight
+        if args.uniformity_weight is not None
+        else float(uni_cfg.get("weight", 0.0))
+    )
+    if uniformity_weight > 0.0:
+        logger.info(
+            "Uniformity regularizer: ENABLED (weight=%.4f)", uniformity_weight
+        )
+
     temp_cfg = train_cfg.get("temperature", {})
     clamp_enabled = temp_cfg.get("clamp_enabled", True)
     max_logit_scale = float(temp_cfg.get("max_logit_scale", DEFAULT_MAX_LOGIT_SCALE))
@@ -383,6 +400,7 @@ def main() -> None:
                     memory_queue=memory_queue,
                     accumulation_steps=accum_steps,
                     device=device,
+                    uniformity_weight=uniformity_weight,
                 ),
                 context=f"epoch {epoch + 1} step {batch_idx + 1}",
             )

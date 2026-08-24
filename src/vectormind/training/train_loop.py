@@ -37,6 +37,7 @@ import torch.nn as nn
 from vectormind.models.vectormind_model import VectorMindModel
 from vectormind.training.losses import symmetric_infonce
 from vectormind.training.memory_queue import MemoryQueue
+from vectormind.training.uniformity import combined_uniformity_loss
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +51,7 @@ def train_one_step(
     accumulation_steps: int = 1,
     device: torch.device | None = None,
     enqueue_text: bool = True,
+    uniformity_weight: float = 0.0,
 ) -> dict[str, float]:
     """Execute one training step with AMP and gradient accumulation.
 
@@ -71,6 +73,11 @@ def train_one_step(
         enqueue_text: If True (default), push this step's text
             embeddings into ``memory_queue`` before returning. Set
             False only when the caller manages the queue itself.
+        uniformity_weight: Weight on the Wang & Isola uniformity term,
+            which spreads embeddings over the hypersphere. **0.0 by
+            default, which reproduces InfoNCE-only training exactly** —
+            so enabling it is a single config value and an A/B against
+            the current model is a clean comparison.
 
     Returns:
         Dictionary of metrics:
@@ -118,9 +125,19 @@ def train_one_step(
         queue_for_loss = queue_embeds if queue_embeds.numel() > 0 else None
 
         # Compute loss
-        loss = symmetric_infonce(
+        contrastive = symmetric_infonce(
             image_embeds, text_embeds, model.temperature, queue_for_loss
         )
+
+        # Optional uniformity regularizer (docs/KNOWN_ISSUES.md §12).
+        # Skipped entirely at weight 0 rather than multiplied by zero, so
+        # the default path costs nothing — the term is O(B^2).
+        if uniformity_weight > 0.0:
+            uniformity = combined_uniformity_loss(image_embeds, text_embeds)
+            loss = contrastive + uniformity_weight * uniformity
+        else:
+            uniformity = torch.zeros((), device=contrastive.device)
+            loss = contrastive
 
         # Scale loss for gradient accumulation
         scaled_loss = loss / accumulation_steps
@@ -146,6 +163,11 @@ def train_one_step(
             image_embeds=image_embeds,
             text_embeds=text_embeds,
         )
+        # Reported separately so the two terms can be watched against
+        # each other — a uniformity weight that is winning shows up as
+        # contrastive loss rising while total loss falls.
+        metrics["loss_contrastive"] = contrastive.item()
+        metrics["loss_uniformity"] = uniformity.item()
 
     return metrics
 

@@ -33,6 +33,21 @@ gradient_accumulation_steps: 1
 # Helps stabilize early training when gradients can spike.
 gradient_clip_max_norm: 1.0
 
+# --- Uniformity regularizer (docs/KNOWN_ISSUES.md §12) ---
+#
+# Wang & Isola's uniformity term, which spreads embeddings over the
+# hypersphere. It targets the one health threshold the converged model
+# still fails: ||mean embedding|| 0.621 against a 0.5 ceiling.
+#
+# 0.0 reproduces InfoNCE-only training exactly, so this is a one-value
+# A/B rather than a code change. Raise it only with a controlled
+# comparison — separation and uniformity trade against each other, and
+# this project has a recent, expensive demonstration of what happens
+# when a loss change is adopted on one epoch of evidence (§11).
+uniformity:
+  weight: 0.0
+  t: 2.0
+
 # --- Memory Queue (ARCHITECTURE.md §6) ---
 memory_queue:
   # Size of the MoCo-style negative embedding queue.
