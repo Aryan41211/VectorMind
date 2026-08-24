@@ -27,11 +27,17 @@ data/processed/
 *.pt
 *.ckpt
 
-# Derived embedding arrays — regenerate with `python -m backend.index_builder`.
-# The .faiss indices and their index maps (image_samples.json,
-# caption_samples.json) ARE committed so the demo runs from a fresh
-# clone; see docs/KNOWN_ISSUES.md for the size tradeoff.
-backend/indices/*.npy
+# Derived search indices. Built, never committed.
+#
+# When these covered only the 3,179-image test split they were ~35MB and
+# committing them was a defensible convenience. Indexing the full 31,783
+# -image corpus takes the directory to 234MB, and text_index.faiss alone
+# is 155MB — above GitHub's 100MB hard limit, so this is no longer a
+# tradeoff to weigh.
+#
+# Rebuild in ~10 minutes on a GPU:
+#   python -m backend.index_builder #       --checkpoint checkpoints/train/best_model.pt --split all
+backend/indices/
 
 # --- Node / frontend ---
 node_modules/

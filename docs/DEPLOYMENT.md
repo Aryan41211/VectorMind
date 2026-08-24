@@ -64,8 +64,20 @@ is 1.3GB:
 | Path | How to obtain |
 |---|---|
 | `checkpoints/train/best_model.pt` | `python scripts/train.py` |
-| `backend/indices/` | `python -m backend.index_builder --checkpoint checkpoints/train/best_model.pt` |
+| `backend/indices/` | `python -m backend.index_builder --checkpoint checkpoints/train/best_model.pt --split all` |
 | `data/raw/flickr30k/images/` | See [DATASETS.md](DATASETS.md) |
+
+**`--split all` matters.** It indexes the whole 31,783-image corpus,
+which is what the demo should serve. Building from `--split test` gives
+the index only 3,179 images — a tenth of the corpus — so most queries
+have nothing relevant to match against and the model looks far worse
+than it is. Reported metrics are unaffected either way:
+`scripts/generate_reports.py` measures Recall@K on the test split and
+never reads this index.
+
+The index is **not committed** — at 234MB, with `text_index.faiss` alone
+above GitHub's 100MB file limit, it cannot be. Budget ~10 minutes on a
+GPU to build it.
 
 The index must be rebuilt whenever the checkpoint changes. Embeddings
 from one model and an index from another produce confident, wrong

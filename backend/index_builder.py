@@ -387,7 +387,8 @@ def build_indices(
         model_config_path: Path to model configuration YAML.
         data_config_path: Path to data configuration YAML.
         output_dir: Directory to save indices.
-        dataset_split: Dataset split to index (train/val/test).
+        dataset_split: Dataset split to index — ``train``, ``val``,
+            ``test``, or ``all`` for the entire corpus.
         device: Device for inference.
         save_embeddings: Also write raw .npy arrays alongside the
             indices. Off by default; nothing at runtime reads them.
@@ -439,11 +440,25 @@ def build_indices(
         data_config, [Path(p) for p in image_paths], captions
     )
 
-    # Select split
+    # Select split.
+    #
+    # "all" indexes the entire corpus, which is what a retrieval system
+    # normally serves: you index everything you own and evaluate on a
+    # held-out slice. Indexing only the test split left 90% of Flickr30k
+    # (28,604 images) unreachable, so a query had one tenth of the
+    # corpus to match against and often nothing relevant existed at all.
+    #
+    # This does NOT affect reported metrics. Recall@K is measured by
+    # scripts/generate_reports.py on the test split alone, which never
+    # reads this index. Serving scope and evaluation scope are separate
+    # on purpose — mixing them is how a demo ends up quoting numbers
+    # that include images the model trained on.
     if dataset_split == "train":
         pairs = train_pairs
     elif dataset_split == "val":
         pairs = val_pairs
+    elif dataset_split == "all":
+        pairs = list(train_pairs) + list(val_pairs) + list(test_pairs)
     else:
         pairs = test_pairs
 
@@ -590,8 +605,12 @@ def main() -> None:
         "--split",
         type=str,
         default="test",
-        choices=["train", "val", "test"],
-        help="Dataset split to index",
+        choices=["train", "val", "test", "all"],
+        help=(
+            "Dataset split to index. 'all' indexes the whole corpus, "
+            "which is what the demo should serve; metrics are still "
+            "computed on the test split alone."
+        ),
     )
     parser.add_argument(
         "--device",

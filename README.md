@@ -258,6 +258,23 @@ npm run lint      # oxlint
 npm run build     # production build → frontend/dist/
 ```
 
+### Building the search index
+
+The index is derived from a checkpoint and is not committed — it is
+234MB, and `text_index.faiss` alone exceeds GitHub's 100MB file limit.
+Build it once before serving:
+
+```bash
+python -m backend.index_builder     --checkpoint checkpoints/train/best_model.pt     --split all
+```
+
+`--split all` indexes the whole 31,783-image corpus, which is what the
+demo should search. Building from the test split alone leaves 90% of
+Flickr30k unreachable, so most queries have nothing relevant to match
+and the model looks far worse than it is. Reported metrics are unchanged
+either way — Recall@K is measured on the held-out test split by
+`scripts/generate_reports.py`, which never reads this index.
+
 ### Running the full stack
 
 ```bash
