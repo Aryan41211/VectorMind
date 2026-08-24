@@ -444,6 +444,62 @@ unlearn a space it has already committed to.
 
 ---
 
+## 13. Three defects found on 2026-08-25 ✅ ALL FIXED
+
+Found while running the §12 weight sweep. Grouped because they share a
+cause: a claim written in a document, never checked against the code or
+the file it described.
+
+### 13a. The memory queue defaulted **on**
+
+ARCHITECTURE.md §6 has stated since the A/B that
+`memory_queue.enabled` "is retained and defaults to off". There was no
+such key. `scripts/train.py` built the queue unless `--no-queue` was
+passed, so the real default was **on** — the setting measured at 87%
+worse R@10 and 81% worse separation (§11).
+
+Nobody noticed because every run since the A/B passed the flag by hand.
+Anyone following the documented command would have reproduced the exact
+failure this project spent two days diagnosing.
+
+**Fixed:** `memory_queue.enabled: false` exists in
+`configs/training.yaml`, `train.py` reads it, and `--queue` /
+`--no-queue` override it in either direction.
+
+### 13b. The checkpoint registry described a retired run
+
+`checkpoints/checkpoint_metadata.json` is what ARCHITECTURE.md §12 offers
+as traceability and what ROADMAP.md's production goals tick off as
+delivered. It was hand-maintained, so it drifted: after the Phase 4b
+retrain it still described `best_model.pt` as *"epoch 7, val R@10
+0.2023, BEST — queue enabled (4096 entries)"* while that path held a
+queue-disabled epoch-12 checkpoint. One entry's metrics were annotated
+`"extrapolated from trend"` — a guess, in a registry.
+
+The commit SHA §12 promises was never recorded at all, so the registry
+could not have carried it even in principle.
+
+**Fixed:** `scripts/index_checkpoints.py` regenerates the file from each
+checkpoint's own embedded metadata and leaves unknown fields null;
+`save_checkpoint` now records commit, branch and dirty state.
+
+### 13c. The failure-rank histogram counted the opposite of its name
+
+`compute_failure_analysis` returned `failure_rank_distribution`, a
+length-*k* list whose entry 0 was incremented once per **failure** and
+whose other *k-1* entries were never touched. Beside the label "rank
+distribution", `[638, 0, 0, ...]` reads as *every miss was a near miss*.
+It was a failure count in a list.
+
+Its docstring also advertised three failure modes — semantic, visual,
+ambiguous — that the function has never computed.
+
+**Fixed:** replaced with `hit_rank_distribution`, the rank at which each
+successful query first found a correct caption, summing to the number of
+successes; docstring rewritten to describe what the code does.
+
+---
+
 ## Fixed in the 2026-08-23 audit
 
 - `ROADMAP.md` had its entire header and Constraints section duplicated, spliced mid-sentence.
