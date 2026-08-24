@@ -1,6 +1,6 @@
 # EXPERIMENTS.md — VectorMind
 
-Experiment tracking log. Seven runs have been executed and are recorded
+Experiment tracking log. Eight runs have been executed and are recorded
 below. Experiments 004-006 supersede 002's memory-queue conclusion —
 see 006 for the controlled re-run that reverses it. This file defines the template every future experiment must
 follow, so the log stays consistent from the first real run onward.
@@ -481,3 +481,66 @@ Three candidates, in order of expected value:
 1. A momentum encoder, making the memory queue usable rather than harmful (Experiment 006, FUTURE_IDEAS.md).
 2. A uniformity term targeting ‖mean embedding‖ 0.621 — the one health threshold the model still fails.
 3. More data. Flickr30k is 31k images; the constraint is the project's premise rather than an oversight.
+
+---
+
+### Experiment 008 — Uniformity regularizer
+
+**Date:** 2026-08-24
+**Phase:** post-convergence
+**Config file(s) used:** `configs/training.yaml`, `--uniformity-weight 0.5`
+
+**Hypothesis:** the converged model's residual anisotropy —
+‖mean embedding‖ 0.621 against a 0.5 threshold, the one health check it
+fails — can be removed with a Wang & Isola uniformity term, and the
+question is what it costs.
+
+**Setup:** resume from a preserved copy of the converged epoch-12
+checkpoint. Uniformity weight is the only variable; the queue stays
+disabled and every other hyperparameter is unchanged. Weight 0.0
+reproduces the baseline exactly, so this is a genuine A/B.
+
+**Evaluation Metrics:** (val split)
+
+| Metric | Baseline (w=0) | w=0.5, epoch 14 |
+|---|---|---|
+| Recall@1 | 7.17% | 6.45% |
+| Recall@10 | **29.30%** | 27.28% |
+| Separation | 0.347 | **0.481** |
+| Mean image–image cosine | 0.322 | **0.031** |
+| ‖mean embedding‖ | 0.621 | **0.176** |
+| Unmatched similarity | 0.255 | **0.002** |
+| **Grade** | ANISOTROPIC | **HEALTHY** |
+
+**Observations:**
+The regularizer does exactly what it was added to do, and by a wide
+margin. ‖mean embedding‖ fell 0.621 → 0.176, comfortably inside its 0.5
+threshold, and mean off-diagonal cosine fell 0.322 → 0.031. Unmatched
+pairs now sit at 0.002 similarity — effectively orthogonal, which is
+what a well-formed contrastive space looks like.
+
+**This is the first HEALTHY grade the project has produced on real
+data.** Phase 3.5's 0.964 separation was an overfit of 100 images.
+
+It costs retrieval: R@10 fell 2.0pp, R@1 0.7pp. The direction of the
+tradeoff is unsurprising — uniformity spends sphere volume on spreading
+non-matching pairs apart, and some of that volume was doing useful work
+for rank ordering.
+
+Two caveats on the cost. R@10 was still recovering when the run was
+stopped (26.62% at epoch 13, 27.28% at epoch 14), so the model was
+re-converging after the loss change and the gap may narrow further. And
+weight 0.5 was a first guess, not a tuned value.
+
+**Conclusions:**
+Hypothesis CONFIRMED for the health claim, at a measured cost. §12 is
+solvable; what remains is a judgment about which point on the tradeoff
+to ship, not whether the fix works.
+
+The baseline checkpoint remains the shipped model, because 0.5 is
+untuned and the 2pp is real. That is a decision the evidence supports
+either way, and it is recorded here rather than made silently.
+
+**Future Improvements:**
+1. Sweep the weight — 0.1 and 0.2 are the obvious next points, since the health gain at 0.5 overshoots the threshold by a wide margin and a smaller weight may buy HEALTHY for a fraction of the retrieval cost.
+2. Train from scratch with the term enabled rather than resuming into it. Resuming forces the model to unlearn a space it has already committed to, which likely costs more than starting with the objective in place.
