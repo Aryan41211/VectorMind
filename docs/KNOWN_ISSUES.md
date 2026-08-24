@@ -368,7 +368,7 @@ Listed so the gap is visible rather than assumed closed.
 
 ---
 
-## 12. The embedding space is still anisotropic (open)
+## 12. The embedding space is still anisotropic — solvable, tradeoff measured
 
 **Severity:** medium — retrieval works, but this is the one health
 threshold the shipped model fails.
@@ -390,17 +390,36 @@ correctly graded ANISOTROPIC, and stated in every document that quotes
 the numbers. The difference between the two is the whole point of the
 three-state grade.
 
-**Candidate fix:** add a uniformity term to the loss (Wang & Isola,
-"Alignment and Uniformity on the Hypersphere"). `compute_uniformity`
-already exists in `src/vectormind/evaluation/retrieval.py`, so the metric
-side is done; what is missing is using it as a training signal alongside
-InfoNCE, with a weight that has to be tuned against separation so it does
-not trade one for the other.
+**Fix: implemented and measured** (`src/vectormind/training/uniformity.py`,
+EXPERIMENTS.md 008). A Wang & Isola uniformity term, weight 0.5, from the
+same checkpoint with nothing else changed:
 
-**Not attempted here** because it changes the loss, which needs its own
-controlled A/B — and this project has just spent considerable effort
-demonstrating what happens when a loss change is adopted on one epoch's
-evidence (§11).
+| | Shipped (w=0) | w=0.5 |
+|---|---|---|
+| ‖mean embedding‖ | 0.621 ❌ | **0.176** ✅ |
+| Mean image–image cosine | 0.322 | **0.031** |
+| Unmatched similarity | 0.255 | **0.002** |
+| Separation | 0.347 | **0.481** |
+| **Grade** | ANISOTROPIC | **HEALTHY** |
+| Val R@10 | **29.30%** | 27.28% |
+
+It works, decisively — this is the first HEALTHY grade the project has
+produced on real data. It costs **2.0pp of R@10**.
+
+**Why the anisotropic model still ships.** The weight was a first guess,
+not a sweep; the health gain overshoots the threshold by a wide margin,
+which suggests a smaller weight could buy HEALTHY for less; and R@10 was
+still recovering when the run stopped. Shipping an untuned 2pp
+regression on that basis would be the same mistake as §11 — adopting a
+loss change on one run's evidence.
+
+So this is no longer an unsolved problem. It is a **known tradeoff with
+a measured cost and an untuned knob**, and the config exposes it:
+`training.uniformity.weight`, default 0.0.
+
+**Next:** sweep 0.1 and 0.2, and try training from scratch with the term
+enabled rather than resuming into it — resuming forces the model to
+unlearn a space it has already committed to.
 
 ---
 
