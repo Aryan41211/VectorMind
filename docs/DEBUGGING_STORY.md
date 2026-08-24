@@ -345,3 +345,49 @@ pinned footprint to 0.29GB.
 process is an infrastructure failure, not a modelling one, and it should
 not be fatal. And the constraint you wrote on the tin is not necessarily
 the one that stops you.
+
+---
+
+## 12. The Default That Only Existed in the Documentation
+
+**Symptom:** none. That is what makes this one worth writing down.
+
+The memory queue had been diagnosed as the cause of the Phase 4 collapse
+(§9), removed from the recipe, and written up. ARCHITECTURE.md §6 ends
+with the decision: *"train with in-batch negatives only.
+`memory_queue.enabled` is retained and defaults to off."*
+
+**What was actually true:** there was no `memory_queue.enabled` key in
+`configs/training.yaml`. `scripts/train.py` read
+`use_queue = not args.no_queue` — so the default was **on**, and the
+only thing keeping the queue out of every run was a flag typed by hand
+on the command line.
+
+**How it stayed hidden for a day:** every run after the A/B passed
+`--no-queue`, because whoever ran them had just spent two days finding
+out why it mattered. The flag was in the shell history, and the
+knowledge sat there rather than in the config. Nothing in the repository
+could have caught the divergence: the tests do not run training, and no
+test asserted a default.
+
+**How it was found:** while setting up the §12 weight sweep, checking
+which arguments each arm needed. The config was open beside the code for
+an unrelated reason.
+
+**The fix:** `memory_queue.enabled: false` now exists, carries the
+measurement that decided it, and is what `train.py` reads. `--queue` and
+`--no-queue` override it in either direction and are mutually exclusive.
+
+**Lesson:** a decision that lives in a flag lives in one person's
+memory. This one had been investigated, measured, written up in three
+documents, and it still would have shipped the collapse to the next
+person who ran the documented command. Writing down *why* is not the
+same as changing the default, and only one of those two survives a
+handover.
+
+Two smaller cases of the same shape were fixed in the same pass — a
+model registry maintained by hand that still described a retired
+checkpoint, and a "rank distribution" that counted failures into bucket
+zero. All three are in KNOWN_ISSUES §13. The pattern in all three: a
+sentence nothing executed.
+

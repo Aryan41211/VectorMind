@@ -454,7 +454,7 @@ with a working, deployed demo. See ARCHITECTURE.md §11-12.
       deployment — Kubernetes and managed cloud endpoints are
       explicitly out of scope; see docs/FUTURE_IDEAS.md)
 - [x] Write-up of design decisions and tradeoffs — `docs/DESIGN_DECISIONS.md`
-- [x] Write-up of the debugging story — `docs/DEBUGGING_STORY.md`, 11 narratives
+- [x] Write-up of the debugging story — `docs/DEBUGGING_STORY.md`, 12 narratives
 
 **Dependencies:** Phases 0–6.5 complete.
 
@@ -486,7 +486,7 @@ metrics, no auth).
 - **Docker:** `backend.Dockerfile` (Python + PyTorch, ~500MB), `frontend.Dockerfile` (Node → nginx, ~30MB)
 - **Compose:** `deployment/docker-compose.yml` — orchestrates both containers
 - **CI:** `.github/workflows/test.yml` (pytest + tsc on every PR), `.github/workflows/build.yml` (Docker builds on merge to main)
-- **Write-ups:** `docs/DESIGN_DECISIONS.md` (10 decisions), `docs/DEBUGGING_STORY.md` (7 debugging narratives)
+- **Write-ups:** `docs/DESIGN_DECISIONS.md` (10 decisions), `docs/DEBUGGING_STORY.md` (12 debugging narratives)
 
 ---
 
