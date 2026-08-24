@@ -321,11 +321,86 @@ See [ROADMAP.md](./ROADMAP.md) for the complete, living phase-by-phase
 plan (Phase 0 through Phase 7), including dependencies, acceptance
 criteria, and current status per phase.
 
-## Screenshots
+## Walkthrough
 
-_Not yet captured. The frontend exists and runs; screenshots are still
-to be added here. Run it locally with the
-[Running the Full Stack](#running-the-full-stack) instructions above._
+Every image below is a live query against the running stack — the real
+model, the real 31,783-image index, captured by
+`scripts/capture_screenshots.py`. Nothing here is a mockup, and rerunning
+that script after a retrain regenerates the whole set.
+
+### Text → image
+
+![Searching for "a dog playing in a park": twelve dog photographs, scores 0.755 down to 0.725](docs/screenshots/02-search-dog.png)
+
+*"a dog playing in a park"* — twelve results, all twelve dogs, most of
+them mid-run on grass. 2.2s here because it is the first query after a
+cold start; subsequent ones are 8–30ms.
+
+![Searching for "a busy city street with cars": street scenes with vehicles](docs/screenshots/03-search-street.png)
+
+*"a busy city street with cars"* — scene-level concepts like this are
+what the model handles best, and what the Phase 5 qualitative analysis
+predicted it would.
+
+### What it looks like when it fails
+
+This is the more useful screenshot.
+
+![Searching for "a quarterly revenue chart": unrelated photographs of people, scores 0.722 down to 0.687](docs/screenshots/04-search-out-of-domain.png)
+
+*"a quarterly revenue chart"* — Flickr30k contains no charts, so there is
+no right answer. The model returns its nearest photographs anyway, as
+every embedding-based retriever does, and **the scores drop**: 0.722 at
+rank 1 against 0.755 for the dog query, and a flatter curve.
+
+That gap is why every result carries its score. A retrieval demo that
+hides the number lets rank order imply a confidence the model does not
+have. Showing it lets you see the difference between "found it" and
+"here is the closest thing I have".
+
+### Idle state
+
+![The idle screen: search bar, example queries, and a metrics panel](docs/screenshots/01-idle.png)
+
+The example queries are not decoration — a visitor has no way to know
+the corpus is Flickr30k photographs, and an out-of-domain query returning
+noise reads as a broken demo rather than a mismatched question. The panel
+below states the measured numbers and where the model falls down.
+
+### Reproducing these
+
+```bash
+docker compose -f deployment/docker-compose.yml up -d
+python scripts/capture_screenshots.py --base-url http://localhost:8080
+```
+
+`playwright` is a capture-time tool, not a project dependency:
+`pip install playwright && playwright install chromium`.
+
+## Running it privately
+
+There is no public demo, and that is deliberate. A public instance would
+mean publicly re-hosting 31,783 Flickr photographs, and the official
+Flickr30k terms are non-commercial research/education only, with the
+images themselves still under Flickr's own Terms of Use — see
+[docs/DATASETS.md](./docs/DATASETS.md).
+
+For sharing a private link instead, the deployment ships an optional
+HTTP Basic auth overlay:
+
+```bash
+docker run --rm httpd:alpine htpasswd -nbB you 'a-long-passphrase' \
+  > deployment/.htpasswd
+cp deployment/auth.conf.example deployment/auth.conf
+
+docker compose -f deployment/docker-compose.yml \
+  -f deployment/docker-compose.auth.yml up -d
+```
+
+`/health` and `/ready` stay open so uptime checks keep working.
+Credentials are gitignored. Basic auth is base64 encoding rather than
+encryption, so it is only a real control behind TLS — over plain HTTP it
+keeps a link out of search results, and nothing more.
 
 ## Contributing
 
