@@ -443,7 +443,7 @@ with a working, deployed demo. See ARCHITECTURE.md §11-12.
 
 **Deliverables:**
 - [x] `backend.Dockerfile` / `frontend.Dockerfile` + `docker-compose.yml` — built and run
-- [ ] GitHub Actions: `test.yml` (pytest + `tsc --noEmit` on every PR),
+- [x] GitHub Actions: `test.yml` (pytest + `tsc --noEmit` on every PR),
       `build.yml` (Docker builds on merge to `main`)
 - [ ] Deployed demo reachable via a public URL (single-machine/VM
       deployment — Kubernetes and managed cloud endpoints are
@@ -468,7 +468,7 @@ green CI run.
 | Deliverable | State |
 |---|---|
 | Dockerfiles, compose, nginx | ✅ **Both images built and the stack run end to end.** Backend 2.17GB, frontend 93.1MB. `/ready` green with model and both indices loaded; search returns 10 unique images of 10 at 8-19ms through the proxy. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). |
-| CI workflows | Written, now also running ruff, mypy and the frontend build. **Never observed green** — `.github/` was untracked until 2026-08-23, so GitHub had never seen them. |
+| CI workflows | ✅ **Green** as of 2026-08-24 (run 32756952454): pytest, mypy, ruff, tsc/oxlint/build, a serving-dependency check, and both Docker image builds. |
 | Deployed demo at a public URL | **Not started.** Runs locally via compose; needs a host to be public. |
 | Design-decision write-up | Done. |
 | Debugging write-up | Done. |

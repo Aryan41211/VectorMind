@@ -210,8 +210,14 @@ surfaced three real defects: nginx could not resolve its upstream at
 config-test time, compose services had no image names, and security
 headers arrived twice on proxied paths.
 
-**Still open:** CI has never been observed green on GitHub, and there is
-no public deployment.
+**Still open:** no public deployment — deliberately, see §13.
+
+**CI is green** as of 2026-08-24 (run 32756952454). Getting there took
+two more fixes, both the same class of works-on-my-machine gap this
+audit started with: `types-PyYAML` was installed locally but never
+declared, so mypy passed here and failed there; and three tests asserted
+`GET /` returns 200, which is only true when the gitignored
+`frontend/dist` exists.
 
 **Severity when open:** high. As originally written:
 
@@ -358,7 +364,7 @@ Listed so the gap is visible rather than assumed closed.
 - [x] **Regenerate `reports/`** — done, all from one script run.
 - [x] **Propagate the final numbers** — done across README, PROJECT_STATUS and the About panel.
 - [x] **Build and run both Docker images** (§5) — done 2026-08-24.
-- [ ] **Observe CI green once** (§3, §5).
+- [x] **Observe CI green once** (§3, §5) — done 2026-08-24, run 32756952454. All five jobs: pytest, mypy, ruff, tsc/oxlint/build, the serving-dependency check, and both Docker image builds.
 
 ---
 

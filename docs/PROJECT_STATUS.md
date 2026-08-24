@@ -76,7 +76,7 @@ epochs 13–14 is the training split being fitted, not the test split
 being missed.
 
 ## Tests
-- **444** Python tests
+- **451** Python tests
 - **56** frontend tests (was 0)
 - mypy, ruff, tsc and oxlint all clean across the repository
 
@@ -94,7 +94,7 @@ being missed.
 
 ## In Progress
 - [x] **Phase 7 — Containers.** Both images built and the stack run end to end: `/ready` green, 31,783 images indexed, search returning distinct results at 8–19ms through nginx.
-- [ ] CI has never been observed green on GitHub.
+- [x] **CI green** — run 32756952454, all five jobs.
 - [ ] Public deployed demo — runs locally via compose; needs a host to be public.
 
 ## Key Achievements
@@ -109,7 +109,7 @@ being missed.
 Tracked in [KNOWN_ISSUES.md](KNOWN_ISSUES.md). Open items:
 1. The space is still ANISOTROPIC — ‖mean embedding‖ 0.621 against a 0.5 threshold. This is now the *only* health threshold it fails, and the main open modelling problem.
 2. ~~Training stopped early~~ — **resolved.** Epochs 13–14 dropped training loss 14% without moving validation R@10, so epoch 12 is the converged checkpoint (EXPERIMENTS.md 007). "Train longer" is exhausted as a lever.
-3. CI has never been observed green on GitHub.
+3. ~~CI never observed green~~ — **resolved** 2026-08-24, all five jobs passing.
 4. No public deployment.
 
 ## Environment
