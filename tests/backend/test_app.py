@@ -10,9 +10,32 @@ Covers:
 
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
-from backend.app import create_app
+from backend.app import create_app, load_serving_config
+
+
+@pytest.fixture
+def app_with_frontend(tmp_path):
+    """An app whose SPA routes are registered, without needing a real build.
+
+    The SPA routes only exist when the configured frontend_dist directory
+    is present, and frontend/dist is a build artifact that is gitignored.
+    Tests that depended on it passed locally for anyone who had run
+    `npm run build` and failed in CI, which is the wrong way round: a
+    test should not depend on whether someone built the frontend.
+
+    This points the app at a temporary directory containing an
+    index.html, so the SPA branch is exercised deterministically.
+    """
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    (dist / "index.html").write_text("<!doctype html><title>t</title>", encoding="utf-8")
+
+    serving = load_serving_config()
+    serving["paths"] = {**serving["paths"], "frontend_dist": str(dist)}
+    return create_app(test_mode=True, serving_config=serving)
 
 
 class TestApplicationCreation:
@@ -31,12 +54,26 @@ class TestApplicationCreation:
         response = client.get("/health")
         assert response.status_code == 200
 
-    def test_app_has_root_endpoint(self):
-        """Application has root endpoint."""
-        app = create_app(test_mode=True)
-        client = TestClient(app)
-        response = client.get("/")
+    def test_app_serves_spa_at_root_when_built(self, app_with_frontend):
+        """Root serves the SPA when a frontend build is present."""
+        response = TestClient(app_with_frontend).get("/")
         assert response.status_code == 200
+
+    def test_root_404s_without_a_frontend_build(self, tmp_path):
+        """Without a build there is no SPA to serve, and that is fine.
+
+        The API still works; only the SPA routes are absent. This is the
+        state a backend-only deployment runs in.
+        """
+        serving = load_serving_config()
+        serving["paths"] = {
+            **serving["paths"],
+            "frontend_dist": str(tmp_path / "absent"),
+        }
+        app = create_app(test_mode=True, serving_config=serving)
+        assert TestClient(app).get("/").status_code == 404
+        # The API is unaffected.
+        assert TestClient(app).get("/api/info").status_code == 200
 
 
 class TestHealthCheck:
@@ -94,11 +131,9 @@ class TestRootEndpoint:
         assert data["docs"] == "/docs"
         assert data["health"] == "/health"
 
-    def test_root_returns_200(self):
-        """Root endpoint returns 200 OK (SPA or JSON)."""
-        app = create_app(test_mode=True)
-        client = TestClient(app)
-        response = client.get("/")
+    def test_root_returns_200(self, app_with_frontend):
+        """Root endpoint returns 200 OK when the SPA is present."""
+        response = TestClient(app_with_frontend).get("/")
         assert response.status_code == 200
 
 
@@ -135,11 +170,9 @@ class TestTimingMiddleware:
 class TestErrorHandling:
     """Tests for error handling."""
 
-    def test_unknown_path_serves_spa(self):
-        """Unknown paths serve the SPA index.html (client-side routing)."""
-        app = create_app(test_mode=True)
-        client = TestClient(app)
-        response = client.get("/nonexistent")
+    def test_unknown_path_serves_spa(self, app_with_frontend):
+        """Unknown paths serve index.html so client-side routing works."""
+        response = TestClient(app_with_frontend).get("/nonexistent")
         assert response.status_code == 200
 
     def test_405_for_wrong_method(self):
