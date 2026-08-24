@@ -105,6 +105,22 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Override dataset.num_workers from configs/data.yaml.",
     )
+    # Sweep arms must not write into the shipped run's directory. Two
+    # arms sharing checkpoints/train would overwrite each other's
+    # epoch_0NN.pt files, and an arm that beat the shipped R@10 would
+    # replace best_model.pt with weights trained under a different loss.
+    parser.add_argument(
+        "--checkpoint-dir",
+        type=str,
+        default=None,
+        help="Override training.checkpoint_dir (isolates an experiment arm).",
+    )
+    parser.add_argument(
+        "--log-dir",
+        type=str,
+        default=None,
+        help="Override training.log_dir (isolates an experiment arm).",
+    )
     return parser.parse_args()
 
 
@@ -309,8 +325,9 @@ def main() -> None:
 
     # ---- Step 7: Initialize logger ----
     logger.info("Step 7: Initializing TensorBoard logger...")
-    checkpoint_dir = Path(train_cfg["checkpoint_dir"])
-    log_dir = Path(train_cfg["log_dir"])
+    checkpoint_dir = Path(args.checkpoint_dir or train_cfg["checkpoint_dir"])
+    log_dir = Path(args.log_dir or train_cfg["log_dir"])
+    logger.info("  Checkpoints -> %s, TensorBoard -> %s", checkpoint_dir, log_dir)
     log_dir.mkdir(parents=True, exist_ok=True)
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
     training_logger = TrainingLogger(log_dir=log_dir)
