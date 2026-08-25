@@ -19,7 +19,6 @@
 # Status: written, not yet run against a real domain. See
 # docs/DEPLOYMENT.md, which says the same thing rather than implying
 # this has been verified.
-
 {
 	email {$TLS_EMAIL}
 }
@@ -28,7 +27,21 @@
 	# Everything goes to the app's own nginx, which serves the SPA and
 	# proxies the API. Caddy adds TLS and nothing else — keeping one
 	# routing layer means one place to change a route.
-	reverse_proxy frontend:80
+	reverse_proxy frontend:80 {
+		# Long enough for the first query after a cold start, which loads
+		# the tokenizer and runs the first forward pass. Matches the app
+		# nginx's own proxy_read_timeout so a slow first search surfaces
+		# as a slow search rather than a 504 from whichever hop gave up
+		# first.
+		#
+		# `transport` is a subdirective of reverse_proxy, not a site-level
+		# one. Written at site level it is not a slow-timeout bug but a
+		# fatal parse error — `unrecognized directive: transport` — so
+		# Caddy never starts and the site never gets a certificate.
+		transport http {
+			read_timeout 120s
+		}
+	}
 
 	# HSTS belongs here, on the hop that actually terminates TLS. The
 	# app's nginx deliberately omits it (docs/DEPLOYMENT.md, "Known
@@ -36,14 +49,6 @@
 	# sending it from a container that might be reached over HTTP in
 	# development is worse than meaningless.
 	header Strict-Transport-Security "max-age=31536000; includeSubDomains"
-
-	# Long enough for the first query after a cold start, which loads the
-	# tokenizer and runs the first forward pass. Matches the app nginx's
-	# own proxy_read_timeout so a slow first search surfaces as a slow
-	# search rather than a 504 from whichever hop gave up first.
-	transport http {
-		read_timeout 120s
-	}
 
 	encode gzip
 
