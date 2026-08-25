@@ -8,7 +8,7 @@ things that pass.
 Each entry states the evidence, not just the claim. Entries are removed
 only when fixed, never when they become inconvenient.
 
-**Last audited:** 2026-08-24 (post-convergence)
+**Last audited:** 2026-08-25 (deployment path)
 
 ---
 
@@ -381,7 +381,10 @@ about MoCo.
 Fixes landed in code that the shipped artifacts do not yet reflect.
 Listed so the gap is visible rather than assumed closed.
 
-- [x] **Rebuild `backend/indices/`** — done. 3,179 image vectors, verified live in the container.
+- [x] **Rebuild `backend/indices/`** — done, then rebuilt again from
+  `--split all`: the shipped index holds **31,783** image vectors and
+  158,915 caption vectors, verified live in the container. The earlier
+  3,179 was the test split, a tenth of the corpus.
 - [x] **Regenerate `reports/`** — done, all from one script run.
 - [x] **Propagate the final numbers** — done across README, PROJECT_STATUS and the About panel.
 - [x] **Build and run both Docker images** (§5) — done 2026-08-24.
@@ -497,6 +500,117 @@ ambiguous — that the function has never computed.
 **Fixed:** replaced with `hit_rank_distribution`, the rank at which each
 successful query first found a correct caption, summing to the number of
 successes; docstring rewritten to describe what the code does.
+
+---
+
+## 14. Four defects on the public-deployment path ✅ ALL FIXED (2026-08-25)
+
+Found by running the TLS overlay for the first time. Grouped because
+they share the cause §13 shares: a file that nothing ever executed.
+`nginx -t` during the frontend image build was the only gate over
+`deployment/`, and it checks one file's syntax.
+
+**Severity when open:** high — three of the four sat directly on the
+only remaining Phase 7 deliverable, and one was a live security gap in
+the stack as shipped.
+
+### 14a. The Caddyfile did not parse
+
+`deployment/Caddyfile` put `transport http { read_timeout 120s }` at
+site level. `transport` is a subdirective of `reverse_proxy`. Caddy
+does not warn and fall back — it exits:
+
+```
+Error: adapting config using caddyfile: /etc/caddy/Caddyfile:44:
+unrecognized directive: transport
+```
+
+So `docker compose -f docker-compose.yml -f docker-compose.tls.yml up`,
+the command DEPLOYMENT.md gives as Step 3 of going public, could never
+have started Caddy, and the domain could never have been issued a
+certificate. Anyone following the runbook would have hit this as their
+first act on a fresh VM, with DNS already pointed and the failure
+reading like a TLS problem.
+
+**Fixed:** nested inside `reverse_proxy`. `caddy validate` now runs in
+CI, which is the check that was missing rather than the fix.
+
+### 14b. The TLS overlay left the app bound on every interface
+
+`docker-compose.tls.yml` rebinds the frontend to `127.0.0.1` so that
+Caddy is the only way in. Its own comment explained that this works
+"because compose merges port lists by replacement for the same container
+port".
+
+It does not. Compose merges sequences by **appending**, so the effective
+config carried both mappings:
+
+```yaml
+ports:
+  - {target: 80, published: "8080"}                        # base file, 0.0.0.0
+  - {target: 80, published: "8080", host_ip: 127.0.0.1}    # overlay
+```
+
+The app's nginx therefore stayed published on all interfaces behind the
+TLS terminator — the exact condition the overlay exists to prevent, and
+plain HTTP on a host whose firewall rules the runbook only opens for 80
+and 443. The two entries also collide at bind time, so the service
+either fails to start with `address already in use` or comes up with no
+published port at all, depending on ordering.
+
+**Fixed:** `ports: !override`. CI asserts the merged config has exactly
+one frontend mapping and that it is on loopback.
+
+### 14c. No security headers on anything the browser actually loads
+
+The four security headers were set once at server level in
+`nginx.conf`. nginx replaces the inherited `add_header` set in any
+location that declares an `add_header` of its own — so every location
+that set a `Cache-Control` or a `Content-Type` silently dropped all
+four. Measured against the shipped image:
+
+| Path | X-Frame-Options | X-Content-Type-Options | Referrer-Policy | Permissions-Policy |
+|---|---|---|---|---|
+| `/` (the SPA document) | ❌ | ❌ | ❌ | ❌ |
+| `/assets/*.js` | ❌ | ❌ | ❌ | ❌ |
+| `/images/*` | ❌ | ❌ | ❌ | ❌ |
+| `/nginx-health` | ❌ | ❌ | ❌ | ❌ |
+| `/search/*`, `/health`, `/ready` | ✅ | ✅ | ✅ | ✅ |
+
+Only the proxied API paths — which declare no `add_header` — kept them.
+The demo's own HTML page was framable.
+
+DEPLOYMENT.md recorded "Security headers ✅ all four present, exactly
+once", because the check had been run against an API path. This is the
+same shape of error as §11 and §13: a real measurement, generalised to
+a case it did not cover.
+
+Two duplicate-header bugs came out of the same reading:
+
+- `location /assets/` set `expires 1y` **and** `add_header Cache-Control "public, immutable"`, emitting two `Cache-Control` headers. Which one a cache honours is unspecified. Same pattern in `location /images/`.
+- `location = /nginx-health` used `add_header Content-Type text/plain`, which appends rather than replaces, so the probe returned both `application/octet-stream` and `text/plain`.
+
+**Fixed:** the headers moved to `deployment/security-headers.inc`,
+included in every location; `expires` replaced by a single explicit
+`Cache-Control`; `add_header Content-Type` replaced by `default_type`.
+CI now asserts, against a running container, that each header appears
+exactly once on `/`, `/assets/`, `/nginx-health` and an SPA fallback
+route — a check that fails on the pre-fix image and passes on this one.
+
+### 14d. The tokenizer reached the Hub on the first query
+
+`backend.Dockerfile` pre-downloads the tokenizer specifically so that
+"the container needs outbound network access at query time, and fails
+without it" would stop being true. The cache is baked in correctly and
+the tokenizer does load from it — but `transformers` still made an
+outbound request first, logging an unauthenticated-Hub warning on every
+cold start. Not a failure, but latency and a dependency the image had
+already paid to remove.
+
+**Fixed:** `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1`, set after
+the download step, with an offline tokenizer load added as a build gate
+so the claim is enforced rather than asserted. Cold first query through
+the proxy: **2.07s → 1.06s**.
 
 ---
 

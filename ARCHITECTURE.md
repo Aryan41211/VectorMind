@@ -363,8 +363,18 @@ differently-shaped indices:
 
 | Endpoint | Searches | Rows | Index map |
 |---|---|---|---|
-| `POST /search/text` | image index | one per **unique image** (3,179) | `image_samples.json` |
-| `POST /search/image` | text index | one per **caption** (15,895) | `caption_samples.json` |
+| `POST /search/text` | image index | one per **unique image** | `image_samples.json` |
+| `POST /search/image` | text index | one per **caption** | `caption_samples.json` |
+
+The row counts depend on which split the index was built from. The
+shipped index is built with `--split all`, so it holds **31,783** image
+vectors and **158,915** caption vectors — the whole corpus, which is what
+the demo should search. A `--split test` index holds 3,179 and 15,895,
+and those are the figures the retrieval metrics are computed over
+(`scripts/generate_reports.py` evaluates the test split and never reads
+this index). The two are easy to confuse, and the ratio between them is
+exactly the 5× that §9.1 exists to warn about, so they are stated
+together here.
 
 This is stated explicitly because getting it wrong was not hypothetical.
 The builder originally emitted one image embedding per *(image,

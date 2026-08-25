@@ -6,6 +6,82 @@ does not publish versioned releases, so entries are grouped by date.
 
 ---
 
+## [Unreleased] — 2026-08-25 — The deployment path, executed
+
+Everything under `deployment/` had been written, reviewed and, for the
+base stack, run. The TLS overlay had not. Running it found three defects
+that would each have stopped a public deployment, and one that was
+quietly costing a second of cold-start latency.
+
+### Fixed
+
+- **The Caddyfile did not parse.** `transport` was written as a
+  site-level directive; it is a subdirective of `reverse_proxy`. Caddy
+  exits with `unrecognized directive: transport`, so the documented
+  go-public command could never have started the TLS terminator and the
+  domain could never have been issued a certificate.
+- **The TLS overlay did not rebind the app to loopback.** Compose merges
+  sequences by appending, not by replacing, so the overlay's
+  `127.0.0.1:8080` mapping was *added* to the base file's `0.0.0.0:8080`
+  rather than substituted for it. The app's nginx stayed published on
+  every interface behind the TLS terminator — the opposite of the
+  overlay's purpose — and the duplicate entries also collided at bind
+  time. Fixed with `ports: !override`.
+- **No security headers on anything the browser loads.** nginx replaces
+  the inherited `add_header` set in any location that declares one of
+  its own, so `/`, `/assets/`, `/images/` and `/nginx-health` all
+  returned none of the four. Only the proxied API paths kept them — and
+  an API path is where the "all four present, exactly once" verification
+  had been run. The headers now live in
+  `deployment/security-headers.inc` and are included per location.
+- **Two duplicate-header bugs, same reading.** `/assets/` and `/images/`
+  set `expires` alongside an `add_header Cache-Control`, emitting two
+  `Cache-Control` headers; `/nginx-health` used `add_header
+  Content-Type`, which appends, so it returned both
+  `application/octet-stream` and `text/plain`.
+- **The tokenizer reached the HF Hub on the first query.** The cache was
+  baked into the image correctly, but `transformers` still made an
+  outbound request before using it. `HF_HUB_OFFLINE=1` after the
+  download step, plus an offline load as a build gate. Cold first query
+  through the proxy: **2.07s → 1.06s**.
+
+### Added
+
+- `.github/workflows/test.yml` gains a **deployment** job. It validates
+  the Caddyfile, every documented compose combination, and the
+  loopback-only property of the TLS overlay — then builds the frontend
+  image and asserts on the **actual response headers** of a running
+  container. The header assertions fail against the pre-fix image and
+  pass against this one. `nginx -t` at build time was previously the
+  only gate over `deployment/`, and it checks one file's syntax.
+- `deployment/security-headers.inc`, so the header set has one
+  definition rather than one per location.
+
+### Documentation
+
+- `docs/DEPLOYMENT.md`: verification table re-measured and corrected —
+  the index row said 3,179 (the test split) where the shipped index
+  serves 31,783; the security-header row said all four were present.
+  Added what the TLS and auth overlays were actually observed to do, and
+  narrowed "Going public" from *not executed* to *executed locally
+  against Caddy's internal CA; never against a real domain or ACME*.
+- `ROADMAP.md`: the Production Goals list ticked "Live deployed demo"
+  while Phase 7 recorded the same deliverable as not started. The two
+  now agree, and the unticked one is correct.
+- `ARCHITECTURE.md` §9.1 gave index row counts for the test split while
+  describing the shipped index; both sets of numbers are now stated with
+  which split each belongs to.
+- `docs/KNOWN_ISSUES.md` §14 records all four defects with measurements.
+
+### Not fixed
+
+There is still no public deployment. Everything up to the host is now
+built, run and gated; what is missing is a machine with a public name
+and a certificate, which is a decision about money rather than an
+engineering task.
+
+---
+
 ## [Unreleased] — 2026-08-23/24 — Audit, retrain, and production hardening
 
 A full-repository audit that turned into a retrain. The headline is a

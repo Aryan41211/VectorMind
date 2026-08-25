@@ -466,15 +466,15 @@ reach a live deployed instance to try it themselves.
 **Status:** **in progress** — was marked complete in error, now
 genuinely most of the way there
 
-The documentation half of the acceptance criteria is met, and the
-containers now demonstrably run. What remains is a public URL and one
-green CI run.
+The documentation half of the acceptance criteria is met, the containers
+demonstrably run, and CI has been green since 2026-08-24. What remains is
+a public URL — and only that.
 
 | Deliverable | State |
 |---|---|
-| Dockerfiles, compose, nginx | ✅ **Both images built and the stack run end to end.** Backend 2.17GB, frontend 93.1MB. `/ready` green with model and both indices loaded; search returns 10 unique images of 10 at 8-19ms through the proxy. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). |
-| CI workflows | ✅ **Green** as of 2026-08-24 (run 32756952454): pytest, mypy, ruff, tsc/oxlint/build, a serving-dependency check, and both Docker image builds. |
-| Deployed demo at a public URL | **Not started.** Runs locally via compose; needs a host to be public. |
+| Dockerfiles, compose, nginx | ✅ **Both images built and the stack run end to end**, including the TLS and auth overlays (2026-08-25). `/ready` green with model and both indices loaded; search returns 10 unique images of 10 over the full 31,783-image corpus. Running the TLS path for the first time found three real defects, all fixed — see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). |
+| CI workflows | ✅ **Green** as of 2026-08-24 (run 32756952454): pytest, mypy, ruff, tsc/oxlint/build, a serving-dependency check, and both Docker image builds. A sixth job now validates `deployment/` — the Caddyfile, every compose combination, and the response headers of a running container. |
+| Deployed demo at a public URL | **Not started.** Everything up to the host is now built, run and gated; what is missing is a machine with a public name and a certificate. |
 | Design-decision write-up | Done. |
 | Debugging write-up | Done. |
 
@@ -516,7 +516,11 @@ delay Phases 0-7 above. See FUTURE_IDEAS.md for full detail on each.
 
 ## Production Goals (Phase 7 scope, restated for clarity)
 
-- [x] Live deployed demo (single machine/VM, Docker Compose) — `deployment/docker-compose.yml`
+- [ ] Live deployed demo (single machine/VM, Docker Compose) — `deployment/docker-compose.yml`
+      is written, built and run locally, including the TLS and auth
+      overlays; **no public instance exists**. This box was ticked while
+      Phase 7 above recorded the same deliverable as unstarted — the two
+      now agree.
 - [x] CI enforcing tests + type-checking on every change — `.github/workflows/test.yml`
 - [x] p95 API latency documented — **25.1ms** (100 queries, CPU, `best_model.pt`)
 - [x] Traceable checkpoints (metadata sidecar per ARCHITECTURE.md §12) — `checkpoints/checkpoint_metadata.json`

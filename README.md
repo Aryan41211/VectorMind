@@ -314,12 +314,15 @@ What is in place, and what is deliberately not.
 | Probes | `/health` (liveness) and `/ready` (readiness, names the missing artifact) |
 | Failure handling | Timeouts and typed errors client-side; app starts degraded rather than crash-looping |
 | Config | Every path, origin, limit and tokenizer setting in `configs/serving.yaml` |
-| CI | pytest, mypy, ruff, tsc, oxlint, and both Docker builds |
+| CI | pytest, mypy, ruff, tsc, oxlint, both Docker builds, and a deployment job that validates the Caddyfile, every compose combination, and the response headers of a running container |
 
-**Not in place:** TLS termination, multi-worker deployment (the rate
-limiter holds per-process state), metrics or tracing beyond structured
-logs, and authentication. Each is explained in
-[docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md#known-gaps).
+**Not in the default stack:** TLS and authentication, both of which ship
+as compose overlays (`docker-compose.tls.yml`, `docker-compose.auth.yml`)
+and have been run locally but never against a public host.
+
+**Not in place at all:** multi-worker deployment (the rate limiter holds
+per-process state), and metrics or tracing beyond structured logs. Each
+is explained in [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md#known-gaps).
 
 ## Development Roadmap
 
@@ -420,16 +423,19 @@ required (`feat:`, `fix:`, `docs:`, etc. — see CLAUDE.md §7).
 
 ## Status & Known Issues
 
-Phases 0–6.5 are complete and verified. Phase 7 (Docker, CI, public
-demo) is authored but has never been executed — see
+Phases 0–6.5 are complete and verified. Phase 7 is complete except for
+its last deliverable: both images build, CI is green, and the stack —
+including the TLS and auth overlays — has been run end to end locally.
+There is no public instance. See
 [PROJECT_STATUS.md](./docs/PROJECT_STATUS.md).
 
 Before reading the results as final, read
 [docs/KNOWN_ISSUES.md](./docs/KNOWN_ISSUES.md). The headline number
 (28.91% test R@10, 92× chance) is real, but the embedding space behind
-it is substantially more anisotropic than the Phase 5 reports claim, and
-the image search index contains five duplicate vectors per image. Both
-are documented with measurements rather than left for a reader to find.
+it is graded ANISOTROPIC rather than HEALTHY — the shipped model fails
+one of three health thresholds, with a measured fix available at a cost
+of 2pp of R@10 (§12). The duplicate-vector defect in the image index is
+fixed and the shipped index rebuilt (§2).
 
 ## License
 

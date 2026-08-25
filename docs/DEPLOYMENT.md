@@ -3,27 +3,69 @@
 How to run VectorMind outside a development shell, and what has actually
 been verified versus what has only been written.
 
-**Verification status (2026-08-24): both images built and the full
-stack run end to end on this machine.** What was actually observed:
+**Verification status (2026-08-25): both images built, the full stack
+run end to end, and the TLS and auth overlays exercised — all on this
+machine.** What was actually observed:
 
 | Check | Result |
 |---|---|
-| Backend image builds | ✅ 2.17GB, with `import backend.app` as a build gate |
+| Backend image builds | ✅ with `import backend.app` and an offline tokenizer load as build gates |
 | Frontend image builds | ✅ 93.1MB, with `tsc`, `oxlint` and `nginx -t` as build gates |
 | Backend reaches healthy | ✅ `/ready` 200 — model, both indices and both index maps loaded |
-| Index served correctly | ✅ `num_indexed_images: 3179`, not the pre-fix 15,895 |
+| Index served correctly | ✅ `num_indexed_images: 31783` — the full corpus, from `--split all` |
 | SPA served through nginx | ✅ `GET /` → 200 |
 | API proxied through nginx | ✅ `/health`, `/ready`, `/search/text` all 200 same-origin |
 | Search returns distinct images | ✅ 10 unique filenames of 10 results, across five queries |
-| Warm latency | ✅ 8–19ms through the proxy |
-| Cold first query | 2.07s — the tokenizer and first forward pass |
-| Security headers | ✅ all four present, exactly once |
+| Image→text search | ✅ 10 distinct captions for an uploaded photo |
+| Cold first query | 1.06s — the first forward pass, with the tokenizer now loaded offline |
+| Warm latency | 37–102ms through the proxy, p50 51ms (see note below) |
+| Security headers | ✅ all four, exactly once, on **every** path — see below |
 | Request correlation | ✅ `X-Request-ID` on every response |
 | Rate limiting | ✅ 429 after the configured 30/minute |
+| Basic auth overlay | ✅ 401 on `/` and `/search`, 200 on `/health`, `/ready`, `/nginx-health`; correct credentials → 200 |
+| TLS overlay | ✅ Caddy → nginx → backend chain serves HTTPS, redirects HTTP→HTTPS (308), and adds HSTS once |
 
-CI has since been observed green (run 32756952454, all five jobs).
-Still not verified: there is no public deployment — the runbook below is
-written but has not been executed.
+On warm latency. The 8–19ms recorded on 2026-08-24 was measured on an
+otherwise idle machine; the range above was measured with two unrelated
+container stacks running alongside it. Both are real; neither is a
+property of the application alone, which is why the number is given with
+its conditions rather than as a specification.
+
+**The security-header row previously read "✅ all four present, exactly
+once" and was wrong.** It had been checked on a proxied API path, which
+is one of the few locations that inherited them. `GET /` — the SPA
+document itself — carried none of the four. See "What was fixed on
+2026-08-25" below.
+
+CI has since been observed green (run 32756952454, all five jobs). A
+sixth job has been added that validates everything in `deployment/`:
+the Caddyfile, every documented compose combination, and the response
+headers of a running container.
+
+Still not verified: there is no public deployment. The TLS chain has now
+been run end to end locally against Caddy's internal CA, so what remains
+untested is specifically ACME issuance against a real domain — not the
+proxy topology.
+
+---
+
+## What was fixed on 2026-08-25
+
+Three defects in the never-executed public-deployment path, plus one
+piece of unnecessary runtime coupling. Each was found by running the
+thing rather than by reading it.
+
+| Defect | Effect | Fix |
+|---|---|---|
+| `deployment/Caddyfile` did not parse | `transport` was written as a site-level directive; it is a subdirective of `reverse_proxy`. Caddy exits with `unrecognized directive: transport`, so the TLS stack could never have started and the site could never have been issued a certificate. | Nested inside `reverse_proxy`; `caddy validate` now runs in CI |
+| The TLS overlay did not rebind the app to loopback | Compose merges sequences by **appending**, so the overlay's `127.0.0.1:8080` mapping was added to the base file's `0.0.0.0:8080` rather than replacing it. The app's nginx stayed bound on every interface behind the TLS terminator, and the two entries also collided at bind time. | `ports: !override`; CI asserts exactly one mapping, on loopback |
+| No security headers on any static response | nginx drops the inherited `add_header` set in any location that declares an `add_header` of its own. Every such location — including `location /` — silently lost all four. `/assets/` also returned two `Cache-Control` headers and `/nginx-health` two `Content-Type` headers. | Headers moved to `deployment/security-headers.inc`, included per location; CI asserts on real responses |
+| The tokenizer reached the Hub on first query | The cache is baked into the image, but `transformers` still made an outbound request before falling back to it — slow when the network is up, and a needless dependency when it is not. | `HF_HUB_OFFLINE=1`, set after the download step, with an offline load as a build gate. Cold first query 2.07s → 1.06s |
+
+The common thread is the same one this repository has recorded before: a
+configuration file that is never executed is a document, not a
+configuration. `nginx -t` at image-build time was the only gate over
+`deployment/`, and it checks one file's syntax.
 
 ---
 
@@ -166,7 +208,7 @@ Two values to revisit before exposing this publicly:
 
 Honest list of what this deployment is not.
 
-1. **No TLS in the default stack.** The base compose file serves plain HTTP, and its security headers deliberately omit HSTS, which belongs on whichever hop terminates TLS. `deployment/docker-compose.tls.yml` adds Caddy for that and sets HSTS there — written, not yet run against a real domain (see "Going public").
+1. **No TLS in the default stack.** The base compose file serves plain HTTP, and its security headers deliberately omit HSTS, which belongs on whichever hop terminates TLS. `deployment/docker-compose.tls.yml` adds Caddy for that and sets HSTS there — run locally against Caddy's internal CA, not yet against a real domain (see "Going public").
 2. **Single machine, single worker.** The rate limiter holds per-process state, so horizontal scaling silently multiplies the effective limit. Kubernetes and managed endpoints are explicitly out of scope — see [FUTURE_IDEAS.md](FUTURE_IDEAS.md).
 3. **No metrics or tracing.** Structured logs with request ids are all the observability there is. Adequate for a demo, not for anything on call.
 4. **CPU inference.** The image installs CPU torch, and only the packages serving actually imports (`requirements-serving.txt`). Measured through the proxy: 8-19ms warm, 2.07s on the first query while the tokenizer and first forward pass warm up. Fine at this corpus size; GPU serving would need the CUDA base image and a runtime with device access.
@@ -180,10 +222,22 @@ Everything above runs the stack on a machine you are already sitting at.
 This section is the remaining Phase 7 deliverable: the same stack, on a
 host with a public name and a certificate.
 
-**Status: written, not executed.** Nothing in this section has been run
-against a real host or domain, and it is marked as such deliberately —
-this project has a history of documents describing intentions in the
-same voice as results (docs/KNOWN_ISSUES.md §5).
+**Status: the stack has been run, the host has not.** As of 2026-08-25
+the TLS overlay in this section has been executed locally end to end —
+Caddy in front of the app's nginx, HTTPS served, HTTP redirected, HSTS
+set once — using Caddy's internal CA in place of a public domain. Doing
+that is what surfaced the two defects in the table at the top of this
+file, either of which would have stopped this section's Step 3 dead.
+
+What has **not** been run: any of it against a real host, a real domain,
+or Let's Encrypt. Steps 1, 2 and 4 below are still written rather than
+observed, and ACME issuance in particular has never been exercised — the
+internal CA proves the proxy topology, not the certificate path.
+
+Marked this precisely on purpose: this project has a history of
+documents describing intentions in the same voice as results
+(docs/KNOWN_ISSUES.md §5), and "the TLS overlay works" would be exactly
+that mistake again.
 
 ### What the host needs
 

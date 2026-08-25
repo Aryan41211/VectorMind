@@ -93,16 +93,17 @@ being missed.
 - [x] **Phase 6.5 — Frontend:** React + TypeScript, themed, tested, accessible
 
 ## In Progress
-- [x] **Phase 7 — Containers.** Both images built and the stack run end to end: `/ready` green, 31,783 images indexed, search returning distinct results at 8–19ms through nginx.
-- [x] **CI green** — run 32756952454, all five jobs.
-- [ ] Public deployed demo — runs locally via compose; needs a host to be public.
+- [x] **Phase 7 — Containers.** Both images built and the stack run end to end: `/ready` green, 31,783 images indexed, search returning distinct results through nginx.
+- [x] **Phase 7 — TLS and auth overlays run** (2026-08-25). Caddy → nginx → backend serves HTTPS with HSTS and an HTTP→HTTPS redirect; basic auth gates `/` and `/search` while leaving the probes open. Running them for the first time found four defects, all fixed (KNOWN_ISSUES §14).
+- [x] **CI green** — run 32756952454, all five jobs. A sixth job now validates `deployment/` against real responses rather than syntax alone.
+- [ ] Public deployed demo — the stack is built, run and gated; what is missing is a host with a public name and a certificate.
 
 ## Key Achievements
 1. Trained from scratch, no pretrained vision-language weights anywhere
 2. Test R@10 **28.91%, 92× chance**, with a val→test gap of 0.39pp
 3. Found and fixed the collapse: the memory queue was causing it, not mitigating it — a controlled A/B reversed the project's own published conclusion
 4. Built the metric that catches it: separation, not variance, and it now runs every epoch
-5. 500 tests across data, model, training, evaluation, serving and UI
+5. 507 Python tests and 56 frontend tests across data, model, training, evaluation, serving and UI
 6. Every reported number regenerable from one script against one checkpoint
 
 ## Known Problems
@@ -110,7 +111,7 @@ Tracked in [KNOWN_ISSUES.md](KNOWN_ISSUES.md). Open items:
 1. The space is still ANISOTROPIC — ‖mean embedding‖ 0.621 against a 0.5 threshold. This is now the *only* health threshold it fails, and the main open modelling problem.
 2. ~~Training stopped early~~ — **resolved.** Epochs 13–14 dropped training loss 14% without moving validation R@10, so epoch 12 is the converged checkpoint (EXPERIMENTS.md 007). "Train longer" is exhausted as a lever.
 3. ~~CI never observed green~~ — **resolved** 2026-08-24, all five jobs passing.
-4. No public deployment.
+4. No public deployment. ACME issuance against a real domain is the one part of the TLS path that has never been exercised — the internal-CA run proves the proxy topology, not the certificate path.
 
 ## Environment
 - Python 3.12.10, PyTorch 2.13.0+cu126
