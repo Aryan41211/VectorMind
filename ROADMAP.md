@@ -269,6 +269,8 @@ figure regenerable by `scripts/generate_reports.py`.
 | Test Recall@1 | 4.62% | **7.71%** (245× chance) |
 | Test Recall@5 | 13.43% | **20.60%** (131× chance) |
 | Test Recall@10 | 19.63% | **28.91%** (92× chance) |
+| Test Recall@10 (text → image) | 15.09% | **26.22%** (83× chance) |
+| Embedding health grade | ANISOTROPIC | **HEALTHY** |
 | Test Recall@10 (T2I) | 15.09% | **25.20%** (80× chance) |
 | **Separation** | **0.094** | **0.347** |
 | Mean image–image cosine | 0.810 | **0.322** |

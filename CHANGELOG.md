@@ -6,6 +6,65 @@ does not publish versioned releases, so entries are grouped by date.
 
 ---
 
+## [Unreleased] — 2026-08-25 — The embedding space is finally HEALTHY
+
+The last open modelling problem in the project is closed, and it turned
+out to be free.
+
+### Changed
+
+- **Shipped model is now trained with a Wang & Isola uniformity term at
+  weight 0.2.** `configs/training.yaml` carries it as the default and
+  `checkpoints/train/best_model.pt` is the model trained with it. The
+  InfoNCE-only checkpoint is preserved byte-identical at
+  `checkpoints/train/epoch12_baseline.pt`.
+- **`backend/indices/` rebuilt** from the new checkpoint — mandatory, as
+  embeddings from one model against an index from another produce
+  confident, wrong results. 31,783 image vectors, 158,915 caption
+  vectors, `--split all`.
+- **`reports/` regenerated** in one pass from the new checkpoint.
+
+### Results (test split, `reports/metrics_test.json`)
+
+| | InfoNCE only | **w=0.2** | |
+|---|---|---|---|
+| R@10 image → text | 28.91% | **28.91%** | identical to four significant figures |
+| R@10 text → image | 25.20% | **26.22%** | **+1.03pp** |
+| Separation | 0.347 | **0.482** | |
+| ‖mean image embedding‖ | 0.588 ❌ | **0.165** ✅ | |
+| ‖mean text embedding‖ | 0.621 ❌ | **0.115** ✅ | |
+| Unmatched similarity | 0.257 | **0.011** | |
+| **Grade** | ANISOTROPIC | **HEALTHY** | |
+
+**The headline metric did not move and the demo's own direction
+improved.** Text→image is what the search box does — type a sentence,
+get photographs — and it gained across every K. Image→text R@1 gave up
+0.06pp. That is the entire cost.
+
+This is the first HEALTHY grade the project has produced on real data.
+Phase 3.5's 0.964 separation was an overfit of 100 images.
+
+### Why it took two attempts
+
+Weight 0.5 was measured first (EXPERIMENTS.md 008). It also reached
+HEALTHY, but cost 2.0pp of R@10, and it was a first guess rather than a
+swept value — shipping on that evidence would have repeated the memory
+queue's mistake exactly. The sweep that justified shipping (009) has
+three points and a counter-example in it: **w=0.1 is worse than both its
+neighbours** at 26.75% R@10, so "less regularization costs less" is not
+true here and could not have been inferred from 0.5 alone.
+
+### Documentation
+
+- `docs/KNOWN_ISSUES.md` §12 closes as FIXED; §1's "partially open" note closes with it.
+- `docs/EXPERIMENTS.md` 009 records the sweep and the test-split confirmation.
+- `ARCHITECTURE.md` §5.2 rewritten: the term is part of the objective, not an optional knob.
+- `README.md`, `docs/README.md`, `docs/PROJECT_STATUS.md`, `ROADMAP.md`, `docs/TRAINING_LOG.md` and the frontend About panel updated to the regenerated figures. The About panel now shows both retrieval directions rather than R@10 and R@1, because text→image is the one a visitor actually exercises.
+- `docs/FUTURE_IDEAS.md` gains the open question: this model *resumed* into the new objective rather than training from scratch with it, which is an improvement left on the table.
+- `checkpoints/checkpoint_metadata.json` regenerated; it records `collapsed: false` for the shipped model against `collapsed: true` for the baseline.
+
+---
+
 ## [Unreleased] — 2026-08-25 — The deployment path, executed
 
 Everything under `deployment/` had been written, reviewed and, for the

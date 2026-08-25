@@ -335,7 +335,7 @@ on accuracy and it is now exhausted. Further gains need a change of
 kind, not degree:
 
 - a momentum encoder, which would make the memory queue usable instead of collapsing the space (docs/FUTURE_IDEAS.md)
-- a uniformity term targeting the residual anisotropy — ‖mean embedding‖ 0.621 is the one threshold the model still fails
+- ~~a uniformity term targeting the residual anisotropy~~ — **done, and it shipped** (2026-08-25). At weight 0.2 it took ‖mean image embedding‖ 0.577 → 0.154 and separation 0.356 → 0.490, moving the grade to HEALTHY, for -0.13pp image→text R@10 and **+1.30pp text→image**. So this one was not a change of kind after all: the accuracy lever was exhausted, the *representation* lever was not. EXPERIMENTS.md 009, KNOWN_ISSUES.md §12
 - more data, or a larger encoder, both bounded by the 6GB VRAM constraint that defines the project
 
 **Run interruptions.** This run was stopped six times across two days,

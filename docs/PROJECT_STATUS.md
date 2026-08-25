@@ -42,12 +42,12 @@ point. Every figure below is regenerable with
 
 | Direction | K | Measured | Chance | vs chance |
 |---|---|---|---|---|
-| image → text | 1 | 7.71% | 0.031% | **245×** |
-| image → text | 5 | 20.60% | 0.157% | **131×** |
+| image → text | 1 | 7.64% | 0.031% | **243×** |
+| image → text | 5 | 20.79% | 0.157% | **132×** |
 | image → text | 10 | 28.91% | 0.314% | **92×** |
-| text → image | 1 | 5.71% | 0.031% | **181×** |
-| text → image | 5 | 17.33% | 0.157% | **110×** |
-| text → image | 10 | 25.20% | 0.315% | **80×** |
+| text → image | 1 | 5.98% | 0.031% | **190×** |
+| text → image | 5 | 18.24% | 0.157% | **116×** |
+| text → image | 10 | 26.22% | 0.315% | **83×** |
 
 Chance is the exact complement of drawing K non-relevant items, not the
 `k/n` shortcut — see [KNOWN_ISSUES.md](KNOWN_ISSUES.md) §1b for why
@@ -55,28 +55,38 @@ every earlier multiple in this project was ~30× too low.
 
 ### Embedding health
 
-| Metric | Phase 4 (retired) | Current | Threshold |
-|---|---|---|---|
-| Separation | 0.094 | **0.347** | > 0.25 ✅ |
-| Mean image–image cosine | 0.810 | **0.322** | < 0.5 ✅ |
-| ‖mean embedding‖ | 0.900 | **0.621** | < 0.5 ❌ |
-| Logit scale | 55.2 → 500+ | **24.1** | clamped at 100 |
+Test split, from `reports/metrics_test.json`.
 
-**Grade: ANISOTROPIC.** Not healthy. Separation clears its floor so
-retrieval is meaningful, but the space still carries a shared
-directional component. This is reported rather than rounded up — the
-previous checkpoint's report claimed HEALTHY on worse numbers, and that
-is the failure this whole audit was about.
+| Metric | Phase 4 (retired) | InfoNCE only | **Current** | Threshold |
+|---|---|---|---|---|
+| Separation | 0.094 | 0.347 | **0.482** | > 0.25 ✅ |
+| Mean image–image cosine | 0.810 | 0.345 | **0.027** | < 0.5 ✅ |
+| Mean text–text cosine | 0.881 | 0.386 | **0.013** | < 0.5 ✅ |
+| ‖mean image embedding‖ | 0.900 | 0.588 | **0.165** | < 0.5 ✅ |
+| ‖mean text embedding‖ | 0.938 | 0.621 | **0.115** | < 0.5 ✅ |
+| Unmatched similarity | 0.843 | 0.257 | **0.011** | ≈ 0 |
+| Logit scale | 55.2 → 500+ | 24.1 | **17.1** | clamped at 100 |
+
+**Grade: HEALTHY.** All three thresholds pass, with room. The two norm
+rows are graded as their maximum, so the text norm is the one that
+decides — it was the metric that kept the previous checkpoint at
+ANISOTROPIC.
+
+This is the first HEALTHY grade the project has produced on real data;
+Phase 3.5's 0.964 separation was an overfit of 100 images. It is
+computed by `scripts/generate_reports.py` rather than written by hand,
+which is the specific failure §1 records: the Phase 4 report claimed
+HEALTHY on separation 0.094.
 
 ### Val → test
 
-Val R@10 29.30%, test R@10 28.91% — a gap of 0.39pp. Essentially
-identical, so the checkpoint generalizes; the convergence seen in
-epochs 13–14 is the training split being fitted, not the test split
+Val R@10 29.17%, test R@10 28.91% — a gap of 0.26pp. Essentially
+identical, so the checkpoint generalizes; the convergence seen in the
+late epochs is the training split being fitted, not the test split
 being missed.
 
 ## Tests
-- **451** Python tests
+- **507** Python tests
 - **56** frontend tests (was 0)
 - mypy, ruff, tsc and oxlint all clean across the repository
 
@@ -100,7 +110,7 @@ being missed.
 
 ## Key Achievements
 1. Trained from scratch, no pretrained vision-language weights anywhere
-2. Test R@10 **28.91%, 92× chance**, with a val→test gap of 0.39pp
+2. Test R@10 **28.91%, 92× chance** (text→image **26.22%, 83×**), with a val→test gap of 0.26pp
 3. Found and fixed the collapse: the memory queue was causing it, not mitigating it — a controlled A/B reversed the project's own published conclusion
 4. Built the metric that catches it: separation, not variance, and it now runs every epoch
 5. 507 Python tests and 56 frontend tests across data, model, training, evaluation, serving and UI
@@ -108,7 +118,7 @@ being missed.
 
 ## Known Problems
 Tracked in [KNOWN_ISSUES.md](KNOWN_ISSUES.md). Open items:
-1. The space is still ANISOTROPIC — ‖mean embedding‖ 0.621 against a 0.5 threshold. This is now the *only* health threshold it fails, and the main open modelling problem.
+1. ~~The space is still ANISOTROPIC~~ — **resolved** 2026-08-25. A uniformity term at weight 0.2, chosen by a three-point sweep, took ‖mean image embedding‖ 0.577 → 0.154 and separation 0.356 → 0.490. The shipped model grades **HEALTHY** on all three thresholds, and it did not cost retrieval: -0.13pp image→text, **+1.30pp text→image**. KNOWN_ISSUES §12, EXPERIMENTS 009.
 2. ~~Training stopped early~~ — **resolved.** Epochs 13–14 dropped training loss 14% without moving validation R@10, so epoch 12 is the converged checkpoint (EXPERIMENTS.md 007). "Train longer" is exhausted as a lever.
 3. ~~CI never observed green~~ — **resolved** 2026-08-24, all five jobs passing.
 4. No public deployment. ACME issuance against a real domain is the one part of the TLS path that has never been exercised — the internal-CA run proves the proxy topology, not the certificate path.

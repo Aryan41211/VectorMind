@@ -143,28 +143,52 @@ the bound; weight decay was noise.
 
 See `docs/KNOWN_ISSUES.md` §1.
 
-### 5.2 Optional uniformity term
+### 5.2 The uniformity term, and why it is now part of the objective
 
-**Decision (2026-08-24):** the loss can carry a second term — Wang &
-Isola's uniformity penalty, the log of the mean Gaussian kernel over
-pairwise distances within each modality — behind a config weight at
-`configs/training.yaml → uniformity.weight`.
+**Decision (2026-08-24, revised 2026-08-25):** the loss carries a second
+term — Wang & Isola's uniformity penalty, the log of the mean Gaussian
+kernel over pairwise distances within each modality — at
+`configs/training.yaml → uniformity.weight`, **shipped at 0.2**.
 
 **Why it exists:** InfoNCE alone left the converged model with a shared
 directional component. Every embedding carried it, so the mean image
-embedding had length 0.62 on a scale where 0 is ideal, and the health
+embedding had length 0.577 on a scale where 0 is ideal, and the health
 grade was ANISOTROPIC rather than HEALTHY. Uniformity attacks exactly
 that: it pays the model to spread non-matching pairs over the sphere.
 
-**Why it is a weight and not a default.** It trades against retrieval,
-and the trade is measurable rather than theoretical (EXPERIMENTS.md 008,
-009). Both towers are penalized, because the health grade takes the
-worse of the two and regularizing one would simply let the other drift.
+**What it cost, measured** (val split, EXPERIMENTS.md 009):
+
+| | w=0.0 | **w=0.2, shipped** |
+|---|---|---|
+| ‖mean image embedding‖ | 0.577 ❌ | **0.154** ✅ |
+| Separation | 0.356 | **0.490** |
+| R@10 image→text | 29.30% | 29.17% |
+| R@10 text→image | 24.92% | **26.22%** |
+| Grade | ANISOTROPIC | **HEALTHY** |
+
+Image→text gives up 0.13pp; text→image gains 1.30pp. The term was
+expected to trade health against retrieval and at the right weight it
+essentially does not.
+
+**Why it took a sweep, not a guess.** The first value tried was 0.5,
+which also reached HEALTHY but cost 2.0pp of R@10, and it was not
+shipped on that evidence — one run is what §6.1 was built on, and §6.1
+was wrong. The sweep that justified shipping has three points and a
+counter-example in it: **w=0.1 is worse than both its neighbours**, so
+the curve is not monotonic and "less weight costs less" does not hold.
+
+Both towers are penalized, because the health grade takes the worse of
+the two and regularizing one would simply let the other drift.
 
 The implementation is `src/vectormind/training/uniformity.py`, and 0.0
 reproduces InfoNCE-only training exactly — the term is not added to the
-graph at all — so the weight is a genuine A/B knob rather than a code
-path that has to be trusted.
+graph at all — so the weight remains a genuine A/B knob rather than a
+code path that has to be trusted.
+
+**Still open:** the shipped model *resumed* into this objective from an
+InfoNCE-only checkpoint rather than training from scratch with it
+enabled, which forces it to unlearn a space it had already committed to.
+See `docs/FUTURE_IDEAS.md`.
 
 See `docs/KNOWN_ISSUES.md` §12.
 

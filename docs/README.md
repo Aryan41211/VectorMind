@@ -21,8 +21,10 @@ contradiction rather than silently picking one.
 | How do I run or deploy it? | [DEPLOYMENT.md](DEPLOYMENT.md) |
 
 `KNOWN_ISSUES.md` is deliberately in that list. The headline result —
-28.91% test Recall@10, 92× chance — is real, but the embedding space
-behind it still grades ANISOTROPIC rather than healthy. Read it before
+28.91% test Recall@10, 92× chance — is real, and as of 2026-08-25 the
+embedding space behind it grades HEALTHY on all three thresholds. That
+was not true for most of this project's life, and §1 and §12 record both
+the wrong claim and the measurement that replaced it. Read it before
 quoting a number.
 
 ## Results and experiments

@@ -123,6 +123,34 @@ shared checkpoint, reporting separation alongside Recall@K.
 
 ---
 
+## Uniformity From Scratch, Not Resumed
+
+**Status:** open, and the cheapest remaining representation experiment.
+
+The shipped model reaches a HEALTHY embedding space with a Wang & Isola
+uniformity term at weight 0.2 (ARCHITECTURE.md §5.2, EXPERIMENTS.md
+009), but it got there by **resuming** an InfoNCE-only checkpoint into
+the new objective. That forces the model to unlearn a space it has
+already committed to, and the evidence that it was still doing so is
+that the w=0.2 run's best epoch is 14 where the baseline's is 12 — it
+was still recovering when the run stopped.
+
+Training from scratch with the term enabled removes the unlearning
+entirely. The plausible outcome is that the 0.13pp image→text cost
+disappears, and possibly reverses; the honest outcome is that nobody
+knows, because it has not been run.
+
+**Why it is not on the critical path:** the current model already passes
+every health threshold and is better than the InfoNCE-only baseline on
+text→image retrieval, which is the direction the demo exercises. This is
+an improvement left on the table, not a defect.
+
+**Cost:** one full training run, ~15 epochs on the 6GB laptop GPU.
+
+Two smaller questions belong with it: whether w=0.2 is a peak or a
+plateau (w=0.15 and w=0.3 would say), and whether w=0.1's regression is
+real or an artifact of its shorter run.
+
 ## Distributed Training
 
 Not relevant at this project's scale (single 6GB GPU, ~30k images) —

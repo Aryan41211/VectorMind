@@ -45,10 +45,12 @@ Trained from scratch on Flickr30k, evaluated on a held-out test split of
 
 | Direction | K | Measured | Chance | vs chance |
 |---|---|---|---|---|
-| image → text | 1 | 7.71% | 0.031% | **245×** |
-| image → text | 5 | 20.60% | 0.157% | **131×** |
+| image → text | 1 | 7.64% | 0.031% | **243×** |
+| image → text | 5 | 20.79% | 0.157% | **132×** |
 | image → text | 10 | **28.91%** | 0.314% | **92×** |
-| text → image | 10 | 25.20% | 0.315% | **80×** |
+| text → image | 1 | 5.98% | 0.031% | **190×** |
+| text → image | 5 | 18.24% | 0.157% | **116×** |
+| text → image | 10 | 26.22% | 0.315% | **83×** |
 
 Chance is the exact complement of drawing K non-relevant items, not the
 `k/n` shortcut — which overstates it whenever an image has five valid
@@ -58,24 +60,27 @@ captions.
 can post respectable Recall@K while its embeddings sit in a narrow cone,
 and this project shipped exactly that before catching it:
 
-| | Earlier checkpoint | Current |
-|---|---|---|
-| Test R@10 | 19.63% | **28.91%** |
-| Matched − unmatched separation | 0.094 | **0.347** |
-| Mean image–image cosine | 0.810 | **0.322** |
-| Learned logit scale | 55 → 500+ | **24.1** |
+| | Phase 4 | InfoNCE only | **Current** |
+|---|---|---|---|
+| Test R@10 (image → text) | 19.63% | 28.91% | **28.91%** |
+| Test R@10 (text → image) | 15.09% | 25.20% | **26.22%** |
+| Matched − unmatched separation | 0.094 | 0.347 | **0.482** |
+| Mean image–image cosine | 0.810 | 0.345 | **0.027** |
+| ‖mean text embedding‖ | 0.938 | 0.621 | **0.116** |
+| Grade | ANISOTROPIC | ANISOTROPIC | **HEALTHY** |
 
-The current space grades **ANISOTROPIC**, not healthy: separation clears
-its floor so retrieval is meaningful, but ‖mean embedding‖ is 0.621
-against a 0.5 threshold. That is stated rather than rounded up — the
-earlier checkpoint's report claimed "HEALTHY" on worse numbers, and
+The current space grades **HEALTHY** on all three thresholds. Getting
+there took two corrections, and the interesting part is that neither
+cost accuracy:
+
+1. **The memory queue this architecture was built around was causing the collapse it was added to prevent.** A controlled A/B from a single checkpoint reversed the project's own published conclusion — [KNOWN_ISSUES.md](./docs/KNOWN_ISSUES.md) §11.
+2. **A uniformity term at weight 0.2** removed the residual anisotropy that remained. On the test split it cost **nothing**: image→text R@10 is identical to four significant figures, and text→image *improved* by 1.03pp — [KNOWN_ISSUES.md](./docs/KNOWN_ISSUES.md) §12, [EXPERIMENTS.md](./docs/EXPERIMENTS.md) 009.
+
+Both grades above are reported rather than rounded up. An earlier
+checkpoint's report claimed "HEALTHY" on far worse numbers, and
 [docs/KNOWN_ISSUES.md](./docs/KNOWN_ISSUES.md) §1 is the write-up of how
-that happened.
-
-The cause turned out to be the memory queue this architecture was built
-around. A controlled A/B from a single checkpoint reversed the project's
-own published conclusion — see
-[docs/KNOWN_ISSUES.md](./docs/KNOWN_ISSUES.md) §11.
+that happened — which is why the grade here is computed by
+`scripts/generate_reports.py` rather than written by hand.
 
 ## Architecture Overview
 
@@ -431,11 +436,11 @@ There is no public instance. See
 
 Before reading the results as final, read
 [docs/KNOWN_ISSUES.md](./docs/KNOWN_ISSUES.md). The headline number
-(28.91% test R@10, 92× chance) is real, but the embedding space behind
-it is graded ANISOTROPIC rather than HEALTHY — the shipped model fails
-one of three health thresholds, with a measured fix available at a cost
-of 2pp of R@10 (§12). The duplicate-vector defect in the image index is
-fixed and the shipped index rebuilt (§2).
+(28.91% test R@10, 92× chance) is real, and as of 2026-08-25 the
+embedding space behind it grades **HEALTHY** on all three thresholds
+(§12) — the last open modelling problem in the project. The
+duplicate-vector defect in the image index is fixed and the shipped
+index rebuilt (§2). What remains open is listed there, honestly.
 
 ## License
 

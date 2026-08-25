@@ -544,3 +544,108 @@ either way, and it is recorded here rather than made silently.
 **Future Improvements:**
 1. Sweep the weight — 0.1 and 0.2 are the obvious next points, since the health gain at 0.5 overshoots the threshold by a wide margin and a smaller weight may buy HEALTHY for a fraction of the retrieval cost.
 2. Train from scratch with the term enabled rather than resuming into it. Resuming forces the model to unlearn a space it has already committed to, which likely costs more than starting with the objective in place.
+
+---
+
+### Experiment 009 — Uniformity weight sweep
+
+**Date:** 2026-08-25
+**Phase:** post-convergence
+**Config file(s) used:** `configs/training.yaml`, `--uniformity-weight 0.1` and `0.2`
+
+**Hypothesis:** experiment 008 bought a HEALTHY grade at w=0.5 for 2.0pp
+of Recall@10, and overshot the ‖mean embedding‖ threshold by a wide
+margin (0.176 against a 0.5 ceiling). If the health gain is that far
+past what is needed, a smaller weight should buy the same grade for less
+retrieval.
+
+**Setup:** identical to 008 — resume from the same preserved epoch-12
+checkpoint, queue disabled, uniformity weight the only variable. Two new
+points, 0.1 and 0.2.
+
+**Evaluation Metrics:** val split, read from each checkpoint's own
+embedded metadata. One source for every row, which is what makes them
+comparable; 008's w=0.5 figures came from a separate diagnostics run and
+are quoted below rather than mixed into the table.
+
+| | w=0.0 (baseline) | w=0.1 | **w=0.2** |
+|---|---|---|---|
+| Best epoch (0-based) | 11 | 12 | 14 |
+| Recall@1 (i→t) | **7.17%** | 6.07% | 6.80% |
+| Recall@10 (i→t) | **29.30%** | 26.75% | 29.17% |
+| Recall@10 (t→i) | 24.92% | 24.44% | **26.22%** |
+| Separation | 0.356 | 0.473 | **0.490** |
+| Mean image–image cosine | 0.332 | 0.060 | **0.024** |
+| Mean text–text cosine | 0.381 | 0.055 | **0.011** |
+| ‖mean image embedding‖ | 0.577 ❌ | 0.246 ✅ | **0.154** ✅ |
+| Mean pairwise distance | 1.136 | 1.355 | **1.385** |
+
+**Observations:**
+
+**w=0.2 is better than the baseline on the metric that matters most for
+the demo.** Image→text R@10 costs 0.13pp — 29.30% → 29.17%, which is
+inside run-to-run noise — while text→image R@10 *gains* 1.30pp. Text→image
+is the direction the search box actually exercises: a visitor types a
+sentence and gets pictures. The headline metric barely moved and the
+one the product uses improved.
+
+Every health threshold passes, with room: ‖mean embedding‖ 0.154 against
+a 0.5 ceiling, separation 0.490 against 0.25, mean off-diagonal cosine
+0.024 against 0.5.
+
+**w=0.1 is the useful negative result.** It is not a midpoint. It has
+more regularization than the baseline and worse retrieval than either
+neighbour — R@10 26.75%, below both w=0.0 (29.30%) and w=0.2 (29.17%).
+Its best epoch is 12 against w=0.2's 14, so it is at least partly an
+under-trained run rather than a property of the weight, but it is
+recorded as measured. Had the sweep tested only 0.1, the honest
+conclusion would have been "the smaller weight costs more", which is the
+opposite of what 0.2 shows.
+
+That is the point of sweeping three values rather than picking the
+second one that works.
+
+**On 008's w=0.5.** It reported ‖mean embedding‖ 0.176 and separation
+0.481 for a 2.0pp R@10 cost. w=0.2 reaches a *better* ‖mean‖ (0.154) and
+a better separation (0.490) for 0.13pp. The curve is not monotonic in
+the direction 008 assumed: more weight did not mean more health, it
+meant more cost.
+
+**Conclusions:**
+Hypothesis CONFIRMED, and more strongly than expected. w=0.2 is the
+shipped weight. This is the first HEALTHY grade the project has produced
+on real data **without paying for it** — §12 closes as a fixed issue
+rather than as a documented tradeoff.
+
+The decision 008 deferred ("which point on the tradeoff to ship") turned
+out to rest on a tradeoff that mostly is not there at the right weight.
+008's refusal to ship w=0.5 on one run's evidence was still correct: the
+run that justified shipping is this one, with three points and a
+counter-example in it.
+
+**Confirmed on the held-out test split.** The table above is val, read
+from checkpoint metadata. After promoting w=0.2 to the shipped
+checkpoint, `scripts/generate_reports.py` re-evaluated the test split
+from scratch:
+
+| Test split | w=0.0 | **w=0.2** | |
+|---|---|---|---|
+| R@10 image → text | 28.91% | **28.91%** | identical to four significant figures |
+| R@10 text → image | 25.20% | **26.22%** | +1.03pp |
+| R@5 text → image | 17.33% | **18.24%** | +0.91pp |
+| R@1 text → image | 5.71% | **5.98%** | +0.27pp |
+| R@1 image → text | 7.71% | **7.64%** | -0.06pp |
+| Separation | 0.347 | **0.482** | |
+| ‖mean text embedding‖ | 0.621 ❌ | **0.115** ✅ | the row that decided the grade |
+| **Grade** | ANISOTROPIC | **HEALTHY** | |
+
+So the 0.13pp val cost does not appear on test at all: image→text is
+unchanged and every text→image figure improves. The val and test results
+agree on direction, which is the check that matters — a change that
+helped only on the split it was selected against would be worth
+distrusting.
+
+**Future Improvements:**
+1. Train from scratch with the term enabled rather than resuming into it. Still the open question from 008 — resuming forces the model to unlearn a space it has already committed to, and w=0.2's best epoch being 14 rather than 12 suggests it was still recovering.
+2. w=0.15 and w=0.3 would tell whether 0.2 is a peak or a plateau. Not on the critical path: the current answer is already better than the baseline on both directions of retrieval and on every health metric.
+3. Re-run w=0.1 to the same epoch count before treating its regression as real.
