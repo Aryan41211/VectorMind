@@ -59,8 +59,29 @@ name = yaml.safe_load(open('configs/serving.yaml'))['tokenizer']['name']; \
 AutoTokenizer.from_pretrained(name); \
 print(f'Cached tokenizer: {name}')"
 
+# Everything the server loads is now in the image, so stop transformers
+# from checking the Hub on first use. Set AFTER the download above, which
+# needs the network.
+#
+# Without this the cache is still used, but only after an outbound
+# request that succeeds slowly, fails slowly, or logs an unauthenticated-
+# request warning on every cold start. Offline makes first-query latency
+# a property of the image rather than of the host's egress.
+ENV HF_HUB_OFFLINE=1 \
+    TRANSFORMERS_OFFLINE=1
+
 # Fail the build rather than shipping an image that cannot import.
 RUN python -c "import backend.app; print('backend.app imports OK')"
+
+# And fail it if the tokenizer cannot load from the baked-in cache, which
+# is the assertion the two variables above turn into a real one: with the
+# Hub unreachable, this line is the whole text-search path's first step.
+RUN python -c "\
+import yaml; \
+from transformers import AutoTokenizer; \
+name = yaml.safe_load(open('configs/serving.yaml'))['tokenizer']['name']; \
+AutoTokenizer.from_pretrained(name); \
+print(f'Tokenizer loads offline: {name}')"
 
 EXPOSE 8000
 
