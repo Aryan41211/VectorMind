@@ -36,16 +36,31 @@ gradient_clip_max_norm: 1.0
 # --- Uniformity regularizer (docs/KNOWN_ISSUES.md §12) ---
 #
 # Wang & Isola's uniformity term, which spreads embeddings over the
-# hypersphere. It targets the one health threshold the converged model
-# still fails: ||mean embedding|| 0.621 against a 0.5 ceiling.
+# hypersphere. It was added to target the one health threshold the
+# InfoNCE-only model failed: ||mean embedding|| 0.577 against a 0.5
+# ceiling.
 #
-# 0.0 reproduces InfoNCE-only training exactly, so this is a one-value
-# A/B rather than a code change. Raise it only with a controlled
-# comparison — separation and uniformity trade against each other, and
-# this project has a recent, expensive demonstration of what happens
-# when a loss change is adopted on one epoch of evidence (§11).
+# 0.2 is the shipped weight, chosen from a three-point sweep rather than
+# from the first value that worked (EXPERIMENTS.md 009):
+#
+#   w      ||mean||   separation   R@10 (i2t)   R@10 (t2i)
+#   0.0     0.577        0.356       29.30%       24.92%
+#   0.1     0.246        0.473       26.75%       24.44%
+#   0.2     0.154        0.490       29.17%       26.22%
+#   0.5     0.176        0.481       27.28%          —
+#
+# 0.2 is the only setting that passes all three health thresholds while
+# costing essentially nothing: -0.13pp image->text, +1.30pp text->image.
+# w=0.5 was measured first and rejected at -2.0pp; shipping it on that
+# one run would have repeated §11's mistake.
+#
+# 0.0 reproduces InfoNCE-only training exactly, so changing this is a
+# one-value A/B rather than a code change. Move it only with a
+# controlled comparison — separation and uniformity trade against each
+# other, and w=0.1 is the counter-example that keeps this honest: more
+# regularization than 0.0, worse retrieval than either neighbour.
 uniformity:
-  weight: 0.0
+  weight: 0.2
   t: 2.0
 
 # --- Memory Queue (ARCHITECTURE.md §6) ---
