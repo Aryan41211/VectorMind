@@ -17,7 +17,7 @@
 
 const METRICS = [
   { label: 'Test R@10', value: '28.9%', note: '92× chance' },
-  { label: 'Test R@1', value: '7.7%', note: '245× chance' },
+  { label: 'Text → image R@10', value: '26.2%', note: '83× chance' },
   { label: 'Parameters', value: '24M', note: 'from scratch' },
   { label: 'Corpus', value: '31,783', note: 'Flickr30k photos' },
 ];

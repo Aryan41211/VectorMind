@@ -1,14 +1,14 @@
 {
   "image_to_text_recall": {
     "@1": {
-      "measured": 0.07706826045926392,
+      "measured": 0.0764391318024536,
       "random_baseline": 0.0003145643284051536,
-      "times_baseline": 245.0000000000041
+      "times_baseline": 243.00000000000406
     },
     "@5": {
-      "measured": 0.20603963510537904,
+      "measured": 0.20792702107581001,
       "random_baseline": 0.001572030135912117,
-      "times_baseline": 131.06595757837147
+      "times_baseline": 132.26656176992907
     },
     "@10": {
       "measured": 0.28908461780434097,
@@ -18,43 +18,43 @@
   },
   "text_to_image_recall": {
     "@1": {
-      "measured": 0.05706196650862694,
+      "measured": 0.0597672201693058,
       "random_baseline": 0.0003145643284051536,
-      "times_baseline": 181.39999153092808
+      "times_baseline": 189.99999291822633
     },
     "@5": {
-      "measured": 0.17332494258880615,
+      "measured": 0.18244729936122894,
       "random_baseline": 0.001572821642025879,
-      "times_baseline": 110.19999849795703
+      "times_baseline": 115.99999293386311
     },
     "@10": {
-      "measured": 0.25196602940559387,
+      "measured": 0.2622207999229431,
       "random_baseline": 0.003145643284051647,
-      "times_baseline": 80.1000007480368
+      "times_baseline": 83.35999229550207
     }
   },
   "diagnostics": {
-    "image_dim_variance": 0.002557735424488783,
-    "text_dim_variance": 0.0023419437929987907,
-    "image_mean_pairwise_dist": 1.125314712524414,
-    "text_mean_pairwise_dist": 1.0763353109359741,
-    "image_min_pairwise_dist": 0.1861751228570938,
+    "image_dim_variance": 0.0038016140460968018,
+    "text_dim_variance": 0.003841700963675976,
+    "image_mean_pairwise_dist": 1.3823726177215576,
+    "text_mean_pairwise_dist": 1.3899997472763062,
+    "image_min_pairwise_dist": 0.1867264062166214,
     "text_min_pairwise_dist": 0.0
   },
   "embedding_health": {
-    "matched_similarity": 0.6036232709884644,
-    "unmatched_similarity": 0.25689399242401123,
-    "separation": 0.3467292785644531,
-    "image_mean_cosine": 0.3452197313308716,
-    "text_mean_cosine": 0.3858819305896759,
-    "image_mean_norm": 0.587729275226593,
-    "text_mean_norm": 0.6213494539260864,
-    "image_dim_variance": 0.002557735424488783,
-    "text_dim_variance": 0.0023988988250494003,
+    "matched_similarity": 0.49197107553482056,
+    "unmatched_similarity": 0.010501470416784286,
+    "separation": 0.48146960511803627,
+    "image_mean_cosine": 0.02678688056766987,
+    "text_mean_cosine": 0.01302840281277895,
+    "image_mean_norm": 0.16459956765174866,
+    "text_mean_norm": 0.1154940202832222,
+    "image_dim_variance": 0.0038016140460968018,
+    "text_dim_variance": 0.0038553576450794935,
     "num_samples": 3179,
-    "collapsed": true,
-    "grade": "ANISOTROPIC",
-    "verdict": "ANISOTROPIC \u2014 separation 0.347 is above the 0.25 floor, so retrieval is meaningful, but ||mean embedding|| 0.621 > 0.5"
+    "collapsed": false,
+    "grade": "HEALTHY",
+    "verdict": "HEALTHY \u2014 separation 0.481, max mean-cosine 0.027"
   },
   "num_images": 3179,
   "num_captions": 15895
