@@ -25,10 +25,17 @@
 
 services:
   frontend:
-    ports:
-      # Loopback only. Overriding the base file's mapping rather than
-      # removing it, because compose merges port lists by replacement
-      # for the same container port and there is no "unpublish" syntax.
+    # Loopback only, so the sole route in from outside is through Caddy.
+    #
+    # `!override` is load-bearing. Compose merges sequences by appending,
+    # not by replacing, so without it this list is added to the base
+    # file's rather than substituted for it and the service ends up with
+    # BOTH mappings: 0.0.0.0:8080 and 127.0.0.1:8080. The app's nginx then
+    # stays bound on every interface — exactly what this overlay exists to
+    # prevent — and the two entries also collide at bind time, so the
+    # service either fails to start with "address already in use" or comes
+    # up with no published port at all, depending on ordering.
+    ports: !override
       - "127.0.0.1:${FRONTEND_PORT:-8080}:80"
 
   caddy:
