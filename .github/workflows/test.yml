@@ -81,6 +81,102 @@ jobs:
       - name: Import the app
         run: python -c "import backend.app; print('serving deps sufficient')"
 
+  deployment:
+    name: Deployment config (Caddy, compose, response headers)
+    runs-on: ubuntu-latest
+    # Nothing validated deployment/ until now, and every file in it sits on
+    # the path to the one unfinished Phase 7 deliverable. Three defects
+    # shipped there undetected, because `nginx -t` during the image build
+    # was the only gate and it checks one file's syntax:
+    #
+    #   - the Caddyfile did not parse at all (`transport` is a subdirective
+    #     of reverse_proxy, not a site-level directive), so the TLS overlay
+    #     could never have started;
+    #   - the TLS overlay's loopback rebinding was appended to the base
+    #     file's port list rather than replacing it, leaving nginx bound on
+    #     0.0.0.0 — the opposite of the overlay's stated purpose;
+    #   - every static response was missing all four security headers,
+    #     because nginx drops the inherited add_header set in any location
+    #     that declares an add_header of its own.
+    #
+    # Syntax checks catch the first two. Only asserting on real responses
+    # catches the third, so this job does both.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Caddyfile parses
+        run: |
+          docker run --rm \
+            -e DOMAIN=demo.example.com -e TLS_EMAIL=ci@example.com \
+            -v "$PWD/deployment/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile
+
+      - name: Compose files are valid in every documented combination
+        env:
+          DOMAIN: demo.example.com
+          TLS_EMAIL: ci@example.com
+        working-directory: deployment
+        run: |
+          docker compose -f docker-compose.yml config -q
+          docker compose -f docker-compose.yml -f docker-compose.tls.yml config -q
+          docker compose -f docker-compose.yml -f docker-compose.auth.yml config -q
+          docker compose -f docker-compose.yml -f docker-compose.tls.yml \
+                         -f docker-compose.auth.yml config -q
+
+      - name: TLS overlay publishes the app on loopback only
+        env:
+          DOMAIN: demo.example.com
+          TLS_EMAIL: ci@example.com
+        working-directory: deployment
+        # Compose merges sequences by appending. Without `!override` the
+        # base file's 0.0.0.0 mapping survives alongside this one and the
+        # app stays reachable on every interface, bypassing the TLS
+        # terminator this overlay exists to put in front of it.
+        run: |
+          ports=$(docker compose -f docker-compose.yml -f docker-compose.tls.yml \
+                    config --format json | jq -c '.services.frontend.ports')
+          echo "frontend ports: $ports"
+          test "$(echo "$ports" | jq 'length')" = "1" \
+            || { echo "expected exactly one frontend port mapping"; exit 1; }
+          test "$(echo "$ports" | jq -r '.[0].host_ip')" = "127.0.0.1" \
+            || { echo "frontend is not published on loopback only"; exit 1; }
+
+      - name: Build the frontend image
+        run: docker build -f deployment/frontend.Dockerfile -t vectormind-frontend:ci .
+
+      - name: Every response carries the security headers exactly once
+        # Asserted against real responses rather than by reading the config.
+        # The headers were previously checked on a proxied API path — one of
+        # the few locations that did inherit them — and the result recorded
+        # as "all four present", which was true of that path and of nothing
+        # else the browser actually loads.
+        run: |
+          docker run -d --name hdr-ci -p 8099:80 vectormind-frontend:ci
+          for _ in $(seq 1 20); do
+            curl -sf http://127.0.0.1:8099/nginx-health >/dev/null && break
+            sleep 1
+          done
+          asset=$(docker exec hdr-ci sh -c 'basename $(ls /usr/share/nginx/html/assets/*.js | head -1)')
+          fail=0
+          for path in / /nginx-health /some/spa/route "/assets/$asset"; do
+            h=$(curl -sS -D - -o /dev/null "http://127.0.0.1:8099$path")
+            for name in X-Content-Type-Options X-Frame-Options Referrer-Policy Permissions-Policy; do
+              n=$(printf '%s' "$h" | grep -ci "^$name:" || true)
+              test "$n" = "1" || { echo "FAIL $path: $name seen $n times, want 1"; fail=1; }
+            done
+            # `expires` alongside an add_header emits two Cache-Control
+            # headers, and which one a cache honours is unspecified.
+            n=$(printf '%s' "$h" | grep -ci '^Cache-Control:' || true)
+            test "$n" -le 1 || { echo "FAIL $path: Cache-Control seen $n times"; fail=1; }
+            # add_header Content-Type appends rather than replacing, so the
+            # health probe returned both octet-stream and text/plain.
+            n=$(printf '%s' "$h" | grep -ci '^Content-Type:' || true)
+            test "$n" -le 1 || { echo "FAIL $path: Content-Type seen $n times"; fail=1; }
+            test "$fail" = 0 && echo "ok $path"
+          done
+          docker rm -f hdr-ci >/dev/null
+          exit $fail
+
   typescript:
     name: TypeScript (tsc, oxlint, build)
     runs-on: ubuntu-latest
