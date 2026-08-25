@@ -31,6 +31,11 @@ FROM nginx:alpine AS production
 # Drop the default site so it cannot shadow ours.
 RUN rm /etc/nginx/conf.d/default.conf
 COPY deployment/nginx.conf /etc/nginx/conf.d/vectormind.conf
+# Outside conf.d, and not named *.conf: everything in conf.d is included
+# automatically at the http level, and these add_header directives are
+# meant to be included per-location, not once globally where any location
+# with an add_header of its own would discard them again.
+COPY deployment/security-headers.inc /etc/nginx/snippets/security-headers.inc
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 # Fail the build rather than shipping an image with a bad config.
