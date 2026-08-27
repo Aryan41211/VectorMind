@@ -177,6 +177,23 @@ jobs:
           docker rm -f hdr-ci >/dev/null
           exit $fail
 
+      - name: PowerShell scripts parse
+        # The Windows deploy/preflight/verify scripts are now the front
+        # door to the public path; a syntax error in any of them would
+        # surface only on the deploy machine. GitHub runners ship pwsh.
+        shell: pwsh
+        run: |
+          foreach ($f in @("deployment/preflight.ps1", "deployment/deploy.ps1", "deployment/verify.ps1")) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($f, [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              foreach ($e in $errors) { Write-Host "FAIL $f line $($e.Extent.StartLineNumber): $($e.Message)" }
+              exit 1
+            }
+            Write-Host "parse OK: $f"
+          }
+
   typescript:
     name: TypeScript (tsc, oxlint, build)
     runs-on: ubuntu-latest

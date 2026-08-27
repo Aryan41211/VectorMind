@@ -6,6 +6,48 @@ does not publish versioned releases, so entries are grouped by date.
 
 ---
 
+## [Unreleased] — 2026-08-28 — Deployment, one command on Windows
+
+The remaining Phase 7 deliverable is a live public instance; everything
+up to the host is now scripted.
+
+### Added
+
+- **`deployment/preflight.ps1`** — the gate: confirms the serving
+  artifacts, the Docker engine, a genuinely public IP (not CGNAT), and
+  optionally proves inbound port 80 with a temporary listener only an
+  outside client can reach. Run against this machine: no blockers.
+- **`deployment/deploy.ps1`** — one-command public deploy: reads
+  `deployment/.env`, validates compose before starting, opens Windows
+  Firewall 80/443, `up -d --build` with the TLS overlay, waits for
+  `/ready`, then runs the verification checks.
+- **`deployment/verify.ps1`** — the Phase 7 evidence step: certificate,
+  corpus size (31,783), distinct text results, redirect, headers.
+  Verified locally (`-Local`) against a freshly rebuilt stack: all
+  checks pass.
+- **`deployment/.env.example`** — committed DOMAIN/TLS_EMAIL scaffold;
+  the real `deployment/.env` was already covered by `.gitignore`.
+- **Caddy healthcheck** in `docker-compose.tls.yml` (admin API on
+  loopback), so the TLS hop is a first-class compose citizen.
+- **CI parses the PowerShell scripts** (`pwsh`) in the existing
+  deployment job, so a syntax error in a deploy script fails a PR.
+
+### Changed
+
+- **`docs/DEPLOYMENT.md` is now Windows-first**: a four-command quick
+  start (gate → `-TestPublicPort` → `deploy.ps1` → `verify.ps1`), with
+  the old manual Linux-VM path kept as the alternative. The verification
+  tables record that the deploy tooling was built and exercised on the
+  host, and still state plainly that no public instance exists.
+- **The `X-Request-ID` claim is corrected**: it is on every API
+  response; the SPA document is served by nginx and does not carry it.
+
+Still open (none of it is code): a domain or DDNS name, the router
+port-forward proof (`-TestPublicPort`), and the DNS cutover before
+Caddy can obtain a certificate.
+
+---
+
 ## [Unreleased] — 2026-08-28 — One training loop, config-first serving limits
 
 ### Added

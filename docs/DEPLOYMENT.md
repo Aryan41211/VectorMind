@@ -20,7 +20,7 @@ machine.** What was actually observed:
 | Cold first query | 1.06s — the first forward pass, with the tokenizer now loaded offline |
 | Warm latency | 37–102ms through the proxy, p50 51ms (see note below) |
 | Security headers | ✅ all four, exactly once, on **every** path — see below |
-| Request correlation | ✅ `X-Request-ID` on every response |
+| Request correlation | ✅ `X-Request-ID` on every API response (the SPA document is served by nginx and never passes through the backend middleware that sets it) |
 | Rate limiting | ✅ 429 after the configured 30/minute |
 | Basic auth overlay | ✅ 401 on `/` and `/search`, 200 on `/health`, `/ready`, `/nginx-health`; correct credentials → 200 |
 | TLS overlay | ✅ Caddy → nginx → backend chain serves HTTPS, redirects HTTP→HTTPS (308), and adds HSTS once |
@@ -47,6 +47,23 @@ been run end to end locally against Caddy's internal CA, so what remains
 untested is specifically ACME issuance against a real domain — not the
 proxy topology.
 
+**Deploy tooling added 2026-08-28.** The "Going public" path is now
+scripted for a Windows host: `deployment/preflight.ps1` checks what a
+public instance needs, `deployment/deploy.ps1` brings up the TLS stack,
+and `deployment/verify.ps1` asserts the checks this table records. What
+was actually run that day, on this machine:
+
+| Check | Result |
+|---|---|
+| `preflight.ps1` | ✅ no blockers — artifacts present (278MB checkpoint, indices, 31,783 images), Docker 29.7.2 + compose v5 up, public IP `106.221.214.121` is a real public address (not CGNAT/private), outbound HTTPS fine |
+| Compose validation | ✅ all four combinations (base, `+tls`, `+auth`, `+tls +auth`) pass `config -q` on this machine |
+| Full stack rebuilt | ✅ both images built from current source; backend healthy; `/ready` green |
+| `verify.ps1 -Local` | ✅ full corpus (`num_indexed_images: 31783`), 5 distinct text results, four security headers, `X-Request-ID` on API responses |
+
+Still open, and none of it is code: a domain (free duckdns or bought),
+the router port-forward proof (the `-TestPublicPort` step, which needs a
+phone on cellular), and the DNS cutover.
+
 ---
 
 ## What was fixed on 2026-08-25
@@ -66,6 +83,46 @@ The common thread is the same one this repository has recorded before: a
 configuration file that is never executed is a document, not a
 configuration. `nginx -t` at image-build time was the only gate over
 `deployment/`, and it checks one file's syntax.
+
+---
+
+## Windows host — quick start
+
+The deployment is scripted for a Windows machine (Docker Desktop). Four
+commands, run at the repository root in PowerShell:
+
+```powershell
+# 1. The gate. Verifies the artifacts, Docker, and that the network can
+#    host something public. Read every FAIL; WARN items are your part.
+powershell -ExecutionPolicy Bypass -File deployment/preflight.ps1
+
+# Proves the router forwards port 80: starts a listener, then load
+# http://<public-ip>/preflight from a PHONE ON CELLULAR (not home WiFi).
+powershell -ExecutionPolicy Bypass -File deployment/preflight.ps1 -TestPublicPort
+
+# 2. Tell deploy.ps1 the public hostname (copy once, then fill in).
+#    Free name option: duckdns.org — a real DNS record, so the
+#    Let's Encrypt HTTP-01 challenge works with it.
+Copy-Item deployment\.env.example deployment\.env   # then edit: DOMAIN, TLS_EMAIL
+
+# 3. Deploy: validates compose, opens firewall 80/443, `up -d --build`,
+#    waits for /ready, then runs the verification checks.
+powershell -ExecutionPolicy Bypass -File deployment/deploy.ps1
+
+# 4. Re-verify after DNS points the name at this machine.
+powershell -ExecutionPolicy Bypass -File deployment/verify.ps1
+
+# Logs, when you need them:
+docker compose -f deployment/docker-compose.yml -f deployment/docker-compose.tls.yml logs -f
+```
+
+`deploy.ps1` fails fast and tells you why: missing `.env`, Docker engine
+down, artifacts absent, compose invalid, or the stack not reaching
+`/ready` within 180s. Nothing starts half-configured.
+
+For a private demo instead of a public one (e.g., a CV link), add the
+auth overlay — see [auth.conf.example](../deployment/auth.conf.example)
+and the Basic auth steps in the manual section below.
 
 ---
 
@@ -222,17 +279,25 @@ Everything above runs the stack on a machine you are already sitting at.
 This section is the remaining Phase 7 deliverable: the same stack, on a
 host with a public name and a certificate.
 
-**Status: the stack has been run, the host has not.** As of 2026-08-25
+On a Windows host, the scripted path above ("Windows host — quick
+start") is the how. What follows is the manual route, which also covers
+the case of doing this on a Linux VM; the scripts encapsulate exactly
+these steps.
+
+**Status: the stack has been run, the host has not.** As of 2026-08-27
 the TLS overlay in this section has been executed locally end to end —
 Caddy in front of the app's nginx, HTTPS served, HTTP redirected, HSTS
 set once — using Caddy's internal CA in place of a public domain. Doing
 that is what surfaced the two defects in the table at the top of this
-file, either of which would have stopped this section's Step 3 dead.
+file, either of which would have stopped this section's Step 3 dead. On
+2026-08-28 the targets of every step below were exercised on the host
+(see the deploy-tooling verification table at the top).
 
-What has **not** been run: any of it against a real host, a real domain,
-or Let's Encrypt. Steps 1, 2 and 4 below are still written rather than
-observed, and ACME issuance in particular has never been exercised — the
-internal CA proves the proxy topology, not the certificate path.
+What has **not** been run: any of it against a real domain or
+Let's Encrypt, and the router port-forward proof (the
+`-TestPublicPort` step). ACME issuance in particular has never been
+exercised — the internal CA proves the proxy topology, not the
+certificate path.
 
 Marked this precisely on purpose: this project has a history of
 documents describing intentions in the same voice as results
@@ -261,6 +326,15 @@ that loads a 278MB checkpoint is a poor fit for a request-triggered
 container. A plain VM is both cheaper and simpler here.
 
 ### Step 1 — provision and prepare the host
+
+For a Windows host these prerequisites replace the commands below:
+Windows Firewall (or a rule added by `deploy.ps1` when elevated) must
+allow inbound TCP 80/443, the router must forward 80/443 to this
+machine, and the machine needs a public IP that is not CGNAT —
+`deployment/preflight.ps1 -TestPublicPort` is the honest test of all of
+this, because only an outside client (a phone on cellular) can prove it.
+
+For a Linux VM:
 
 ```bash
 # On the VM, as a sudo-capable user

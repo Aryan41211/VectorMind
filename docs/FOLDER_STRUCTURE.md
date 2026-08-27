@@ -83,7 +83,9 @@ entirely — this is why it's a separate Docker image (ARCHITECTURE.md
 ## `deployment/` (Phase 7)
 
 **Purpose:** Dockerfiles and `docker-compose.yml` tying `backend/` and
-`frontend/` together for deployment. See ARCHITECTURE.md §11.
+`frontend/` together for deployment, plus the Windows deploy tooling
+(`preflight.ps1`, `deploy.ps1`, `verify.ps1`, `.env.example`). See
+ARCHITECTURE.md §11 and docs/DEPLOYMENT.md.
 **Depends on:** `backend/`, `frontend/` (as build contexts).
 **Must never contain:** application logic — this folder is
 orchestration/packaging only.
