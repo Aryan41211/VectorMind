@@ -403,6 +403,7 @@ def main() -> None:
         epoch=0,
         step=len(train_loader),
         config=training_config,
+        scheduler=scheduler,
     )
     ckpt_time = time.time() - ckpt_start
     ckpt_size_mb = ckpt_path.stat().st_size / (1024**2)
