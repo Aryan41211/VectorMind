@@ -15,6 +15,7 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -65,6 +66,41 @@ def load_serving_config(
         config, ["server", "cors", "paths", "search", "tokenizer", "limits"]
     )
     return config
+
+
+@lru_cache(maxsize=1)
+def get_serving_limits() -> dict[str, Any]:
+    """Return the cached ``limits`` section of configs/serving.yaml.
+
+    Routers enforce request size limits here so a single tune of the
+    config file moves every enforcement point (middleware and routes)
+    at once — no hardcoded literals (CLAUDE.md §6).
+
+    Returns:
+        The parsed ``limits`` mapping (``max_upload_bytes``, rate limits).
+
+    Raises:
+        FileNotFoundError: If configs/serving.yaml is missing.
+        KeyError: If the ``limits`` section is absent.
+    """
+    return dict(load_serving_config()["limits"])
+
+
+@lru_cache(maxsize=1)
+def get_search_settings() -> dict[str, Any]:
+    """Return the cached ``search`` section of configs/serving.yaml.
+
+    Routers clamp ``top_k`` to this section's ``max_top_k`` so a single
+    request cannot serialize the whole index (CLAUDE.md §6).
+
+    Returns:
+        The parsed ``search`` mapping (``max_top_k``, ``default_top_k``).
+
+    Raises:
+        FileNotFoundError: If configs/serving.yaml is missing.
+        KeyError: If the ``search`` section is absent.
+    """
+    return dict(load_serving_config()["search"])
 
 
 @dataclass

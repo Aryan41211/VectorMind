@@ -15,7 +15,7 @@ import pytest
 import torch
 from fastapi.testclient import TestClient
 
-from backend.app import app_state, create_app
+from backend.app import app_state, create_app, get_search_settings
 
 
 class MockModel:
@@ -99,6 +99,23 @@ class TestTextSearchEndpoint:
         )
         data = response.json()
         assert len(data["results"]) <= 5
+
+    def test_text_search_clamps_top_k_to_config_max(self, mock_app_state):
+        """top_k above configs/serving.yaml search.max_top_k is clamped.
+
+        The index here holds 1,000 vectors, so only the configured cap
+        can explain a result count no higher than 50.
+        """
+        max_top_k = get_search_settings()["max_top_k"]
+        assert max_top_k < 1000
+        app = create_app(test_mode=True)
+        client = TestClient(app)
+        response = client.post(
+            "/search/text",
+            json={"query": "a dog", "top_k": 100},
+        )
+        data = response.json()
+        assert len(data["results"]) <= max_top_k
 
     def test_text_search_includes_query(self, mock_app_state):
         """Text search response includes the original query."""

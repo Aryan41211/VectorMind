@@ -22,7 +22,7 @@ import numpy as np
 import torch
 from fastapi import APIRouter, HTTPException
 
-from backend.app import app_state
+from backend.app import app_state, get_search_settings
 from backend.schemas import (
     ErrorResponse,
     SearchResponse,
@@ -108,7 +108,8 @@ def search_by_text(request: TextSearchRequest) -> SearchResponse:
         faiss.normalize_L2(text_embedding)
 
         # Search FAISS index
-        k = min(request.top_k, app_state.image_index.ntotal)
+        max_top_k = int(get_search_settings()["max_top_k"])
+        k = min(request.top_k, max_top_k, app_state.image_index.ntotal)
         distances, indices = app_state.image_index.search(text_embedding, k)
 
         # Build results

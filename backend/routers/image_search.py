@@ -25,7 +25,7 @@ import torch
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from PIL import Image
 
-from backend.app import app_state
+from backend.app import app_state, get_search_settings, get_serving_limits
 from backend.schemas import ErrorResponse, SearchResponse, SearchResult
 
 logger = logging.getLogger(__name__)
@@ -128,7 +128,8 @@ def search_by_image(
         faiss.normalize_L2(image_embedding)
 
         # Search FAISS index
-        k = min(top_k, app_state.text_index.ntotal)
+        max_top_k = int(get_search_settings()["max_top_k"])
+        k = min(top_k, max_top_k, app_state.text_index.ntotal)
         distances, indices = app_state.text_index.search(image_embedding, k)
 
         # Build results
@@ -184,11 +185,17 @@ def search_by_image(
         ) from e
 
 
-def _validate_image_sync(file: UploadFile) -> Image.Image:
+def _validate_image_sync(
+    file: UploadFile, max_upload_bytes: int | None = None
+) -> Image.Image:
     """Validate and load an uploaded image file (synchronous).
 
     Args:
         file: Uploaded file.
+        max_upload_bytes: Largest accepted body. Defaults to
+            ``configs/serving.yaml limits.max_upload_bytes`` so the
+            route and the middleware enforce the same configured number
+            (CLAUDE.md §6).
 
     Returns:
         PIL Image.
@@ -206,12 +213,16 @@ def _validate_image_sync(file: UploadFile) -> Image.Image:
     # Read file content synchronously via the underlying file object
     content = file.file.read()
 
-    # Check file size (max 10MB)
-    max_size = 10 * 1024 * 1024
-    if len(content) > max_size:
+    # Check file size against the configured limit. The middleware also
+    # enforces this from the same config before the body is buffered;
+    # repeating it here keeps the error message route-local while the
+    # configured number is the single source of truth.
+    if max_upload_bytes is None:
+        max_upload_bytes = int(get_serving_limits()["max_upload_bytes"])
+    if len(content) > max_upload_bytes:
         raise HTTPException(
             status_code=400,
-            detail=f"File too large: {len(content)} bytes. Max: {max_size} bytes.",
+            detail=f"File too large: {len(content)} bytes. Max: {max_upload_bytes} bytes.",
         )
 
     # Try to open as image

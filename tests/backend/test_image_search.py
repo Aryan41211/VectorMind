@@ -15,10 +15,21 @@ import faiss
 import numpy as np
 import pytest
 import torch
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from backend.app import app_state, create_app
+from backend.app import app_state, create_app, get_search_settings, get_serving_limits
+from backend.routers.image_search import _validate_image_sync
+
+
+class _FakeUpload:
+    """Minimal stand-in for FastAPI's UploadFile in unit tests."""
+
+    content_type: str = "image/jpeg"
+
+    def __init__(self, data: bytes) -> None:
+        self.file = io.BytesIO(data)
 
 
 class MockModel:
@@ -113,6 +124,24 @@ class TestImageSearchEndpoint:
         )
         data = response.json()
         assert len(data["results"]) <= 5
+
+    def test_image_search_clamps_top_k_to_config_max(self, mock_app_state):
+        """top_k above configs/serving.yaml search.max_top_k is clamped.
+
+        The index here holds 1,000 vectors, so only the configured cap
+        can explain a result count no higher than 50.
+        """
+        max_top_k = get_search_settings()["max_top_k"]
+        assert max_top_k < 1000
+        app = create_app(test_mode=True)
+        client = TestClient(app)
+        image_bytes = create_test_image()
+        response = client.post(
+            "/search/image?top_k=100",
+            files={"file": ("test.jpg", image_bytes, "image/jpeg")},
+        )
+        data = response.json()
+        assert len(data["results"]) <= max_top_k
 
     def test_image_search_includes_query(self, mock_app_state):
         """Image search response includes the filename."""
@@ -247,6 +276,31 @@ class TestImageValidation:
         )
         assert response.status_code == 413
         assert response.json()["error"] == "payload_too_large"
+
+    def test_size_limit_comes_from_config_not_a_literal(self):
+        """The route's size guard accepts the configured limit.
+
+        A 10 MiB check is hardcoded in `_validate_image_sync`; scraping
+        the parameter off of a town-sized limit (200 bytes) proves the
+        value travels in, so tuning configs/serving.yaml moves the
+        limit everywhere at once.
+        """
+        configured = get_serving_limits()["max_upload_bytes"]
+        with pytest.raises(HTTPException) as exc:
+            _validate_image_sync(_FakeUpload(b"x" * (int(configured) + 1)))
+        assert exc.value.status_code == 400
+        assert "Max" in exc.value.detail
+
+    def test_size_limit_large_payload_rejected_at_route_limit(self):
+        """Payloads under the middleware cap still hit the route guard.
+
+        Provoked with a limit far below the 10 MiB literal: an oversized
+        body here would pass any hardcoded check, so refusal proves the
+        guard follows the config value.
+        """
+        with pytest.raises(HTTPException) as exc:
+            _validate_image_sync(_FakeUpload(b"x" * 300), max_upload_bytes=200)
+        assert exc.value.status_code == 400
 
 
 class TestImageSearchResultFormat:
