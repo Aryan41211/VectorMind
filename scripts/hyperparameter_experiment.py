@@ -446,6 +446,7 @@ def main() -> None:
                 epoch=epoch,
                 step=global_step,
                 config=training_config,
+                scheduler=scheduler,
             )
     
     # Final summary
@@ -477,6 +478,7 @@ def main() -> None:
         epoch=epoch,
         step=global_step,
         config=training_config,
+        scheduler=scheduler,
     )
     logger.info("Final checkpoint saved: %s", final_ckpt_path)
     
