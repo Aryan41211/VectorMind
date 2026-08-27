@@ -17,9 +17,9 @@ Design decisions:
 
 Input:
   - save_checkpoint(path, model, optimizer, scaler, memory_queue,
-    epoch, step, config)
-  - load_checkpoint(path, model, optimizer, scaler, memory_queue)
-    → (epoch, step)
+    epoch, step, config=..., metrics=..., scheduler=...)
+  - load_checkpoint(path, model, optimizer, scaler, memory_queue,
+    scheduler=...)  → (epoch, step)
 """
 
 from __future__ import annotations
@@ -50,6 +50,7 @@ def save_checkpoint(
     step: int,
     config: dict[str, Any] | None = None,
     metrics: dict[str, float] | None = None,
+    scheduler: torch.optim.lr_scheduler.LRScheduler | None = None,
 ) -> None:
     """Save complete training state to a checkpoint file.
 
@@ -66,6 +67,10 @@ def save_checkpoint(
             checkpoint. Stored so a resumed run can recover the
             best-so-far score instead of restarting the comparison from
             zero and overwriting a better checkpoint with a worse one.
+        scheduler: Optional LR scheduler to save. Without it, a resumed
+            run rebuilds the scheduler from scratch and re-runs the
+            schedule from its peak LR instead of continuing it
+            (see :mod:`load_checkpoint`).
 
     Raises:
         OSError: If the file cannot be written.
@@ -98,6 +103,12 @@ def save_checkpoint(
             "embed_dim": memory_queue.embed_dim,
         },
     }
+
+    # The scheduler's position in the training budget is part of the
+    # training state, not a preference: a resumed run that does not know
+    # it re-ran the cosine decay from the top. Cf. load_checkpoint.
+    if scheduler is not None:
+        checkpoint["scheduler_state_dict"] = scheduler.state_dict()
 
     # Metadata for traceability (ARCHITECTURE.md §12). The git fields
     # are what make "which code produced this checkpoint?" answerable
@@ -140,6 +151,7 @@ def load_checkpoint(
     optimizer: torch.optim.Optimizer,
     scaler: torch.amp.GradScaler,
     memory_queue: MemoryQueue,
+    scheduler: torch.optim.lr_scheduler.LRScheduler | None = None,
 ) -> tuple[int, int]:
     """Load complete training state from a checkpoint file.
 
@@ -149,6 +161,12 @@ def load_checkpoint(
         optimizer: The optimizer to restore.
         scaler: The GradScaler to restore.
         memory_queue: The memory queue to restore.
+        scheduler: Optional LR scheduler to restore. A checkpoint with a
+            saved ``scheduler_state_dict`` resumes the schedule at the
+            epoch it paused on; a checkpoint without one (written before
+            this feature) leaves the scheduler where it is and logs that
+            the schedule restarts, so a silent restart of the LR curve
+            cannot hide again.
 
     Returns:
         Tuple of (epoch, step) restored from the checkpoint.
@@ -201,6 +219,26 @@ def load_checkpoint(
     memory_queue.queue.copy_(queue_state["tensor"])
     memory_queue.pointer = queue_state["pointer"]
     memory_queue.num_filled = queue_state["num_filled"]
+
+    # Restore the LR scheduler when both halves exist.
+    #
+    # Pre-feature checkpoints simply have no scheduler state, and a fresh
+    # CosineAnnealingLR then restarts at its peak LR — the exact bug this
+    # feature exists to head off. So a restore that cannot happen is
+    # logged, not silently swallowed.
+    if scheduler is not None:
+        scheduler_state = checkpoint.get("scheduler_state_dict")
+        if scheduler_state is not None:
+            scheduler.load_state_dict(scheduler_state)
+            logger.info(
+                "Scheduler restored: last_epoch=%d", scheduler.last_epoch
+            )
+        else:
+            logger.warning(
+                "Checkpoint %s holds no scheduler state; the LR schedule "
+                "restarts from its initial value",
+                path,
+            )
 
     epoch = checkpoint["epoch"]
     step = checkpoint["step"]
