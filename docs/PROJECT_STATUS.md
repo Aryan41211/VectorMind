@@ -86,7 +86,7 @@ late epochs is the training split being fitted, not the test split
 being missed.
 
 ## Tests
-- **507** Python tests
+- **526** Python tests
 - **56** frontend tests (was 0)
 - mypy, ruff, tsc and oxlint all clean across the repository
 
@@ -113,7 +113,7 @@ being missed.
 2. Test R@10 **28.91%, 92× chance** (text→image **26.22%, 83×**), with a val→test gap of 0.26pp
 3. Found and fixed the collapse: the memory queue was causing it, not mitigating it — a controlled A/B reversed the project's own published conclusion
 4. Built the metric that catches it: separation, not variance, and it now runs every epoch
-5. 507 Python tests and 56 frontend tests across data, model, training, evaluation, serving and UI
+5. 526 Python tests and 56 frontend tests across data, model, training, evaluation, serving and UI
 6. Every reported number regenerable from one script against one checkpoint
 
 ## Known Problems

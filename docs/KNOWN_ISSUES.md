@@ -324,7 +324,7 @@ shared loop reads the LR from the scheduler every epoch.
 - **Git history:** ~90 of 132 commits are *empty* commits with fabricated `chore: preserve milestone…` messages. CLAUDE.md §7 explicitly forbids commit padding. See the audit note in `CHANGELOG.md`.
 - **Binary payload:** ~~`backend/indices/` still ships ~35 MB of `.faiss` + `sample_metadata.json` in git~~ — **no longer true, and this line was stale.** The index outgrew that arrangement: at 234 MB, with `text_index.faiss` alone above GitHub's 100 MB file limit, it cannot be committed. `backend/indices/` and `checkpoints/` are both gitignored and are obtained by running the build commands in [DEPLOYMENT.md](DEPLOYMENT.md#prerequisites). The cost is that a clean clone does **not** run the demo without a training run and an index build first, which DEPLOYMENT.md states and this file previously contradicted.
 - **Doc sprawl:** 16 Markdown files at the repository root. Several contradict each other (see issue 5) and `EXPERIMENTS.md` claimed no training had occurred while `TRAINING_LOG.md` documented 8 epochs.
-- **No frontend tests.** ~~`frontend/src/` has 5 components and 0 test files~~ — fixed: 56 frontend tests across 5 files, against 507 Python tests.
+- **No frontend tests.** ~~`frontend/src/` has 5 components and 0 test files~~ — fixed: 56 frontend tests across 5 files, against 526 Python tests.
 - **`mypy` does not run clean** — ~~`src/vectormind/utils/config.py` resolves under two module names~~ — fixed; `mypy src/vectormind backend` reports no issues across 39 source files, and it runs in CI.
 
 ---
