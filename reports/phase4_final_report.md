@@ -271,8 +271,8 @@ instability. The model is learning consistently.
 2. **reports/checkpoint_summary.json** — Checkpoint comparison data
 3. **scripts/analyze_tensorboard.py** — TensorBoard analysis tool
 4. **scripts/evaluate_checkpoint.py** — Checkpoint evaluation tool
-5. **scripts/resume_training.py** — Training resume script
-6. **scripts/hyperparameter_experiment.py** — HP experiment script
+5. **scripts/resume_training.py** — Training resume script — superseded and deleted 2026-08-28: its loop now lives once in `src/vectormind/training/trainer.py`, and `scripts/train.py --resume` is the supported path
+6. **scripts/hyperparameter_experiment.py** — HP experiment script — superseded and deleted 2026-08-28: `scripts/train.py` with the `--checkpoint-dir`/`--log-dir` overrides covers a single run; see `docs/KNOWN_ISSUES.md §9`
 7. **scripts/generate_visualizations.py** — Visualization generator
 
 ---

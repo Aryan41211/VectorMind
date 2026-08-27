@@ -6,6 +6,42 @@ does not publish versioned releases, so entries are grouped by date.
 
 ---
 
+## [Unreleased] — 2026-08-28 — One training loop, config-first serving limits
+
+### Added
+
+- **A single shared training loop**: `src/vectormind/training/trainer.py`
+  now owns the epoch loop (AMP, gradient accumulation, memory-queue
+  warmup, scheduler stepping, validation cadence, best/periodic/final
+  checkpointing, early stopping) in exactly one place.
+  `scripts/train.py` is a thin CLI over it; the three other Phase 4
+  training scripts (`resume_training.py`, `benchmark_epoch.py`,
+  `hyperparameter_experiment.py`) were deleted — the resume, benchmark,
+  and hyperparameter workflows were already expressible as
+  `train.py` flags (`--resume`, `--queue/--no-queue`, and the
+  `--checkpoint-dir`/`--log-dir` isolation overrides).
+- **`train/lr` now logs the scheduler's actual LR.** The old loop wrote
+  the static initial LR to TensorBoard for the whole run while the real
+  LR decayed; the shared loop reads it from the scheduler each epoch.
+- **Training augmentations are config-driven.** `configs/data.yaml` gains
+  `transforms.color_jitter_strength` (default `0.0` — a raising value
+  requires a retrain and index rebuild).
+
+### Changed
+
+- **Serving limits come from `configs/serving.yaml`.** The image-search
+  upload size cap and the `top_k` ceiling in both search routers are
+  read at startup (cached), replacing hardcoded literals.
+- **`wandb` removed from dependencies.** It was an unused leftover from
+  an early experiment; training metrics go to TensorBoard. History in
+  `docs/PROJECT_MEMORY.md`; `PHASE_0_REPORT.md` keeps its record.
+- **Four genuinely dead scripts deleted** (`check_images.py`,
+  `inspect_metadata.py`, `verify_search.py`, `test_train_loop.py`);
+  `smoke_test_*.py`, `analyze_tensorboard.py`, and
+  `capture_screenshots.py` remain because docs still reference them.
+
+---
+
 ## [Unreleased] — 2026-08-27 — Resumed training continues its LR schedule
 
 ### Fixed

@@ -2,14 +2,15 @@
 
 Purpose: one implementation of "run a dataloader through the model and
 report retrieval quality plus embedding health", used by
-``scripts/train.py``, ``resume_training.py``, ``benchmark_epoch.py`` and
-``hyperparameter_experiment.py``.
+``scripts/train.py`` via ``vectormind.training.trainer``.
 
-Those four scripts each carried their own ``compute_recall_at_k`` and
-``evaluate`` — roughly 2,500 lines with a duplicated core, in violation
-of CLAUDE.md §3's "no duplicate logic". Worse than the duplication was
-the drift risk: a metric fix applied to one copy silently left the other
-three reporting different numbers for the same checkpoint.
+The four Phase 4 scripts (``train.py``, ``resume_training.py``,
+``benchmark_epoch.py``, ``hyperparameter_experiment.py``) each carried
+their own ``compute_recall_at_k`` and ``evaluate`` — roughly 2,500 lines
+with a duplicated core, in violation of CLAUDE.md §3's "no duplicate
+logic". Worse than the duplication was the drift risk: a metric fix
+applied to one copy silently left the other three reporting different
+numbers for the same checkpoint.
 
 Input:
   - A VectorMindModel and a DataLoader over an evaluation split

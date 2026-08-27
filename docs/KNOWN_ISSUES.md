@@ -300,16 +300,22 @@ acknowledged, unresolved inconsistency left in a shipped artifact.
 
 ---
 
-## 9. Four training scripts duplicate the same evaluation code ✅ FIXED (2026-08-23)
+## 9. Four training scripts duplicate the same evaluation code ✅ FIXED (2026-08-23/28)
 
+First fixed 2026-08-23: all four scripts now call the shared
+`compute_recall_at_k`/`evaluate` in `src/vectormind/evaluation/`.
+
+Fixed 2026-08-28: the duplicated *loops* are gone too.
 `scripts/train.py` (761 lines), `resume_training.py` (519),
 `benchmark_epoch.py` (692), and `hyperparameter_experiment.py` (506)
-each define their own `compute_recall_at_k` and `evaluate`. That is
-~2,500 lines with a shared core that already exists in
-`src/vectormind/evaluation/`.
-
-CLAUDE.md §3 caps files at ~400 lines and forbids duplicate logic; all
-four violate both.
+each carried their own epoch loop (AMP, gradient accumulation, memory
+queue, scheduler stepping, checkpoint cadence, early stopping) — ~2,500
+lines of logic that had already drifted apart. The loop now lives once
+in `src/vectormind/training/trainer.py`; `scripts/train.py` is a thin
+CLI over it, and the three legacy scripts were deleted. The old scripts'
+lone uncontrolled difference — `train/lr` logging the static initial LR
+to TensorBoard while the real LR decayed — is fixed the same way: the
+shared loop reads the LR from the scheduler every epoch.
 
 ---
 

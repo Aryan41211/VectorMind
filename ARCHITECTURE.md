@@ -335,7 +335,8 @@ src/vectormind/
 │   ├── losses.py            → §5 (InfoNCE)
 │   ├── uniformity.py        → §5.2 (optional uniformity term)
 │   ├── memory_queue.py      → §6 (MoCo-style queue)
-│   ├── train_loop.py        → training loop, mixed precision, accumulation
+│   ├── train_loop.py        → one training step: AMP, loss, accumulation
+│   ├── trainer.py           → the shared multi-epoch loop (used by train.py)
 │   ├── oom.py               → retry a step that lost its allocation
 │   ├── checkpoint.py        → save/load full training state
 │   └── logger.py            → TensorBoard metrics logging

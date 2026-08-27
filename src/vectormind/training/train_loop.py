@@ -3,8 +3,9 @@
 Purpose: provide the core training machinery — a ``train_one_step()``
 function that handles mixed precision, gradient accumulation,
 contrastive loss computation, and metric collection. This is
-infrastructure only; the actual multi-epoch training loop lives in
-Phase 3.5/4.
+infrastructure only; the multi-epoch loop that drives it lives
+in ``vectormind.training.trainer`` (one shared implementation used by
+scripts/train.py).
 
 Design decisions (locked in ARCHITECTURE.md §6):
 - Mixed precision (``torch.cuda.amp``) is default, not optional —
