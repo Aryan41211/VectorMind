@@ -334,7 +334,12 @@ def main() -> None:
     if args.resume:
         logger.info("Step 6: Resuming from checkpoint %s...", args.resume)
         start_epoch, global_step = load_checkpoint(
-            args.resume, model, optimizer, scaler, memory_queue
+            args.resume,
+            model,
+            optimizer,
+            scaler,
+            memory_queue,
+            scheduler=scheduler,
         )
         start_epoch += 1  # Resume from next epoch
         logger.info("  Resumed: epoch=%d, step=%d", start_epoch, global_step)
@@ -590,6 +595,7 @@ def main() -> None:
                     step=global_step,
                     config=training_config,
                     metrics=val_metrics,
+                    scheduler=scheduler,
                 )
                 epochs_without_improvement = 0
                 logger.info(
@@ -651,6 +657,7 @@ def main() -> None:
                 epoch=epoch,
                 step=global_step,
                 config=training_config,
+                scheduler=scheduler,
             )
 
     # ---- Step 9: Final summary ----
@@ -781,6 +788,7 @@ def main() -> None:
         epoch=num_epochs - 1,
         step=global_step,
         config=training_config,
+        scheduler=scheduler,
     )
     logger.info("Final checkpoint saved: %s", final_ckpt_path)
 
