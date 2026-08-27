@@ -6,6 +6,20 @@ does not publish versioned releases, so entries are grouped by date.
 
 ---
 
+## [Unreleased] — 2026-08-27 — Resumed training continues its LR schedule
+
+### Fixed
+
+- **The LR scheduler's position is part of every checkpoint now, so a
+  resumed run continues the cosine decay where it stopped instead of
+  restarting it from the peak.** `save_checkpoint` stores the scheduler
+  state and `load_checkpoint` restores it on `--resume`; the benchmark,
+  resume, and hyperparameter workflows do the same. Checkpoints written
+  before this change load unchanged and log that the schedule restarts,
+  so the silent reset can no longer hide.
+
+---
+
 ## [Unreleased] — 2026-08-25 — The embedding space is finally HEALTHY
 
 The last open modelling problem in the project is closed, and it turned
