@@ -223,6 +223,23 @@ def main() -> None:
     model.load_state_dict(checkpoint["model_state_dict"])
     optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
     scaler.load_state_dict(checkpoint["scaler_state_dict"])
+
+    # A checkpoint carrying scheduler state resumes the cosine decay at
+    # the exact epoch it paused on; an older one has none, and the
+    # schedule restarts from its peak LR (a silent reset that is the
+    # historical cause of wrongly-resumed runs).
+    scheduler_state = checkpoint.get("scheduler_state_dict")
+    if scheduler_state is not None:
+        scheduler.load_state_dict(scheduler_state)
+        logger.info(
+            "Scheduler restored: last_epoch=%d", scheduler.last_epoch
+        )
+    else:
+        logger.warning(
+            "Checkpoint %s holds no scheduler state; the LR schedule "
+            "restarts from its initial value",
+            args.checkpoint,
+        )
     
     # Don't restore queue state if sizes don't match
     queue_state = checkpoint.get("queue", {})
@@ -380,6 +397,7 @@ def main() -> None:
                     epoch=epoch,
                     step=global_step,
                     config=training_config,
+                    scheduler=scheduler,
                 )
                 epochs_without_improvement = 0
                 logger.info(
