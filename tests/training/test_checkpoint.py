@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 import pytest
 import torch
 
@@ -383,3 +385,169 @@ class TestBestCheckpointMetrics:
         assert worse_epoch_score < recovered, (
             "a worse epoch must not beat the restored best-so-far"
         )
+
+
+class TestSchedulerPersistence:
+    """A resumed run must continue the LR schedule, not restart it.
+
+    The cosine scheduler is rebuilt at every fresh process start, so
+    before its state was checkpointed, ``--resume`` training restored
+    the weights at epoch N but re-ran the decay from its peak: the
+    resumed epoch trained at the learning rate epoch 0 used, not the
+    rate the run had actually reached. These tests guard that a round
+    trip restores the schedule's position.
+    """
+
+    def _build(self, small_config: dict) -> tuple[
+        VectorMindModel,
+        torch.optim.AdamW,
+        torch.optim.lr_scheduler.CosineAnnealingLR,
+    ]:
+        """Build model, optimizer and a cosine scheduler over it."""
+        model = VectorMindModel(small_config)
+        optimizer = create_optimizer(model, lr=1e-3)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=20, eta_min=1e-6
+        )
+        return model, optimizer, scheduler
+
+    def _advance_schedule(
+        self,
+        model: VectorMindModel,
+        optimizer: torch.optim.AdamW,
+        scheduler: torch.optim.lr_scheduler.CosineAnnealingLR,
+        steps: int = 7,
+    ) -> None:
+        """Reach the desired ``last_epoch`` via real optimizer steps.
+
+        Steps the optimizer before the scheduler, as ``train.py`` does,
+        so the schedule's position is exactly the one a paused run would
+        have saved.
+        """
+        model.train()
+        for _ in range(steps):
+            images = torch.randn(2, 3, 224, 224)
+            input_ids = torch.randint(0, 1000, (2, 32))
+            attention_mask = torch.ones(2, 32)
+            image_emb = model.encode_image(images)
+            text_emb = model.encode_text(input_ids, attention_mask)
+            (image_emb - text_emb).pow(2).sum().backward()
+            optimizer.step()
+            optimizer.zero_grad()
+            scheduler.step()
+
+    def test_scheduler_position_survives_a_round_trip(
+        self, tmp_path: object, small_config: dict
+    ) -> None:
+        """A restored scheduler continues the decay instead of resetting."""
+        model, optimizer, scheduler = self._build(small_config)
+        scaler = torch.amp.GradScaler("cpu", enabled=False)
+        queue = MemoryQueue(queue_size=8, embed_dim=64)
+
+        # Advance the schedule to somewhere mid-decay.
+        self._advance_schedule(model, optimizer, scheduler, steps=7)
+        lr_mid_schedule = scheduler.get_last_lr()[0]
+
+        path = tmp_path / "ckpt.pt"  # type: ignore[union-attr]
+        save_checkpoint(
+            path=path,
+            model=model,
+            optimizer=optimizer,
+            scaler=scaler,
+            memory_queue=queue,
+            epoch=7,
+            step=500,
+            scheduler=scheduler,
+        )
+
+        model2, optimizer2, scheduler2 = self._build(small_config)
+        load_checkpoint(
+            path,
+            model2,
+            optimizer2,
+            torch.amp.GradScaler("cpu", enabled=False),
+            MemoryQueue(queue_size=8, embed_dim=64),
+            scheduler=scheduler2,
+        )
+
+        assert scheduler2.last_epoch == 7
+        assert scheduler2.get_last_lr()[0] == pytest.approx(lr_mid_schedule)
+        # The next step continues the decay from epoch 7, not from 0.
+        scheduler2.step()
+        assert scheduler2.last_epoch == 8
+
+    def test_legacy_checkpoint_without_scheduler_state_warns(
+        self, tmp_path: object, small_config: dict, caplog: object
+    ) -> None:
+        """Checkpoints written before this feature must still resume.
+
+        The scheduler is left at its own position, and the reset is
+        stated explicitly — a silent restart is how the LR schedule
+        bug hid in the first place.
+        """
+        model, optimizer, _ = self._build(small_config)
+        scaler = torch.amp.GradScaler("cpu", enabled=False)
+        queue = MemoryQueue(queue_size=8, embed_dim=64)
+
+        # Save without a scheduler — a pre-feature checkpoint.
+        path = tmp_path / "legacy.pt"  # type: ignore[union-attr]
+        save_checkpoint(
+            path=path,
+            model=model,
+            optimizer=optimizer,
+            scaler=scaler,
+            memory_queue=queue,
+            epoch=3,
+            step=100,
+        )
+
+        _, _, scheduler2 = self._build(small_config)
+        with caplog.at_level(  # type: ignore[attr-defined]
+            logging.WARNING, logger="vectormind.training.checkpoint"
+        ):
+            load_checkpoint(
+                path,
+                model,
+                optimizer,
+                torch.amp.GradScaler("cpu", enabled=False),
+                MemoryQueue(queue_size=8, embed_dim=64),
+                scheduler=scheduler2,
+            )
+
+        # Unperturbed: the fresh scheduler stays at epoch 0.
+        assert scheduler2.last_epoch == 0
+        assert "scheduler state" in caplog.text  # type: ignore[attr-defined]
+
+    def test_loading_without_a_scheduler_still_works(
+        self, tmp_path: object, small_config: dict
+    ) -> None:
+        """scheduler is an optional argument — existing callers are unaffected."""
+        model, optimizer, scheduler = self._build(small_config)
+        self._advance_schedule(model, optimizer, scheduler, steps=3)
+
+        path = tmp_path / "ckpt.pt"  # type: ignore[union-attr]
+        save_checkpoint(
+            path=path,
+            model=model,
+            optimizer=optimizer,
+            scaler=torch.amp.GradScaler("cpu", enabled=False),
+            memory_queue=MemoryQueue(queue_size=8, embed_dim=64),
+            epoch=3,
+            step=42,
+            scheduler=scheduler,
+        )
+
+        _, _, scheduler2 = self._build(small_config)
+        epoch, step = load_checkpoint(
+            path,
+            model,
+            optimizer,
+            torch.amp.GradScaler("cpu", enabled=False),
+            MemoryQueue(queue_size=8, embed_dim=64),
+        )
+
+        assert epoch == 3
+        assert step == 42
+        # Without a scheduler argument nothing can be restored, and that
+        # is not an error.
+        assert scheduler2.last_epoch == 0
