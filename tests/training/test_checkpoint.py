@@ -521,7 +521,7 @@ class TestSchedulerPersistence:
     def test_loading_without_a_scheduler_still_works(
         self, tmp_path: object, small_config: dict
     ) -> None:
-        """scheduler is an optional argument — existing callers are unaffected."""
+        """Scheduler is an optional argument — existing callers are unaffected."""
         model, optimizer, scheduler = self._build(small_config)
         self._advance_schedule(model, optimizer, scheduler, steps=3)
 
