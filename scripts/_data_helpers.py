@@ -1,8 +1,8 @@
 """Shared data loading utilities for scripts.
 
 Purpose: provide a single source of truth for the Flickr30k HuggingFace
-loading logic used by acceptance test scripts (smoke_test_model.py,
-test_train_loop.py, verify_dataset.py).
+loading logic used by acceptance and dataset scripts
+(smoke_test_model.py, verify_dataset.py).
 
 Uses ``lmms-lab/flickr30k`` (Parquet format, compatible with
 datasets>=5.0). The original ``nlphuji/flickr30k`` uses a deprecated
