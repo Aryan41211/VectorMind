@@ -32,7 +32,7 @@ RUN apt-get update && \
 # which a CPU-only serving container cannot use.
 #
 # requirements-serving.txt rather than requirements.txt — the full set
-# pulls in tensorboard, wandb, matplotlib, pytest, mypy and ruff, none of
+# pulls in tensorboard, matplotlib, pytest, mypy and ruff, none of
 # which are reachable from a running server.
 COPY requirements-serving.txt .
 RUN pip install --upgrade pip && \

@@ -171,7 +171,6 @@ Results:
   [PASS] fastapi 0.140.7
   [PASS] uvicorn 0.51.0
   [PASS] yaml 6.0.3
-  [PASS] wandb 0.28.1
   [PASS] pytest 8.4.2
 ------------------------------------------------------------
 ALL CHECKS PASSED

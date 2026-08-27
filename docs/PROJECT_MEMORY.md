@@ -211,6 +211,8 @@ Kept rather than deleted — the answers are part of the record.
   `scripts/` has ever imported wandb. It needs no account and writes
   locally, which suits a laptop that trains offline and gets
   interrupted. ARCHITECTURE.md §12 said the opposite until 2026-08-25.
+  The unused `wandb` entry itself was removed from `requirements.txt`
+  on 2026-08-27.
 - **Repository license?** MIT (`LICENSE`, 2026). Distinct from
   Flickr30k's own terms — see DATASETS.md.
 - **Is single-machine Docker Compose still the Phase 7 target?** Yes.

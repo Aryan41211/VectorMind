@@ -81,7 +81,6 @@ def main() -> int:
         ("fastapi", "0.100"),
         ("uvicorn", "0.20"),
         ("yaml", "5.0"),  # PyYAML
-        ("wandb", "0.16"),
         ("pytest", "7.0"),
     ]
 

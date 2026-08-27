@@ -7,7 +7,7 @@
 #
 # Why this file exists separately from requirements.txt: the serving
 # image was installing the full development set, which pulls in
-# tensorboard, wandb, matplotlib, pytest, mypy and ruff. None of them are
+# tensorboard, matplotlib, pytest, mypy and ruff. None of them are
 # reachable from a running server. They are hundreds of megabytes of
 # image, a longer build, and additional surface for no benefit.
 #

@@ -563,8 +563,10 @@ as the choice and TensorBoard as the fallback until 2026-08-25, which
 was backwards: nothing in `src/` or `scripts/` has ever imported wandb.
 TensorBoard was chosen in practice because it needs no account and
 writes to a local directory, which suits a laptop that trains offline
-and gets interrupted. `wandb` stays in `requirements.txt` as an
-un-taken option, not as a dependency of anything that runs.
+and gets interrupted. wandb was removed from `requirements.txt` on
+2026-08-27 — keeping an unused dependency "in reserve" only made the
+install set and the claims around it dishonest. If W&B is ever wanted,
+it can be added back as a real dependency at that point.
 
 **Model registry (lightweight):** checkpoints are saved with a
 metadata sidecar (`checkpoint_metadata.json`: config hash, epoch,
