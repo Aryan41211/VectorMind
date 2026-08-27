@@ -37,33 +37,52 @@ def get_train_transforms(config: dict[str, Any]) -> v2.Compose:
         size; the pipeline handles resizing internally.
 
     Limitations:
-        No color-jitter or more aggressive augmentation — justified for
-        a ~30k-image dataset where overfitting risk is moderate and
-        training from scratch already introduces enough difficulty.
+        Augmentation is deliberately light — RandomCrop plus an optional
+        horizontal flip and color jitter. Color jitter is gated behind
+        ``transforms.color_jitter_strength`` (0.0 = off, the value the
+        shipped checkpoint trained with) because raising it changes the
+        input distribution and would only be meaningful after a retrain.
     """
     image_size = config["dataset"]["image_size"]
     resize_size = config["transforms"]["resize_size"]
     mean = config["transforms"]["image_mean"]
     std = config["transforms"]["image_std"]
     flip_p = config["transforms"]["random_horizontal_flip_p"]
+    jitter = float(config["transforms"].get("color_jitter_strength", 0.0))
 
-    transforms = v2.Compose(
+    pipeline: list[Any] = [
+        v2.Resize(resize_size, interpolation=v2.InterpolationMode.BILINEAR),
+        v2.RandomCrop(image_size),
+        v2.RandomHorizontalFlip(p=flip_p),
+    ]
+    if jitter > 0.0:
+        # torchvision clamps hue to [-0.5, 0.5] and rejects anything
+        # above; map the configured strength onto it rather than
+        # smuggling a second knob into the config.
+        pipeline.append(
+            v2.ColorJitter(
+                brightness=jitter,
+                contrast=jitter,
+                saturation=jitter,
+                hue=min(jitter, 0.5),
+            )
+        )
+    pipeline.extend(
         [
-            v2.Resize(resize_size, interpolation=v2.InterpolationMode.BILINEAR),
-            v2.RandomCrop(image_size),
-            v2.RandomHorizontalFlip(p=flip_p),
             v2.ToImage(),  # PIL Image -> Tensor (uint8)
             v2.ToDtype(dtype=torch.float32, scale=True),  # scales [0,255] -> [0,1]
             v2.Normalize(mean=mean, std=std),
         ]
     )
+    transforms = v2.Compose(pipeline)
 
     logger.info(
         "Train transforms: Resize(%d) -> RandomCrop(%d) -> "
-        "RandomHorizontalFlip(p=%.1f) -> ToFloat -> Normalize",
+        "RandomHorizontalFlip(p=%.1f)%s -> ToFloat -> Normalize",
         resize_size,
         image_size,
         flip_p,
+        f" -> ColorJitter(s={jitter:g})" if jitter > 0.0 else "",
     )
     return transforms
 

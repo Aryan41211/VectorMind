@@ -63,3 +63,12 @@ transforms:
   image_std: [0.229, 0.224, 0.225]
   random_horizontal_flip_p: 0.5
   resize_size: 256
+
+  # Color-jitter strength for training augmentation.
+  #
+  # 0.0 = disabled, and the shipped checkpoint (checkpoints/train/
+  # best_model.pt) was trained at 0.0. Raising it changes the input
+  # distribution, so it is only meaningful alongside a retrain; the
+  # index and reports would have to be rebuilt too. Hue is capped at
+  # its 0.5 clamp by the pipeline regardless.
+  color_jitter_strength: 0.0

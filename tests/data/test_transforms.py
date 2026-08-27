@@ -113,3 +113,55 @@ def test_eval_transforms_returns_compose(data_config: dict[str, Any]) -> None:
     """get_eval_transforms should return a torchvision.transforms.v2.Compose."""
     transforms = get_eval_transforms(data_config)
     assert hasattr(transforms, "transforms")
+
+
+def _pipeline_transform_types(transforms: Any) -> list[str]:
+    """Names of the transforms in a v2.Compose pipeline."""
+    return [type(t).__name__ for t in transforms.transforms]
+
+
+def test_no_color_jitter_when_disabled(
+    data_config: dict[str, Any],
+) -> None:
+    """A missing or zero color_jitter_strength keeps today's pipeline.
+
+    The shipped checkpoint was trained without jitter; the default must
+    reproduce that pipeline exactly so a config refresh is a no-op.
+    """
+    baseline = get_train_transforms(data_config)
+    data_config["transforms"]["color_jitter_strength"] = 0.0
+    explicit = get_train_transforms(data_config)
+
+    assert "ColorJitter" not in _pipeline_transform_types(explicit)
+    assert _pipeline_transform_types(explicit) == _pipeline_transform_types(
+        baseline
+    )
+
+
+def test_color_jitter_enters_pipeline_when_positive(
+    data_config: dict[str, Any], sample_image: Image.Image
+) -> None:
+    """A positive strength inserts ColorJitter into the train pipeline."""
+    data_config["transforms"]["color_jitter_strength"] = 0.2
+    transforms = get_train_transforms(data_config)
+
+    assert "ColorJitter" in _pipeline_transform_types(transforms)
+
+    tensor = transforms(sample_image)
+    assert tensor.shape == (3, 224, 224)
+    assert not tensor.isnan().any()
+
+
+def test_color_jitter_strength_over_half_clamps_hue(
+    data_config: dict[str, Any], sample_image: Image.Image
+) -> None:
+    """Hue accepts at most 0.5; a full-strength jitter must not crash."""
+    data_config["transforms"]["color_jitter_strength"] = 1.0
+    transforms = get_train_transforms(data_config)
+
+    jitter = next(
+        t for t in transforms.transforms if type(t).__name__ == "ColorJitter"
+    )
+    tensor = transforms(sample_image)
+    assert tensor.shape == (3, 224, 224)
+    assert not tensor.isnan().any()
