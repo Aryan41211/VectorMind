@@ -28,6 +28,8 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.types import ASGIApp
 
+from backend.metrics import METRICS
+
 logger = logging.getLogger(__name__)
 
 # Header carrying a correlation id, echoed so a client can quote it when
@@ -97,6 +99,41 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
                 request_id,
                 duration_ms,
             )
+        return response
+
+
+class MetricsMiddleware(BaseHTTPMiddleware):
+    """Record every request into the Prometheus-style metrics registry.
+
+    Why a separate middleware rather than instrumenting the routers:
+    a counter that misses rate-limited 429s, oversized-upload 413s, and
+    unmounted-asset 404s would under-report exactly the failures operators
+    care about. Timing from the outermost layer captures the full path,
+    including anything the other middleware rejected.
+
+    The ``/metrics`` endpoint itself is excluded so scraping it does not
+    grow its own histogram.
+    """
+
+    async def dispatch(  # noqa: D102 - contract documented on the class
+        self,
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
+        if request.url.path == "/metrics":
+            return await call_next(request)
+
+        start = time.perf_counter()
+        try:
+            response = await call_next(request)
+        except Exception:
+            # Still record the 500-equivalent so failures are visible in
+            # the metrics before re-raising for the exception handler.
+            duration_ms = (time.perf_counter() - start) * 1000
+            METRICS.record(request.url.path, 500, duration_ms)
+            raise
+        duration_ms = (time.perf_counter() - start) * 1000
+        METRICS.record(request.url.path, response.status_code, duration_ms)
         return response
 
 

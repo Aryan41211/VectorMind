@@ -30,6 +30,7 @@ from fastapi.staticfiles import StaticFiles
 from backend.index_builder import load_model
 from backend.middleware import (
     MaxBodySizeMiddleware,
+    MetricsMiddleware,
     RateLimitMiddleware,
     RequestContextMiddleware,
     SecurityHeadersMiddleware,
@@ -187,8 +188,9 @@ def create_app(
 
     # Middleware runs outermost-last, so these are registered in reverse
     # order of execution: request context wraps everything (it must see
-    # rejections too), then security headers, the size guard, and finally
-    # the rate limiter closest to the handler.
+    # rejections too), then the metrics recorder (so it sees rejections),
+    # then security headers, the size guard, and finally the rate limiter
+    # closest to the handler.
     limits = serving_config["limits"]
     app.add_middleware(
         RateLimitMiddleware,
@@ -199,6 +201,9 @@ def create_app(
         MaxBodySizeMiddleware, max_bytes=int(limits["max_upload_bytes"])
     )
     app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(
+        MetricsMiddleware,
+    )
     app.add_middleware(RequestContextMiddleware)
 
     # Health check endpoint
@@ -258,9 +263,10 @@ def create_app(
         }
 
     # Include routers
-    from backend.routers import image_search, text_search
+    from backend.routers import image_search, metrics, text_search
     app.include_router(text_search.router)
     app.include_router(image_search.router)
+    app.include_router(metrics.router)
 
     # Serve Flickr30k images as static files
     images_dir = Path(serving_config["paths"]["images_dir"])
