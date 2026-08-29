@@ -314,7 +314,7 @@ What is in place, and what is deliberately not.
 |---|---|
 | Request limits | Sliding-window rate limit, body-size guard before buffering |
 | Security headers | nosniff, DENY framing, referrer and permissions policy |
-| Observability | Correlation id on every response and log line, timed access log |
+| Observability | Correlation id on every response and log line, timed access log, Prometheus-format `/metrics` endpoint |
 | Probes | `/health` (liveness) and `/ready` (readiness, names the missing artifact) |
 | Failure handling | Timeouts and typed errors client-side; app starts degraded rather than crash-looping |
 | Config | Every path, origin, limit and tokenizer setting in `configs/serving.yaml` |
@@ -325,8 +325,10 @@ as compose overlays (`docker-compose.tls.yml`, `docker-compose.auth.yml`)
 and have been run locally but never against a public host.
 
 **Not in place at all:** multi-worker deployment (the rate limiter holds
-per-process state), and metrics or tracing beyond structured logs. Each
-is explained in [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md#known-gaps).
+per-process state), and a metrics *stack* — a Prometheus-format
+`/metrics` endpoint exists but nothing scrapes it, and there is no
+tracing beyond structured logs. Each is explained in
+[docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md#known-gaps).
 
 ## Development Roadmap
 

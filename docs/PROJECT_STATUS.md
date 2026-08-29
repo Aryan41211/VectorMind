@@ -86,7 +86,7 @@ late epochs is the training split being fitted, not the test split
 being missed.
 
 ## Tests
-- **526** Python tests
+- **553** Python tests
 - **56** frontend tests (was 0)
 - mypy, ruff, tsc and oxlint all clean across the repository
 
@@ -106,6 +106,10 @@ being missed.
 - [x] **Phase 7 — Containers.** Both images built and the stack run end to end: `/ready` green, 31,783 images indexed, search returning distinct results through nginx.
 - [x] **Phase 7 — TLS and auth overlays run** (2026-08-25). Caddy → nginx → backend serves HTTPS with HSTS and an HTTP→HTTPS redirect; basic auth gates `/` and `/search` while leaving the probes open. Running them for the first time found four defects, all fixed (KNOWN_ISSUES §14).
 - [x] **CI green** — run 32756952454, all five jobs. A sixth job now validates `deployment/` against real responses rather than syntax alone.
+- [x] **Serve-time device + GPU path** (2026-08-29). `server.device` in `configs/serving.yaml` plus `VECTORMIND_DEVICE` let a deployment choose CPU or CUDA; `docker-compose.gpu.yml` pins `cuda` with a CUDA torch rebuild. GPU serving, like ACME issuance, has not been exercised on real CUDA hardware (DEPLOYMENT.md "known gaps").
+- [x] **`/metrics` endpoint** (2026-08-29). A dependency-free Prometheus-format endpoint (request counters, latency histogram, uptime) is now scrapable, though no metrics stack scrapes it yet.
+- [x] **Concurrent load test** (2026-08-29). `scripts/load_test_api.py` reports the latency curve and error rate under configurable concurrency — the first check of how the single uvicorn worker behaves under contention.
+- [x] **Split is now official and auditable.** The default split is the canonical Flickr30k 29,783/1,000/1,000 by image id (`dataset.split_mode: official`), persisted to `data/processed/flickr30k_split.json`; the seeded random split remains as `split_mode: random`. The full 31,783-image corpus is required by a completeness gate before training.
 - [ ] Public deployed demo — the stack is built, run and gated; what is missing is a host with a public name and a certificate.
 
 ## Key Achievements
@@ -113,7 +117,7 @@ being missed.
 2. Test R@10 **28.91%, 92× chance** (text→image **26.22%, 83×**), with a val→test gap of 0.26pp
 3. Found and fixed the collapse: the memory queue was causing it, not mitigating it — a controlled A/B reversed the project's own published conclusion
 4. Built the metric that catches it: separation, not variance, and it now runs every epoch
-5. 526 Python tests and 56 frontend tests across data, model, training, evaluation, serving and UI
+5. 553 Python tests and 56 frontend tests across data, model, training, evaluation, serving and UI
 6. Every reported number regenerable from one script against one checkpoint
 
 ## Known Problems
@@ -134,4 +138,4 @@ All work committed and pushed to `origin/main`. History was rewritten on
 2026-08-24 to remove 42 empty commits; backup at `backup-pre-rewrite`.
 
 ## Last Updated
-2026-08-24
+2026-08-29

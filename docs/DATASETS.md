@@ -66,12 +66,30 @@ which specific terms apply.
 - Pairing: each image paired with each of its 5 captions (5 pairs per
   image). This is the standard contrastive learning approach — the
   DataLoader shuffles these naturally.
-- Split: train/val/test (0.8/0.1/0.1) by **image** (not caption) —
-  all 5 captions for a given image stay in the same split (zero
-  leakage). Deterministic with `random_seed: 42`.
-- Dataset source: HuggingFace Datasets (`nlphuji/flickr30k`) —
+- Split: by **image** (not caption), so all 5 captions for a given image
+  stay in the same split (zero leakage). The default is the **official
+  Flickr30k split** (29,783 / 1,000 / 1,000 — the Karpathy/Gong
+  convention) applied by Flickr image id, giving directly comparable
+  numbers to published results. `dataset.split_mode: official` in
+  `configs/data.yaml`; the seeded 0.8/0.1/0.1 ratio split remains
+  available as `split_mode: random`. Assignment is deterministic, so
+  training, evaluation and the index builder agree without a shared
+  runtime.
+- Split manifest: the chosen split is persisted to
+  `data/processed/flickr30k_split.json` (image → train/val/test) by
+  `scripts/build_split_manifest.py`, so any consumer or reviewer can
+  point at one auditable artifact. `src/vectormind/data/flickr_split.py`
+  loads the official lists; `splitter.create_splits_from_config` routes
+  on `split_mode`.
+- Dataset source: HuggingFace Datasets (`lmms-lab/flickr30k`) —
   most accessible mirror, no form required. Cached to
-  `data/raw/flickr30k/`.
+  `data/raw/flickr30k/`. The cache records each image's original Flickr
+  id and filename (`img_id`, `filename` in `captions.json`), which is
+  what lets the official split be applied by id.
+- Corpus scale: the full **31,783 images × 5 captions** (158,915 pairs)
+  are used — 29,783 train / 1,000 val / 1,000 test images. The
+  cache-completeness gate requires the whole corpus, so a partial cache
+  never silently reaches training.
 
 ### Augmentations
 

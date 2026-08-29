@@ -251,8 +251,10 @@ not.
 ## Configuration
 
 All of it lives in `configs/serving.yaml` — paths, CORS origins, request
-limits, and tokenizer settings. Nothing is read from the environment
-except `PYTHONUNBUFFERED`.
+limits, and the serve-time device. One thing is read from the
+environment: `VECTORMIND_DEVICE` overrides the config's `server.device`
+(that is how the GPU compose overlay pins `cuda`); `PYTHONUNBUFFERED` is
+the other env read.
 
 Two values to revisit before exposing this publicly:
 
@@ -267,8 +269,8 @@ Honest list of what this deployment is not.
 
 1. **No TLS in the default stack.** The base compose file serves plain HTTP, and its security headers deliberately omit HSTS, which belongs on whichever hop terminates TLS. `deployment/docker-compose.tls.yml` adds Caddy for that and sets HSTS there — run locally against Caddy's internal CA, not yet against a real domain (see "Going public").
 2. **Single machine, single worker.** The rate limiter holds per-process state, so horizontal scaling silently multiplies the effective limit. Kubernetes and managed endpoints are explicitly out of scope — see [FUTURE_IDEAS.md](FUTURE_IDEAS.md).
-3. **No metrics or tracing.** Structured logs with request ids are all the observability there is. Adequate for a demo, not for anything on call.
-4. **CPU inference.** The image installs CPU torch, and only the packages serving actually imports (`requirements-serving.txt`). Measured through the proxy: 8-19ms warm, 2.07s on the first query while the tokenizer and first forward pass warm up. Fine at this corpus size; GPU serving would need the CUDA base image and a runtime with device access.
+3. **Metrics endpoint yes, metrics stack no.** A Prometheus-format `/metrics` endpoint exists (request counters and a latency histogram, added 2026-08-29) but nothing scrapes it — there is still no Prometheus/Grafana/alerting deployment. Structured logs with request ids remain the primary observability. The endpoint is the hook an operator's Prometheus would point at.
+4. **CPU inference by default.** The shipped image installs CPU torch, and only the packages serving actually imports (`requirements-serving.txt`). Measured through the proxy: 8-19ms warm, 2.07s on the first query while the tokenizer and first forward pass warm up. Fine at this corpus size. GPU serving is now a documented option — `configs/serving.yaml` `server.device` plus `deployment/docker-compose.gpu.yml`, which rebuilds with CUDA torch and pins `VECTORMIND_DEVICE=cuda` — but the GPU image, like ACME issuance, has not yet been exercised against real CUDA hardware.
 5. **No authentication.** Every endpoint is public. There is nothing to protect but the GPU, which is what the rate limit is for.
 
 ---
@@ -426,7 +428,7 @@ they record what was observed.
 - `restart: unless-stopped` is set on every service, so the stack comes back after a reboot. Verify it once with `sudo reboot` rather than assuming.
 - Watch disk. Docker image layers accumulate on rebuilds: `docker system prune -f` after a deploy.
 - The rate limiter is in-process at 30 requests/minute (`configs/serving.yaml`). Keep one backend worker, or the limit multiplies by worker count.
-- There is no metrics stack. `docker compose logs -f backend` and the request ids in each response are the observability, which is proportionate for a demo and stated as a gap below.
+- There is no metrics stack, and that is deliberate. `docker compose logs -f backend`, the request ids in each response, and the `/metrics` endpoint (scraped by hand, or by an external Prometheus if one is ever added) are the observability, which is proportionate for a demo. Run the concurrent load test (`scripts/load_test_api.py`) before load to see the latency curve under contention rather than the single-serial benchmark.
 
 ### Cost, honestly
 
