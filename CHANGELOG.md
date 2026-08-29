@@ -6,6 +6,74 @@ does not publish versioned releases, so entries are grouped by date.
 
 ---
 
+## [Unreleased] — 2026-08-29 — Serving hardening and the official split
+
+Today's work is the last mile before a public launch: the observable,
+measurable, and auditable parts a public instance has to have. The
+remaining Phase 7 deliverable is still a live public URL — a machine
+with a public name and a certificate — but everything before that hop is
+now scripted and measured.
+
+### Added
+
+- **`/metrics` endpoint** (Prometheus text format), dependency-free: a
+  thread-safe registry exposing request counters, a cumulative latency
+  histogram, and uptime gauges. Recorded as the outermost middleware so
+  it captures rejected requests (rate-limited 429s, oversized-upload
+  413s), not just successful searches. The project deliberately runs no
+  metrics *stack*; this endpoint is the hook an external Prometheus
+  would scrape. `backend/metrics.py`, `backend/middleware.py`,
+  `backend/routers/metrics.py`.
+- **Configurable serve-time device + a GPU path.** `server.device`
+  (`auto`/`cpu`/`cuda`) in `configs/serving.yaml`, overridable by
+  `VECTORMIND_DEVICE`; `cuda` fails loudly on a GPU-less host rather
+  than silently running CPU. `deployment/docker-compose.gpu.yml` rebuilds
+  with CUDA torch and pins `cuda`. GPU serving, like ACME issuance, has
+  not yet been exercised on real CUDA hardware.
+- **A concurrent load test.** `scripts/load_test_api.py` reports the
+  latency curve (min/avg/p50/p90/p95/p99/max), throughput, and error
+  rate under configurable concurrency — the first check of how the
+  single uvicorn worker behaves under contention rather than the prior
+  single serial 100-query benchmark.
+- **`docs/GO_LIVE_CHECKLIST.md`** — one ordered pre-launch runbook
+  consolidating the preflight/deploy/verify gates with the human checks
+  (router port-forward proof, a query from another network).
+- **The official Flickr30k split and an auditable split manifest.** The
+  default split is now the canonical 29,783/1,000/1,000 (Karpathy/Gong
+  convention) applied by Flickr image id (`dataset.split_mode: official`
+  in `configs/data.yaml`), persisted to
+  `data/processed/flickr30k_split.json` by
+  `scripts/build_split_manifest.py`. The seeded ratio split remains as
+  `split_mode: random`. The full 31,783-image corpus is now required by
+  a cache-completeness gate before anything can reach training.
+- **Public-demo CORS origin** (`https://demo.duckdns.org`) added to
+  `configs/serving.yaml` so the deployed frontend can call the API.
+
+### Changed
+
+- **The serving docs stop claiming "no metrics" / "nothing read from the
+  environment."** `docs/DEPLOYMENT.md` now describes the `/metrics`
+  endpoint (as an endpoint, not a stack), the `VECTORMIND_DEVICE` +
+  `server.device` device resolution, and the GPU compose path.
+- **`docs/DATASETS.md` describes the official split, the corpus-scale
+  gate, and the split manifest** in place of the previous seeded-ratio
+  split.
+
+### Notes
+
+- **553 Python tests** and 56 frontend tests pass; mypy, ruff, tsc and
+  oxlint are clean.
+- The VectorMind stack was also exercised end to end as a distinctly
+  named Docker Compose project (`vectormind`), `/ready` green with the
+  full 31,783-image index and search returning distinct results through
+  nginx.
+
+Still open (none of it is code): a domain or DDNS name resolving to the
+host, the router port-forward proof, a real `TLS_EMAIL`, and the DNS
+cutover before Caddy can obtain a certificate.
+
+---
+
 ## [Unreleased] — 2026-08-28 — Deployment, one command on Windows
 
 The remaining Phase 7 deliverable is a live public instance; everything
