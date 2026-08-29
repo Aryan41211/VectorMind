@@ -36,6 +36,9 @@ dataset:
   split_mode: official
   # Directory the official split list files are downloaded/cached into.
   split_dir: data/raw/flickr30k/entities_splits
+  # Where the persisted image->split manifest is written (by
+  # scripts/build_split_manifest.py and read back when needed).
+  split_manifest_path: data/processed/flickr30k_split.json
 
   # Reproducibility
   random_seed: 42

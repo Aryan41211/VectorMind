@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from vectormind.data.splitter import create_splits
+from vectormind.data.splitter import create_splits, persist_split_manifest
 
 
 @pytest.fixture
@@ -170,3 +170,37 @@ def test_five_captions_per_image_stay_together(
         assert sum(1 for p, _ in val if p == img_path) == 5
     for img_path in test_imgs:
         assert sum(1 for p, _ in test if p == img_path) == 5
+
+
+def test_persist_split_manifest_writes_every_image_once(tmp_path: Path) -> None:
+    """Each image maps to exactly one split in the written JSON."""
+    train = [(Path(f"t_{i:03d}.jpg"), f"c{i}") for i in range(4)]
+    val = [(Path(f"v_{i:03d}.jpg"), f"c{i}") for i in range(2)]
+    test = [(Path(f"x_{i:03d}.jpg"), f"c{i}") for i in range(2)]
+
+    out = persist_split_manifest(train, val, test, tmp_path / "split.json")
+
+    import json
+
+    with open(out, encoding="utf-8") as fh:
+        manifest = json.load(fh)
+
+    assert len(manifest) == 8
+    assert manifest["t_000.jpg"] == "train"
+    assert manifest["v_000.jpg"] == "val"
+    assert manifest["x_000.jpg"] == "test"
+
+
+def test_persist_split_manifest_rejects_duplicate_image(
+    tmp_path: Path,
+) -> None:
+    """The same image in two splits is a leakage bug and must raise."""
+    from pytest import raises
+
+    with raises(AssertionError):
+        persist_split_manifest(
+            [(Path("a.jpg"), "c1")],
+            [(Path("a.jpg"), "c2")],
+            [],
+            tmp_path / "bad.json",
+        )

@@ -8,6 +8,7 @@ stay in the same split — preventing information leakage between splits
 
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 from typing import Any
@@ -185,3 +186,58 @@ def create_splits_from_config(
             "images can be assigned to a split by Flickr id."
         )
     return create_official_splits(image_paths, captions, image_ids, split_files)
+
+
+def persist_split_manifest(
+    train_pairs: list[tuple[Path, str]],
+    val_pairs: list[tuple[Path, str]],
+    test_pairs: list[tuple[Path, str]],
+    output_path: str | Path,
+) -> str:
+    """Write the mapping of every image to its split as human-readable JSON.
+
+    Why this exists: training, evaluation, the index builder and any
+    reporting tool each recompute the split, and although the split is
+    deterministic this manifest gives them (and a human reviewer) a
+    single, auditable artifact stating which image went where. It also
+    makes the split a first-class, persisted decision rather than only
+    an in-memory one.
+
+    Args:
+        train_pairs: (image_path, caption) pairs assigned to train.
+        val_pairs: (image_path, caption) pairs assigned to val.
+        test_pairs: (image_path, caption) pairs assigned to test.
+        output_path: Where to write the JSON manifest.
+
+    Returns:
+        The absolute path the manifest was written to.
+
+    Raises:
+        AssertionError: If the same image appears in more than one split
+            (a real leakage bug would surface here as a failing assert
+            rather than silently corrupting the manifest).
+    """
+    manifest: dict[str, str] = {}
+    for pairs, split in (
+        (train_pairs, "train"),
+        (val_pairs, "val"),
+        (test_pairs, "test"),
+    ):
+        for image_path, _ in pairs:
+            image_key = str(image_path)
+            assert manifest.get(image_key, split) == split, (
+                f"Image {image_key} appears in multiple splits; refusing "
+                "to write an ambiguous manifest."
+            )
+            manifest[image_key] = split
+
+    path = Path(output_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    logger.info(
+        "Wrote split manifest for %d images to %s", len(manifest), path
+    )
+    return str(path)
