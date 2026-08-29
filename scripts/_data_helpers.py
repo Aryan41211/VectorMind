@@ -26,7 +26,6 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from vectormind.data.dataloader import create_dataloaders
-from vectormind.data.splitter import create_splits
 from vectormind.data.tokenizer import CaptionTokenizer
 from vectormind.data.transforms import get_eval_transforms, get_train_transforms
 
@@ -259,6 +258,83 @@ def load_flickr30k_from_hf(cache_dir: str) -> tuple[list[str], list[str]]:
     return image_paths, captions
 
 
+def _resolve_split_files(data_config: dict[str, Any]) -> dict[str, Any]:
+    """Return the official split list files described by the config.
+
+    Uses the cached copies under ``dataset.split_dir`` when present,
+    otherwise downloads them into that directory once.
+
+    Args:
+        data_config: Parsed ``configs/data.yaml``.
+
+    Returns:
+        A mapping of split name (``"train"``, ``"val"``, ``"test"``) to
+        its local ``.txt`` file path.
+    """
+    from vectormind.data.flickr_split import fetch_official_split_lists
+
+    split_dir = data_config["dataset"].get(
+        "split_dir", "data/raw/flickr30k/entities_splits"
+    )
+    if not Path(split_dir).is_dir():
+        return fetch_official_split_lists(split_dir)
+    names = ("train.txt", "val.txt", "test.txt")
+    present = all((Path(split_dir) / n).is_file() for n in names)
+    if not present:
+        return fetch_official_split_lists(split_dir)
+    return {"train": Path(split_dir) / "train.txt",
+            "val": Path(split_dir) / "val.txt",
+            "test": Path(split_dir) / "test.txt"}
+
+
+def _split(config: dict[str, Any], image_paths: list[str], captions: list[str],
+           image_ids: list[str]) -> tuple[list[tuple[Path, str]], list[tuple[Path, str]], list[tuple[Path, str]]]:
+    """Run the config-selected split over the cached corpus.
+
+    Args:
+        config: Parsed ``configs/data.yaml``.
+        image_paths: Cached image paths (one per pair).
+        captions: Captions parallel to ``image_paths``.
+        image_ids: Flickr ids parallel to ``image_paths``.
+
+    Returns:
+        (train_pairs, val_pairs, test_pairs).
+    """
+    from vectormind.data.splitter import create_splits_from_config
+
+    split_files = None
+    if config["dataset"].get("split_mode", "official") == "official":
+        split_files = _resolve_split_files(config)
+    return create_splits_from_config(
+        config,
+        [Path(p) for p in image_paths],
+        captions,
+        image_ids=image_ids,
+        split_files=split_files,
+    )
+
+
+def build_split_from_cache(
+    config: dict[str, Any],
+) -> tuple[list[tuple[Path, str]], list[tuple[Path, str]], list[tuple[Path, str]]]:
+    """Load the cached corpus and return its config-selected split.
+
+    Single entry point that any training / eval / inspection script can
+    call instead of re-implementing the ``load`` then ``split`` dance,
+    so every consumer assigns images to the same split (official by
+    default).
+
+    Args:
+        config: Parsed ``configs/data.yaml``.
+
+    Returns:
+        (train_pairs, val_pairs, test_pairs).
+    """
+    cache_dir = config["dataset"]["local_cache_dir"]
+    image_paths, captions, image_ids = load_flickr30k_with_ids(cache_dir)
+    return _split(config, image_paths, captions, image_ids)
+
+
 def build_eval_pairs(
     data_config: dict[str, object],
 ) -> dict[str, list[tuple[Path, str]]]:
@@ -277,19 +353,15 @@ def build_eval_pairs(
         list of ``(image_path, caption)`` pairs.
 
     Assumptions:
-        Splitting is deterministic given the config's random seed, so
-        these pairs line up row-for-row with what
-        :func:`build_eval_loaders` produces from the same config.
+        Splitting is deterministic given the config, so these pairs line
+        up row-for-row with what :func:`build_eval_loaders` produces from
+        the same config.
     """
     cfg = _dataset_copy(data_config, batch_size=None)
-    image_paths, captions, _ = load_flickr30k_with_ids(
+    image_paths, captions, image_ids = load_flickr30k_with_ids(
         cfg["dataset"]["local_cache_dir"]
     )
-    _, val_pairs, test_pairs = create_splits(
-        config=cfg,
-        image_paths=[Path(p) for p in image_paths],
-        captions=captions,
-    )
+    _, val_pairs, test_pairs = _split(cfg, image_paths, captions, image_ids)
     return {"val": val_pairs, "test": test_pairs}
 
 
@@ -346,10 +418,8 @@ def build_eval_loaders(
     image_paths, captions, image_ids = load_flickr30k_with_ids(
         cfg["dataset"]["local_cache_dir"]
     )
-    train_pairs, val_pairs, test_pairs = create_splits(
-        config=cfg,
-        image_paths=[Path(p) for p in image_paths],
-        captions=captions,
+    train_pairs, val_pairs, test_pairs = _split(
+        cfg, image_paths, captions, image_ids
     )
 
     tokenizer = CaptionTokenizer(

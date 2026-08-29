@@ -152,3 +152,61 @@ def test_create_official_splits_mismatched_lengths_raise(
             ["1"] * 4,  # wrong length
             split_files,
         )
+
+
+def test_create_splits_from_config_routes_official(
+    split_files: dict[str, Path], corpus: tuple[list[Path], list[str], list[str]]
+) -> None:
+    """With split_mode == official, the dispatcher uses the official split."""
+    from vectormind.data.splitter import create_splits_from_config
+
+    paths, captions, ids = corpus
+    config = {
+        "dataset": {
+            "split_mode": "official",
+            "split_dir": str(split_files["train"].parent),
+        }
+    }
+    train, val, test = create_splits_from_config(
+        config, paths, captions, image_ids=ids, split_files=split_files
+    )
+    assert len(train) // 5 == 4
+    assert len(val) // 5 == 2
+    assert len(test) // 5 == 2
+
+
+def test_create_splits_from_config_falls_back_to_random(
+    split_files: dict[str, Path], corpus: tuple[list[Path], list[str], list[str]]
+) -> None:
+    """split_mode == 'random' uses the seeded ratio split, not official."""
+    from vectormind.data.splitter import create_splits_from_config
+
+    paths, captions, _ = corpus
+    config = {"dataset": {"split_mode": "random", "train_split": 0.8,
+                          "val_split": 0.1, "test_split": 0.1, "random_seed": 42}}
+    train, val, test = create_splits_from_config(config, paths, captions)
+    assert len(train) + len(val) + len(test) == len(paths)
+
+
+def test_create_splits_from_config_official_needs_ids(
+    split_files: dict[str, Path], corpus: tuple[list[Path], list[str], list[str]]
+) -> None:
+    """Official mode without image ids must raise a clear error."""
+    from vectormind.data.splitter import create_splits_from_config
+
+    paths, captions, _ = corpus
+    config = {"dataset": {"split_mode": "official"}}
+    with pytest.raises(ValueError, match="image_ids"):
+        create_splits_from_config(config, paths, captions, image_ids=None)
+
+
+def test_create_splits_from_config_default_is_official(
+    corpus: tuple[list[Path], list[str], list[str]],
+) -> None:
+    """Absent split_mode defaults to official (needs image ids)."""
+    from vectormind.data.splitter import create_splits_from_config
+
+    paths, captions, _ = corpus
+    config = {"dataset": {}}
+    with pytest.raises(ValueError, match="image_ids"):
+        create_splits_from_config(config, paths, captions, image_ids=None)

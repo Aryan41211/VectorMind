@@ -12,6 +12,8 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from vectormind.data.flickr_split import create_official_splits
+
 logger = logging.getLogger(__name__)
 
 
@@ -135,3 +137,51 @@ def create_splits(
     )
 
     return train_pairs, val_pairs, test_pairs
+
+
+def create_splits_from_config(
+    config: dict[str, Any],
+    image_paths: list[Path],
+    captions: list[str],
+    image_ids: list[str] | None = None,
+    split_files: dict[str, Path] | None = None,
+) -> tuple[list[tuple[Path, str]], list[tuple[Path, str]], list[tuple[Path, str]]]:
+    """Split into train/val/test according to ``config.dataset.split_mode``.
+
+    Routes between the two split algorithms without each caller having
+    to branch on the config itself:
+
+    - ``"official"`` (default): the canonical Flickr30k 29,783 / 1,000 /
+      1,000 split by Flickr image id (see :mod:`flickr_split`).
+    - ``"random"``: the reproducible seeded ratio split in
+      :func:`create_splits`.
+
+    Args:
+        config: The full data config dict; ``dataset.split_mode`` selects
+            the algorithm and defaults to ``"official"`` when absent.
+        image_paths: Image file paths, one per (image, caption) pair.
+        captions: Caption strings corresponding to ``image_paths``.
+        image_ids: Flickr image ids per pair, required in official mode.
+        split_files: Mapping of split name to its official ``.txt`` file,
+            used only in official mode.
+
+    Returns:
+        A tuple ``(train_pairs, val_pairs, test_pairs)``.
+
+    Raises:
+        ValueError: In official mode if ``image_ids`` is not provided, or
+            an image's id matches no official split.
+
+    Assumptions:
+        ``config["dataset"]`` is present.
+    """
+    mode = config.get("dataset", {}).get("split_mode", "official")
+    if mode != "official":
+        return create_splits(config, image_paths, captions)
+
+    if image_ids is None:
+        raise ValueError(
+            "split_mode == 'official' requires image_ids to be passed so "
+            "images can be assigned to a split by Flickr id."
+        )
+    return create_official_splits(image_paths, captions, image_ids, split_files)

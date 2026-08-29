@@ -20,10 +20,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _data_helpers import load_flickr30k_from_hf
+from _data_helpers import build_split_from_cache
 
 from vectormind.data.dataloader import create_dataloaders
-from vectormind.data.splitter import create_splits
 from vectormind.data.tokenizer import CaptionTokenizer
 from vectormind.data.transforms import get_eval_transforms, get_train_transforms
 from vectormind.utils.config import load_config, require_keys
@@ -45,12 +44,8 @@ def main() -> None:
     config = load_config("configs/data.yaml")
     require_keys(config, ["dataset", "transforms"])
 
-    # Load dataset from HuggingFace.
-    cache_dir = config["dataset"]["local_cache_dir"]
-    image_paths, captions = load_flickr30k_from_hf(cache_dir)
-
-    # Create splits.
-    train_pairs, val_pairs, test_pairs = create_splits(config, image_paths, captions)
+    # Load dataset from cache and create splits.
+    train_pairs, val_pairs, test_pairs = build_split_from_cache(config)
 
     # Initialize tokenizer.
     tokenizer = CaptionTokenizer(

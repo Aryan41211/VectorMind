@@ -19,10 +19,9 @@ import torch
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _data_helpers import load_flickr30k_from_hf
+from _data_helpers import build_split_from_cache
 
 from vectormind.data.dataloader import create_dataloaders
-from vectormind.data.splitter import create_splits
 from vectormind.data.tokenizer import CaptionTokenizer
 from vectormind.data.transforms import get_eval_transforms, get_train_transforms
 from vectormind.evaluation.memorization import compute_image_level_recall
@@ -49,18 +48,9 @@ def evaluate_checkpoint(checkpoint_path: str) -> dict:
     data_config = load_config("configs/data.yaml")
     model_config = load_config("configs/model.yaml")
     
-    # Load dataset
-    print("Loading Flickr30k dataset...")
-    cache_dir = data_config["dataset"]["local_cache_dir"]
-    image_paths, captions = load_flickr30k_from_hf(cache_dir)
-    
-    # Create splits
-    print("Creating train/val/test splits...")
-    train_pairs, val_pairs, test_pairs = create_splits(
-        config=data_config,
-        image_paths=[Path(p) for p in image_paths],
-        captions=captions,
-    )
+    # Load dataset and create splits
+    print("Loading Flickr30k dataset and creating splits...")
+    train_pairs, val_pairs, test_pairs = build_split_from_cache(data_config)
     
     # Create dataloaders
     tokenizer = CaptionTokenizer(

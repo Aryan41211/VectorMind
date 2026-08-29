@@ -31,10 +31,9 @@ import torch
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _data_helpers import load_flickr30k_from_hf
+from _data_helpers import build_split_from_cache
 
 from vectormind.data.dataloader import create_dataloaders
-from vectormind.data.splitter import create_splits
 from vectormind.data.tokenizer import CaptionTokenizer
 from vectormind.data.transforms import get_eval_transforms, get_train_transforms
 from vectormind.models.vectormind_model import VectorMindModel
@@ -177,21 +176,8 @@ def main() -> None:
         data_config_optimized["dataset"]["num_workers"] = args.num_workers
 
     # ---- Step 2: Load and split dataset ----
-    logger.info("Step 2: Loading Flickr30k dataset...")
-    cache_dir = data_config["dataset"]["local_cache_dir"]
-    image_paths, captions = load_flickr30k_from_hf(cache_dir)
-    logger.info(
-        "  Loaded %d pairs (%d unique images)",
-        len(image_paths),
-        len(set(image_paths)),
-    )
-
-    logger.info("Step 2b: Splitting dataset...")
-    train_pairs, val_pairs, test_pairs = create_splits(
-        config=data_config,
-        image_paths=[Path(p) for p in image_paths],
-        captions=captions,
-    )
+    logger.info("Step 2: Loading and splitting Flickr30k dataset...")
+    train_pairs, val_pairs, test_pairs = build_split_from_cache(data_config)
     logger.info(
         "  Train: %d pairs, Val: %d pairs, Test: %d pairs",
         len(train_pairs),

@@ -23,12 +23,48 @@ from PIL import Image
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _data_helpers import load_flickr30k_from_hf
+from _data_helpers import load_flickr30k_with_ids
 
 from vectormind.utils.config import load_config, require_keys
 from vectormind.utils.logging_config import setup_logging
 
 logger = logging.getLogger(__name__)
+
+
+def _verify_split(
+    data_config: dict[str, object],
+    image_paths: list[str],
+    captions: list[str],
+    image_ids: list[str],
+) -> tuple[list[tuple[Path, str]], list[tuple[Path, str]], list[tuple[Path, str]]]:
+    """Compute the config-selected split for the verification report.
+
+    Routes through the same dispatcher the training / eval pipeline
+    uses, so this script checks the split that is actually consumed
+    rather than a second, divergent implementation.
+
+    Args:
+        data_config: Parsed ``configs/data.yaml``.
+        image_paths: Cached image paths (one per caption).
+        captions: Caption strings parallel to ``image_paths``.
+        image_ids: Flickr ids parallel to ``image_paths``.
+
+    Returns:
+        (train_pairs, val_pairs, test_pairs).
+    """
+    from _data_helpers import _resolve_split_files
+    from vectormind.data.splitter import create_splits_from_config
+
+    split_files = None
+    if data_config["dataset"].get("split_mode", "official") == "official":
+        split_files = _resolve_split_files(data_config)
+    return create_splits_from_config(
+        data_config,
+        [Path(p) for p in image_paths],
+        captions,
+        image_ids=image_ids,
+        split_files=split_files,
+    )
 
 # Expected counts from DATASETS.md
 EXPECTED_IMAGES: int = 31783
@@ -63,7 +99,7 @@ def verify_dataset() -> bool:
     logger.info("Step 2: Loading Flickr30k from HuggingFace Datasets...")
     download_start = time.time()
     try:
-        image_paths, captions = load_flickr30k_from_hf(cache_dir)
+        image_paths, captions, image_ids = load_flickr30k_with_ids(cache_dir)
     except Exception as e:
         logger.error("  Failed to load dataset: %s", e)
         return False
@@ -203,10 +239,8 @@ def verify_dataset() -> bool:
 
     # ---- Step 7: Split sanity check ----
     logger.info("Step 7: Verifying train/val/test splitting...")
-    from vectormind.data.splitter import create_splits
-
-    train_pairs, val_pairs, test_pairs = create_splits(
-        data_config, image_paths, captions
+    train_pairs, val_pairs, test_pairs = _verify_split(
+        data_config, image_paths, captions, image_ids
     )
     train_images = len(set(p[0] for p in train_pairs))
     val_images = len(set(p[0] for p in val_pairs))

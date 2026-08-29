@@ -24,10 +24,9 @@ import torch
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _data_helpers import load_flickr30k_from_hf
+from _data_helpers import build_split_from_cache
 
 from vectormind.data.dataloader import create_dataloaders
-from vectormind.data.splitter import create_splits
 from vectormind.data.tokenizer import CaptionTokenizer
 from vectormind.data.transforms import get_eval_transforms
 from vectormind.models.vectormind_model import VectorMindModel
@@ -121,13 +120,9 @@ def main() -> None:
 
     # ---- Step 2: Load real data ----
     logger.info("Step 2: Loading real Flickr30k data...")
-    cache_dir = data_config["dataset"]["local_cache_dir"]
-    image_paths, captions = load_flickr30k_from_hf(cache_dir)
 
     # Create splits and tokenizer (reuse Phase 1 code exactly)
-    train_pairs, val_pairs, test_pairs = create_splits(
-        data_config, image_paths, captions
-    )
+    train_pairs, val_pairs, test_pairs = build_split_from_cache(data_config)
     tokenizer = CaptionTokenizer(
         tokenizer_name=data_config["dataset"]["tokenizer_name"],
         max_length=data_config["dataset"]["max_text_length"],

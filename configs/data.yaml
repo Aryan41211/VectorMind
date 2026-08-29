@@ -27,6 +27,16 @@ dataset:
   val_split: 0.1
   test_split: 0.1
 
+  # How to split train/val/test.
+  #   official: the canonical Flickr30k 29,783 / 1,000 / 1,000 split
+  #             (Karpathy / Gong convention), assigned by Flickr image id
+  #             from the Flickr30k Entities train.txt / val.txt / test.txt.
+  #             Comparable to published results; this is the standard.
+  #   random:   the reproducible seeded ratio split below (fallback).
+  split_mode: official
+  # Directory the official split list files are downloaded/cached into.
+  split_dir: data/raw/flickr30k/entities_splits
+
   # Reproducibility
   random_seed: 42
 
