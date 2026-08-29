@@ -11,6 +11,13 @@ server:
   port: 8000
   workers: 1
   reload: false
+  # Serve-time inference device.
+  #   auto: CUDA when available, else CPU (matches local dev on the RTX
+  #         4050 the model was trained on; CPU is the doc'd fallback for
+  #         GPU-less hosts, ARCHITECTURE.md §9).
+  #   cpu:  force CPU (a CPU-only container has no CUDA to detect).
+  #   cuda: require CUDA; startup fails clearly if none is present.
+  device: auto
 
 # --- CORS ---
 # The previous configuration paired allow_origins ["*"] with

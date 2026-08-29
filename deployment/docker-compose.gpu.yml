@@ -1,0 +1,46 @@
+# Overlay that serves the backend on the training GPU (RTX 4050, 6GB).
+#
+# The base compose file builds the backend with CPU torch, which is right
+# for a GPU-less host and what the default image ships. This overlay
+# rebuilds it with CUDA-aware torch wheels and requests a GPU from the
+# runtime, then forces the backend onto CUDA via VECTORMIND_DEVICE.
+#
+# Requires a GPU-capable runtime: nvidia-container-toolkit on Linux, or
+# Docker Desktop with "Use the WSL 2 based engine" + the NVIDIA CUDA
+# toolkit. Without a device the container will exit with an nvidia error,
+# which is the honest failure for a GPU image on a GPU-less host.
+#
+# Usage:
+#   docker compose -f deployment/docker-compose.yml \
+#                  -f deployment/docker-compose.gpu.yml up -d --build
+#
+# Combined with the TLS overlay:
+#   DOMAIN=... TLS_EMAIL=... \
+#   docker compose -f deployment/docker-compose.yml \
+#                  -f deployment/docker-compose.tls.yml \
+#                  -f deployment/docker-compose.gpu.yml up -d --build
+#
+# Only the backend changes: the frontend is untouched.
+
+services:
+  backend:
+    build:
+      # cu126 matches the PyTorch wheel set the model was trained on.
+      # Keep in sync with the CUDA version of the host's driver.
+      args:
+        TORCH_INDEX_URL: https://download.pytorch.org/whl/cu126
+    # Request one GPU. `deploy.resources.reservations.devices` is the
+    # Compose v2 (spec) form; if the runtime is older, the equivalent is
+    # `gpus: all` on the service.
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    environment:
+      # Override the config's server.device (which defaults to auto) so
+      # this image is pinned to CUDA and fails loudly instead of silently
+      # serving on CPU in a GPU container.
+      VECTORMIND_DEVICE: cuda

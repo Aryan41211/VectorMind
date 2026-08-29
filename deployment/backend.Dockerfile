@@ -28,15 +28,23 @@ RUN apt-get update && \
 
 # Install dependencies first so this layer caches across source edits.
 #
-# CPU torch explicitly: the default wheels carry CUDA and weigh ~2.5GB,
-# which a CPU-only serving container cannot use.
+# CPU torch is the default: the CUDA wheels weigh ~2.5GB, which a CPU-only
+# serving container cannot use. To build a GPU-serving image instead, pass
+# the CUDA wheel index, e.g.:
+#
+#   docker build -f deployment/backend.Dockerfile \
+#     --build-arg TORCH_INDEX_URL=https://download.pytorch.org/whl/cu126 \
+#     -t vectormind-backend:gpu .
+#
+# (deployment/docker-compose.gpu.yml wires this up for the RTX 4050.)
 #
 # requirements-serving.txt rather than requirements.txt — the full set
 # pulls in tensorboard, matplotlib, pytest, mypy and ruff, none of
 # which are reachable from a running server.
+ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
 COPY requirements-serving.txt .
 RUN pip install --upgrade pip && \
-    pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu && \
+    pip install torch torchvision --index-url $TORCH_INDEX_URL && \
     pip install -r requirements-serving.txt
 
 # Install the package itself. Without this, `vectormind` is not on

@@ -12,6 +12,7 @@ Usage:
 from __future__ import annotations
 
 import logging
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -300,6 +301,43 @@ def create_app(
     return app
 
 
+def resolve_device(device_setting: str = "auto") -> torch.device:
+    """Resolve the inference device from a config string.
+
+    Serve-time device is now configurable (configs/serving.yaml
+    ``server.device``) rather than only auto-detected, so a deployment
+    can force CPU on a GPU-less host or force CUDA on the RTX 4050 the
+    model was trained on — ARCHITECTURE.md §9.
+
+    Args:
+        device_setting: One of ``"auto"`` (default), ``"cpu"``, or
+            ``"cuda"``.
+
+    Returns:
+        The resolved ``torch.device``.
+
+    Raises:
+        ValueError: If ``device_setting`` is not one of the valid values,
+            or it is ``"cuda"`` but no CUDA device is available.
+    """
+    setting = (device_setting or "auto").strip().lower()
+    if setting == "auto":
+        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if setting == "cpu":
+        return torch.device("cpu")
+    if setting == "cuda":
+        if not torch.cuda.is_available():
+            raise ValueError(
+                "server.device is 'cuda' but no CUDA device is available. "
+                "Set it to 'cpu' or 'auto' for this host."
+            )
+        return torch.device("cuda")
+    raise ValueError(
+        f"Unknown server.device '{device_setting}'. Expected 'auto', "
+        "'cpu', or 'cuda'."
+    )
+
+
 def _load_model_and_index(
     model_config: dict[str, Any] | None = None,
     serving_config: dict[str, Any] | None = None,
@@ -324,13 +362,19 @@ def _load_model_and_index(
     if serving_config is None:
         serving_config = load_serving_config()
 
-    # Determine device
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-        logger.info(f"Using CUDA device: {torch.cuda.get_device_name(0)}")
-    else:
-        device = torch.device("cpu")
-        logger.info("Using CPU device")
+    # Resolve the serve-time device: the VECTORMIND_DEVICE env override
+    # wins (that is how the GPU compose overlay forces cuda), else the
+    # config value, else auto-detect. auto-detects unless pinned to cpu
+    # or cuda.
+    device_setting = os.environ.get("VECTORMIND_DEVICE") or serving_config[
+        "server"
+    ].get("device", "auto")
+    try:
+        device = resolve_device(device_setting)
+    except ValueError as e:
+        logger.error("Device resolution failed: %s", e)
+        return
+    logger.info("Inference device: %s", device)
 
     # Load model checkpoint
     paths = serving_config["paths"]
